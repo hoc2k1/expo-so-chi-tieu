@@ -7,6 +7,35 @@ export interface DeduplicationCheckResult {
   duplicateReferenceId?: string;
 }
 
+function normalizeBankSource(source: string): string {
+  const s = (source || '').toLowerCase().trim();
+  if (s.includes('vietcombank') || s.includes('vcb')) return 'vietcombank';
+  if (s.includes('mb bank') || s.includes('mbbank') || s === 'mb') return 'mbbank';
+  if (s.includes('techcombank') || s.includes('tcb')) return 'techcombank';
+  if (s.includes('bidv')) return 'bidv';
+  if (s.includes('vietinbank')) return 'vietinbank';
+  if (s.includes('acb')) return 'acb';
+  if (s.includes('tpbank')) return 'tpbank';
+  if (s.includes('vpbank')) return 'vpbank';
+  if (s.includes('sacombank')) return 'sacombank';
+  if (s.includes('agribank')) return 'agribank';
+  if (s.includes('msb')) return 'msb';
+  if (s.includes('timo')) return 'timo';
+  if (s.includes('viettel')) return 'viettel_money';
+  if (s.includes('momo')) return 'momo';
+  if (s.includes('zalopay')) return 'zalopay';
+  if (s.includes('vnpay')) return 'vnpay';
+  if (s.includes('shopeepay')) return 'shopeepay';
+  return s;
+}
+
+function isSameBank(sourceA: string, sourceB: string): boolean {
+  const normA = normalizeBankSource(sourceA);
+  const normB = normalizeBankSource(sourceB);
+  if (!normA || !normB) return false;
+  return normA === normB;
+}
+
 export function checkDeduplication(
   newItem: {
     amount: number;
@@ -58,11 +87,11 @@ export function checkDeduplication(
     })),
   ];
 
-  // 1. Layer 1: Check Hard Duplicate (100% Skip)
+  // 1. Layer 1: Check Hard Duplicate (Chặn ngầm 100% - Bỏ qua thông báo bị bắn 2 lần hoặc trùng mã GD/số dư)
   for (const existing of allRecentItems) {
     const timeDiff = Math.abs(now - existing.timestamp);
     if (timeDiff <= hardWindowMs) {
-      // Check 1: Identical raw content
+      // Check 1.1: Trùng 100% nội dung thông báo gốc
       if (
         newItem.rawContent &&
         existing.rawContent &&
@@ -71,18 +100,18 @@ export function checkDeduplication(
         return {
           isHardDuplicate: true,
           isSoftDuplicate: false,
-          duplicateReason: `Trùng hoàn toàn nội dung thông báo với ${existing.source} trong 5 phút`,
+          duplicateReason: `Trùng hoàn toàn nội dung thông báo với ${existing.source} trong ${hardWindowMinutes} phút`,
           duplicateReferenceId: existing.id,
         };
       }
 
-      // Check 2: Same amount, same type, and same Reference Code
+      // Check 1.2: Trùng cả Số tiền + Loại Thu/Chi + Mã giao dịch
       if (
         newItem.amount === existing.amount &&
         newItem.type === existing.type &&
         newItem.referenceCode &&
         existing.referenceCode &&
-        newItem.referenceCode.toLowerCase() === existing.referenceCode.toLowerCase()
+        newItem.referenceCode.trim().toLowerCase() === existing.referenceCode.trim().toLowerCase()
       ) {
         return {
           isHardDuplicate: true,
@@ -92,7 +121,7 @@ export function checkDeduplication(
         };
       }
 
-      // Check 3: Same amount, same type, and same Balance After
+      // Check 1.3: Trùng cả Số tiền + Loại Thu/Chi + Số dư cuối sau giao dịch
       if (
         newItem.amount === existing.amount &&
         newItem.type === existing.type &&
@@ -110,16 +139,20 @@ export function checkDeduplication(
     }
   }
 
-  // 2. Layer 2: Check Soft Duplicate (Warning badge in Pending Queue)
+  // 2. Layer 2: Check Soft Duplicate (Cảnh báo nghi trùng trong Hàng chờ: Trùng cả Ngân hàng/Ví + Số tiền + Thu/Chi)
   for (const existing of allRecentItems) {
     const timeDiff = Math.abs(now - existing.timestamp);
     if (timeDiff <= softWindowMs) {
-      if (newItem.amount === existing.amount && newItem.type === existing.type) {
+      if (
+        newItem.amount === existing.amount &&
+        newItem.type === existing.type &&
+        isSameBank(newItem.source, existing.source)
+      ) {
         const timeStr = formatTimeHHMM(existing.timestamp);
         return {
           isHardDuplicate: false,
           isSoftDuplicate: true,
-          duplicateReason: `Nghi trùng với ${existing.source} lúc ${timeStr} (${formatVND(newItem.amount)})`,
+          duplicateReason: `Nghi trùng giao dịch ${existing.source} lúc ${timeStr} (${formatVND(newItem.amount)})`,
           duplicateReferenceId: existing.id,
         };
       }
@@ -137,6 +170,12 @@ function formatTimeHHMM(timestamp: number): string {
   const hh = d.getHours().toString().padStart(2, '0');
   const mm = d.getMinutes().toString().padStart(2, '0');
   return `${hh}:${mm}`;
+}
+
+function formatVND(val: number): string {
+  return new Intl.NumberFormat('vi-VN').format(val) + ' đ';
+}
+
 }
 
 function formatVND(val: number): string {

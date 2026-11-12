@@ -1,5 +1,7 @@
 export type TransactionType = 'income' | 'expense';
 
+export type TimeRangePreset = 'all' | 'today' | 'week' | 'month' | 'year' | 'custom';
+
 export interface Category {
   id: string;
   name: string;
@@ -58,6 +60,7 @@ export interface PendingTransaction {
 
 export interface SupportedApp {
   packageName: string;
+  aliases?: string[];
   name: string;
   shortName: string;
   icon: string;
@@ -65,10 +68,29 @@ export interface SupportedApp {
   category: 'bank' | 'wallet' | 'email_sms';
 }
 
+export interface UpdateHistoryItem {
+  id: string;
+  updateId: string;
+  channel: string;
+  runtimeVersion: string;
+  appliedAt: string;
+  note?: string;
+}
+
 export interface AppSettings {
   enabledPackages: string[];
   duplicateWindowMinutes: number; // default: 3
   hardDuplicateWindowMinutes: number; // default: 5
   autoCategorizeEnabled: boolean;
+  updateHistory?: UpdateHistoryItem[];
 }
 
+export interface TransactionFilterState {
+  type: 'all' | 'expense' | 'income';
+  categoryId: string; // 'all' or specific categoryId
+  source: string; // 'all' or specific bank/wallet name
+  timeRange: TimeRangePreset;
+  customStartDate: string; // YYYY-MM-DD or YYYY-MM-DD HH:mm
+  customEndDate: string;   // YYYY-MM-DD or YYYY-MM-DD HH:mm
+  searchQuery?: string;
+}

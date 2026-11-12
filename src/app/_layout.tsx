@@ -5,12 +5,10 @@ import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider } from '../contexts/AppContext';
 
-// Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   useEffect(() => {
-    // Hide splash screen after initialization
     const timer = setTimeout(() => {
       SplashScreen.hideAsync().catch(() => {});
     }, 400);
@@ -48,13 +46,6 @@ export default function RootLayout() {
             options={{
               presentation: 'modal',
               title: 'Thêm giao dịch',
-            }}
-          />
-          <Stack.Screen
-            name="modal/simulator"
-            options={{
-              presentation: 'modal',
-              title: 'Giả lập thông báo',
             }}
           />
           <Stack.Screen

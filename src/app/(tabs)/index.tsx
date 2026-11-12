@@ -8,6 +8,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useApp } from '../../contexts/AppContext';
@@ -19,6 +20,7 @@ export default function PendingQueueScreen() {
     pendingTransactions,
     isPermissionGranted,
     requestPermission,
+    syncCachedNotifications,
     deletePending,
     batchDeletePending,
   } = useApp();
@@ -27,9 +29,22 @@ export default function PendingQueueScreen() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [expandedContentId, setExpandedContentId] = useState<string | null>(null);
 
+  const handleLongPressItem = (id: string) => {
+    if (!isBatchMode) {
+      setIsBatchMode(true);
+      setSelectedIds([id]);
+    } else {
+      toggleSelect(id);
+    }
+  };
+
   const toggleSelect = (id: string) => {
     if (selectedIds.includes(id)) {
-      setSelectedIds(selectedIds.filter((item) => item !== id));
+      const next = selectedIds.filter((item) => item !== id);
+      setSelectedIds(next);
+      if (next.length === 0) {
+        setIsBatchMode(false);
+      }
     } else {
       setSelectedIds([...selectedIds, id]);
     }
@@ -38,9 +53,15 @@ export default function PendingQueueScreen() {
   const handleSelectAll = () => {
     if (selectedIds.length === pendingTransactions.length) {
       setSelectedIds([]);
+      setIsBatchMode(false);
     } else {
       setSelectedIds(pendingTransactions.map((p) => p.id));
     }
+  };
+
+  const exitBatchMode = () => {
+    setIsBatchMode(false);
+    setSelectedIds([]);
   };
 
   const handleBatchDelete = () => {
@@ -79,7 +100,15 @@ export default function PendingQueueScreen() {
     const isExpanded = expandedContentId === item.id;
 
     return (
-      <View
+      <TouchableOpacity
+        activeOpacity={0.88}
+        delayLongPress={280}
+        onLongPress={() => handleLongPressItem(item.id)}
+        onPress={() => {
+          if (isBatchMode) {
+            toggleSelect(item.id);
+          }
+        }}
         style={[
           styles.card,
           item.isSuspectedDuplicate && styles.cardDuplicate,
@@ -92,7 +121,7 @@ export default function PendingQueueScreen() {
             <View style={styles.duplicateBannerHeader}>
               <Ionicons name="warning" size={16} color="#F59E0B" />
               <Text style={styles.duplicateBannerText}>
-                {item.duplicateReason || 'Cảnh báo: Có thể trùng với giao dịch trước'}
+                {item.duplicateReason || 'Cảnh báo: Có thể trùng với giao dịch cùng ngân hàng trước đó'}
               </Text>
             </View>
             <TouchableOpacity
@@ -173,9 +202,13 @@ export default function PendingQueueScreen() {
           <TouchableOpacity
             style={styles.rawContentBox}
             activeOpacity={0.7}
-            onPress={() =>
-              setExpandedContentId(isExpanded ? null : item.id)
-            }
+            onPress={() => {
+              if (isBatchMode) {
+                toggleSelect(item.id);
+              } else {
+                setExpandedContentId(isExpanded ? null : item.id);
+              }
+            }}
           >
             <Text
               style={styles.rawContentText}
@@ -214,12 +247,12 @@ export default function PendingQueueScreen() {
             </TouchableOpacity>
           </View>
         )}
-      </View>
+      </TouchableOpacity>
     );
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       {/* Permission Warning Banner for Android */}
       {Platform.OS === 'android' && !isPermissionGranted && (
         <View style={styles.permBanner}>
@@ -227,7 +260,7 @@ export default function PendingQueueScreen() {
           <View style={styles.permTextContainer}>
             <Text style={styles.permTitle}>Chưa cấp quyền đọc thông báo</Text>
             <Text style={styles.permSubtitle}>
-              Cần cấp quyền để tự động bắt thông báo từ app ngân hàng
+              Cần cấp quyền để tự động bắt thông báo từ app ngân hàng khi chạy ngầm
             </Text>
           </View>
           <TouchableOpacity
@@ -239,65 +272,58 @@ export default function PendingQueueScreen() {
         </View>
       )}
 
-      {/* Top Action Bar */}
-      <View style={styles.topActions}>
-        <TouchableOpacity
-          style={styles.actionPill}
-          onPress={() => router.push('/modal/manual-transaction')}
-        >
-          <Ionicons name="add-circle" size={18} color="#10B981" />
-          <Text style={styles.actionPillText}>+ Tiền mặt</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionPill}
-          onPress={() => router.push('/modal/simulator')}
-        >
-          <Ionicons name="flash" size={16} color="#38BDF8" />
-          <Text style={styles.actionPillText}>Bắn thử thông báo</Text>
-        </TouchableOpacity>
-
-        {pendingTransactions.length > 1 && (
-          <TouchableOpacity
-            style={[styles.actionPill, isBatchMode && styles.actionPillActive]}
-            onPress={() => {
-              setIsBatchMode(!isBatchMode);
-              setSelectedIds([]);
-            }}
-          >
-            <Ionicons
-              name={isBatchMode ? 'close-circle' : 'list-circle'}
-              size={18}
-              color={isBatchMode ? '#FFFFFF' : '#A78BFA'}
-            />
-            <Text
-              style={[
-                styles.actionPillText,
-                isBatchMode && styles.actionPillTextActive,
-              ]}
-            >
-              {isBatchMode ? 'Hủy chọn' : 'Chọn nhiều'}
+      {/* Top Action Bar or Long-Press Selection Bar */}
+      {isBatchMode ? (
+        <View style={styles.batchHeaderBar}>
+          <View style={styles.batchHeaderLeft}>
+            <TouchableOpacity style={styles.batchCloseBtn} onPress={exitBatchMode}>
+              <Ionicons name="close" size={20} color="#F8FAFC" />
+            </TouchableOpacity>
+            <Text style={styles.batchCountText}>
+              Đã chọn {selectedIds.length}/{pendingTransactions.length}
             </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+          </View>
 
-      {/* Batch Select Controls */}
-      {isBatchMode && (
-        <View style={styles.batchControls}>
-          <TouchableOpacity
-            style={styles.selectAllBtn}
-            onPress={handleSelectAll}
-          >
+          <TouchableOpacity style={styles.selectAllBtn} onPress={handleSelectAll}>
+            <Ionicons
+              name={
+                selectedIds.length === pendingTransactions.length
+                  ? 'checkbox'
+                  : 'square-outline'
+              }
+              size={16}
+              color="#38BDF8"
+            />
             <Text style={styles.selectAllText}>
               {selectedIds.length === pendingTransactions.length
-                ? 'Bỏ chọn tất cả'
+                ? 'Bỏ chọn hết'
                 : 'Chọn tất cả'}
             </Text>
           </TouchableOpacity>
-          <Text style={styles.batchCountText}>
-            Đã chọn {selectedIds.length}/{pendingTransactions.length}
-          </Text>
+        </View>
+      ) : (
+        <View style={styles.topActions}>
+          <TouchableOpacity
+            style={styles.actionPill}
+            onPress={() => router.push('/modal/manual-transaction')}
+          >
+            <Ionicons name="add-circle" size={18} color="#10B981" />
+            <Text style={styles.actionPillText}>+ Tiền mặt</Text>
+          </TouchableOpacity>
+
+          {Platform.OS === 'android' && (
+            <TouchableOpacity
+              style={styles.actionPill}
+              onPress={() => syncCachedNotifications()}
+            >
+              <Ionicons name="sync" size={16} color="#38BDF8" />
+              <Text style={styles.actionPillText}>Đồng bộ thông báo</Text>
+            </TouchableOpacity>
+          )}
+
+          {pendingTransactions.length > 0 && (
+            <Text style={styles.longPressHint}>Nhấn giữ thẻ để chọn nhiều</Text>
+          )}
         </View>
       )}
 
@@ -314,17 +340,8 @@ export default function PendingQueueScreen() {
             </View>
             <Text style={styles.emptyTitle}>Hàng chờ đang trống!</Text>
             <Text style={styles.emptySubtitle}>
-              Khi có thông báo biến động số dư từ app ngân hàng hoặc ví điện tử, giao dịch sẽ tự động xuất hiện ở đây để bạn phân loại.
+              Khi có thông báo biến động số dư từ app ngân hàng hoặc ví điện tử (kể cả khi tắt app chạy ngầm), giao dịch sẽ tự động xuất hiện ở đây để bạn phân loại.
             </Text>
-            <TouchableOpacity
-              style={styles.emptySimulateBtn}
-              onPress={() => router.push('/modal/simulator')}
-            >
-              <Ionicons name="flash-outline" size={18} color="#38BDF8" />
-              <Text style={styles.emptySimulateBtnText}>
-                Thử bắn thông báo giả lập ngay
-              </Text>
-            </TouchableOpacity>
           </View>
         }
       />
@@ -351,7 +368,7 @@ export default function PendingQueueScreen() {
           </TouchableOpacity>
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -398,9 +415,11 @@ const styles = StyleSheet.create({
   },
   topActions: {
     flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 8,
+    flexWrap: 'wrap',
   },
   actionPill: {
     flexDirection: 'row',
@@ -413,36 +432,57 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
   },
-  actionPillActive: {
-    backgroundColor: '#8B5CF6',
-    borderColor: '#8B5CF6',
-  },
   actionPillText: {
     color: '#E2E8F0',
     fontSize: 12,
     fontWeight: '600',
   },
-  actionPillTextActive: {
-    color: '#FFFFFF',
+  longPressHint: {
+    color: '#64748B',
+    fontSize: 11,
+    marginLeft: 'auto',
+    fontStyle: 'italic',
   },
-  batchControls: {
+  batchHeaderBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    backgroundColor: '#1E293B',
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#10B98160',
+  },
+  batchHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  batchCloseBtn: {
+    padding: 2,
   },
   selectAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
   },
   selectAllText: {
     color: '#38BDF8',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   batchCountText: {
-    color: '#94A3B8',
-    fontSize: 12,
+    color: '#F8FAFC',
+    fontSize: 13,
+    fontWeight: '700',
   },
   listContent: {
     padding: 16,
@@ -462,7 +502,7 @@ const styles = StyleSheet.create({
   },
   cardSelected: {
     borderColor: '#10B981',
-    backgroundColor: '#064E3B20',
+    backgroundColor: '#064E3B35',
   },
   duplicateBanner: {
     backgroundColor: '#78350F40',
@@ -666,27 +706,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 20,
   },
-  emptySimulateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#38BDF8',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 24,
-    gap: 8,
-  },
-  emptySimulateBtnText: {
-    color: '#38BDF8',
-    fontWeight: '700',
-    fontSize: 13,
-  },
   batchFooter: {
     position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
+    bottom: 16,
+    left: 16,
+    right: 16,
     backgroundColor: '#1E293B',
     borderRadius: 16,
     padding: 12,
@@ -730,4 +754,3 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 });
-

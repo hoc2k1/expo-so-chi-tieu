@@ -151,7 +151,25 @@ export const StorageService = {
 
   // Settings
   async getSettings(): Promise<AppSettings> {
-    return readFileJson<AppSettings>(FILES.SETTINGS, DEFAULT_SETTINGS);
+    const loaded = await readFileJson<AppSettings>(FILES.SETTINGS, DEFAULT_SETTINGS);
+    // Ensure new default packages (Timo, Viettel Money, aliases) are present
+    const mandatoryExtras = ['io.lifestyle.timo', 'vn.timo.timo', 'com.bplus.vtpay', 'vn.viettelpay'];
+    const currentSet = new Set(loaded.enabledPackages || []);
+    let changed = false;
+    for (const pkg of mandatoryExtras) {
+      if (!currentSet.has(pkg)) {
+        currentSet.add(pkg);
+        changed = true;
+      }
+    }
+    if (changed) {
+      loaded.enabledPackages = Array.from(currentSet);
+      await this.saveSettings(loaded);
+    }
+    if (!loaded.updateHistory) {
+      loaded.updateHistory = [];
+    }
+    return loaded;
   },
   async saveSettings(data: AppSettings): Promise<void> {
     return writeFileJson(FILES.SETTINGS, data);

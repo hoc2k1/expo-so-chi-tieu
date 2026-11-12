@@ -8,66 +8,83 @@ import {
   TextInput,
   Modal,
   Alert,
+  ScrollView,
+  Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
 import { useApp } from '../../contexts/AppContext';
-import { Transaction } from '../../models/types';
-import { formatCurrency, formatDate, formatTime } from '../../utils/formatters';
+import { Transaction, TimeRangePreset } from '../../models/types';
+import {
+  formatCurrency,
+  formatDate,
+  formatTime,
+  isTransactionInTimeRange,
+} from '../../utils/formatters';
+import { DateTimeRangeModal } from '../../components/DateTimeRangeModal';
+import { SUPPORTED_APPS } from '../../constants/defaultData';
 
 export default function TransactionsScreen() {
-  const { transactions, categories, deleteTransaction } = useApp();
-  const params = useLocalSearchParams<{
-    filterCategoryId?: string;
-    filterType?: string;
-    filterTimeRange?: string;
-  }>();
+  const {
+    transactions,
+    categories,
+    deleteTransaction,
+    transactionFilter,
+    setTransactionFilter,
+    resetTransactionFilter,
+  } = useApp();
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedType, setSelectedType] = useState<'all' | 'expense' | 'income'>(
-    params.filterType === 'expense' || params.filterType === 'income' ? params.filterType : 'all'
-  );
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
-    params.filterCategoryId || 'all'
-  );
-  const [selectedTimeRange, setSelectedTimeRange] = useState<'all' | 'today' | 'week' | 'month' | 'year'>(
-    params.filterTimeRange && ['all', 'today', 'week', 'month', 'year'].includes(params.filterTimeRange)
-      ? (params.filterTimeRange as any)
-      : 'all'
-  );
-  const [selectedSource, setSelectedSource] = useState<string>('all');
   const [detailModalTx, setDetailModalTx] = useState<Transaction | null>(null);
+  const [showDateModal, setShowDateModal] = useState(false);
+
+  const {
+    type: selectedType,
+    categoryId: selectedCategoryId,
+    source: selectedSource,
+    timeRange: selectedTimeRange,
+    customStartDate,
+    customEndDate,
+    searchQuery = '',
+  } = transactionFilter;
+
+  // Unique list of bank/wallet sources
+  const availableSources = useMemo(() => {
+    const set = new Set<string>();
+    transactions.forEach((t) => {
+      if (t.source) set.add(t.source);
+    });
+    SUPPORTED_APPS.forEach((app) => {
+      if (app.category !== 'email_sms') {
+        set.add(app.name);
+      }
+    });
+    set.add('Tiền mặt');
+    return ['all', ...Array.from(set)];
+  }, [transactions]);
 
   // Filter transactions
   const filteredTransactions = useMemo(() => {
-    const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-
     return transactions.filter((tx) => {
-      // 1. Type filter
+      // 1. Type filter (Chi / Thu)
       if (selectedType !== 'all' && tx.type !== selectedType) return false;
 
       // 2. Category filter
       if (selectedCategoryId !== 'all' && tx.categoryId !== selectedCategoryId) return false;
 
-      // 3. Source filter
+      // 3. Bank / Wallet Source filter
       if (selectedSource !== 'all' && tx.source !== selectedSource) return false;
 
-      // 4. Time range filter
-      if (selectedTimeRange !== 'all') {
-        const txDate = new Date(tx.timestamp);
-        if (selectedTimeRange === 'today') {
-          if (tx.date !== todayStr) return false;
-        } else if (selectedTimeRange === 'week') {
-          const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          if (txDate < oneWeekAgo) return false;
-        } else if (selectedTimeRange === 'month') {
-          const isSameMonth =
-            txDate.getMonth() === now.getMonth() && txDate.getFullYear() === now.getFullYear();
-          if (!isSameMonth) return false;
-        } else if (selectedTimeRange === 'year') {
-          if (txDate.getFullYear() !== now.getFullYear()) return false;
-        }
+      // 4. Time range / DateRange filter
+      if (
+        !isTransactionInTimeRange(
+          tx.timestamp,
+          tx.date,
+          selectedTimeRange,
+          customStartDate,
+          customEndDate
+        )
+      ) {
+        return false;
       }
 
       // 5. Search query
@@ -82,11 +99,23 @@ export default function TransactionsScreen() {
 
       return true;
     });
-  }, [transactions, selectedType, selectedCategoryId, selectedSource, selectedTimeRange, searchQuery]);
+  }, [
+    transactions,
+    selectedType,
+    selectedCategoryId,
+    selectedSource,
+    selectedTimeRange,
+    customStartDate,
+    customEndDate,
+    searchQuery,
+  ]);
 
   // Group by date for SectionList
   const sections = useMemo(() => {
-    const map: Record<string, { date: string; data: Transaction[]; totalExpense: number; totalIncome: number }> = {};
+    const map: Record<
+      string,
+      { date: string; data: Transaction[]; totalExpense: number; totalIncome: number }
+    > = {};
 
     filteredTransactions.forEach((tx) => {
       const d = tx.date || formatDate(tx.timestamp);
@@ -105,10 +134,19 @@ export default function TransactionsScreen() {
   }, [filteredTransactions]);
 
   const handleDelete = (tx: Transaction) => {
-    Alert.alert('Xác nhận xóa', 'Bạn có chắc chắn muốn xóa giao dịch này?', [
+    const msg = `Bạn có chắc chắn muốn xóa giao dịch "${tx.categoryName} - ${formatCurrency(tx.amount)}" (${tx.source}) không?`;
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm(msg)) {
+        deleteTransaction(tx.id);
+        setDetailModalTx(null);
+      }
+      return;
+    }
+
+    Alert.alert('Xác nhận xóa giao dịch', msg, [
       { text: 'Hủy', style: 'cancel' },
       {
-        text: 'Xóa',
+        text: 'Xóa giao dịch',
         style: 'destructive',
         onPress: async () => {
           await deleteTransaction(tx.id);
@@ -125,16 +163,8 @@ export default function TransactionsScreen() {
     selectedSource !== 'all' ||
     searchQuery.trim().length > 0;
 
-  const resetFilters = () => {
-    setSelectedType('all');
-    setSelectedCategoryId('all');
-    setSelectedTimeRange('all');
-    setSelectedSource('all');
-    setSearchQuery('');
-  };
-
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       {/* Search Input */}
       <View style={styles.searchBar}>
         <Ionicons name="search" size={18} color="#94A3B8" />
@@ -143,99 +173,211 @@ export default function TransactionsScreen() {
           placeholder="Tìm theo ghi chú, phân loại, ngân hàng..."
           placeholderTextColor="#64748B"
           value={searchQuery}
-          onChangeText={setSearchQuery}
+          onChangeText={(val) =>
+            setTransactionFilter((prev) => ({ ...prev, searchQuery: val }))
+          }
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
+          <TouchableOpacity
+            onPress={() =>
+              setTransactionFilter((prev) => ({ ...prev, searchQuery: '' }))
+            }
+          >
             <Ionicons name="close-circle" size={18} color="#94A3B8" />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Filter Horizontal Scroll */}
-      <View style={styles.filterScroll}>
-        {/* Time filters */}
-        {(['all', 'today', 'week', 'month', 'year'] as const).map((t) => {
-          const labels = {
-            all: 'Tất cả time',
-            today: 'Hôm nay',
-            week: 'Tuần này',
-            month: 'Tháng này',
-            year: 'Năm nay',
-          };
-          const isSelected = selectedTimeRange === t;
-          return (
-            <TouchableOpacity
-              key={t}
-              style={[styles.filterChip, isSelected && styles.filterChipActive]}
-              onPress={() => setSelectedTimeRange(t)}
+      {/* Filter Row 1: Chi / Thu & DateRange */}
+      <View style={styles.filterGroup}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRowContent}
+        >
+          {/* Chi / Thu filter */}
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              selectedType === 'all' && styles.filterChipActive,
+            ]}
+            onPress={() =>
+              setTransactionFilter((prev) => ({ ...prev, type: 'all' }))
+            }
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                selectedType === 'all' && styles.filterChipTextActive,
+              ]}
             >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  isSelected && styles.filterChipTextActive,
-                ]}
-              >
-                {labels[t]}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-
-        {/* Type filters */}
-        <TouchableOpacity
-          style={[
-            styles.filterChip,
-            selectedType === 'expense' && styles.filterChipExpense,
-          ]}
-          onPress={() => setSelectedType(selectedType === 'expense' ? 'all' : 'expense')}
-        >
-          <Text
-            style={[
-              styles.filterChipText,
-              selectedType === 'expense' && styles.filterChipTextActive,
-            ]}
-          >
-            Chi tiêu
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.filterChip,
-            selectedType === 'income' && styles.filterChipIncome,
-          ]}
-          onPress={() => setSelectedType(selectedType === 'income' ? 'all' : 'income')}
-        >
-          <Text
-            style={[
-              styles.filterChipText,
-              selectedType === 'income' && styles.filterChipTextActive,
-            ]}
-          >
-            Thu nhập
-          </Text>
-        </TouchableOpacity>
-
-        {hasActiveFilter && (
-          <TouchableOpacity style={styles.resetFilterChip} onPress={resetFilters}>
-            <Ionicons name="refresh" size={12} color="#EF4444" />
-            <Text style={styles.resetFilterText}>Xóa lọc</Text>
+              Tất cả Thu/Chi
+            </Text>
           </TouchableOpacity>
-        )}
+
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              selectedType === 'expense' && styles.filterChipExpense,
+            ]}
+            onPress={() =>
+              setTransactionFilter((prev) => ({
+                ...prev,
+                type: prev.type === 'expense' ? 'all' : 'expense',
+              }))
+            }
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                selectedType === 'expense' && styles.filterChipTextActive,
+              ]}
+            >
+              - Chi tiêu
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              selectedType === 'income' && styles.filterChipIncome,
+            ]}
+            onPress={() =>
+              setTransactionFilter((prev) => ({
+                ...prev,
+                type: prev.type === 'income' ? 'all' : 'income',
+              }))
+            }
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                selectedType === 'income' && styles.filterChipTextActive,
+              ]}
+            >
+              + Thu nhập
+            </Text>
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          {/* DateRange presets + Custom DateRange */}
+          {(['all', 'today', 'week', 'month', 'year', 'custom'] as TimeRangePreset[]).map(
+            (t) => {
+              const labels: Record<TimeRangePreset, string> = {
+                all: 'Mọi thời gian',
+                today: 'Hôm nay',
+                week: 'Tuần này',
+                month: 'Tháng này',
+                year: 'Năm nay',
+                custom: 'Chọn DateRange 📅',
+              };
+              const isSelected = selectedTimeRange === t;
+              return (
+                <TouchableOpacity
+                  key={t}
+                  style={[styles.filterChip, isSelected && styles.filterChipActive]}
+                  onPress={() => {
+                    setTransactionFilter((prev) => ({ ...prev, timeRange: t }));
+                    if (t === 'custom') {
+                      setShowDateModal(true);
+                    }
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      isSelected && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {labels[t]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            }
+          )}
+        </ScrollView>
+
+        {/* Filter Row 2: Ngân hàng / Ví điện tử */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRowContent}
+        >
+          {availableSources.map((src) => {
+            const active = selectedSource === src;
+            return (
+              <TouchableOpacity
+                key={src}
+                style={[styles.filterChip, active && styles.filterChipBank]}
+                onPress={() =>
+                  setTransactionFilter((prev) => ({ ...prev, source: src }))
+                }
+              >
+                <Ionicons
+                  name="business-outline"
+                  size={12}
+                  color={active ? '#FFFFFF' : '#38BDF8'}
+                />
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    active && styles.filterChipTextActive,
+                  ]}
+                >
+                  {src === 'all' ? 'Tất cả Ngân hàng/Ví' : src}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+
+          {hasActiveFilter && (
+            <TouchableOpacity
+              style={styles.resetFilterChip}
+              onPress={resetTransactionFilter}
+            >
+              <Ionicons name="refresh" size={12} color="#EF4444" />
+              <Text style={styles.resetFilterText}>Xóa bộ lọc</Text>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
       </View>
 
-      {/* Selected Category or Source Indicator */}
+      {/* Active Custom DateRange Banner */}
+      {selectedTimeRange === 'custom' && (
+        <TouchableOpacity
+          style={styles.appliedFilterBanner}
+          onPress={() => setShowDateModal(true)}
+        >
+          <View style={styles.appliedBannerLeft}>
+            <Ionicons name="calendar" size={14} color="#38BDF8" />
+            <Text style={styles.appliedFilterText}>
+              Khoảng ngày: <Text style={styles.appliedFilterBold}>{customStartDate} → {customEndDate}</Text>
+            </Text>
+          </View>
+          <Text style={styles.editDateLink}>Sửa</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Active Category Indicator (e.g. from Statistics Drill-down) */}
       {selectedCategoryId !== 'all' && (
         <View style={styles.appliedFilterBanner}>
-          <Text style={styles.appliedFilterText}>
-            Đang lọc Phân loại:{' '}
-            <Text style={styles.appliedFilterBold}>
-              {categories.find((c) => c.id === selectedCategoryId)?.name || selectedCategoryId}
+          <View style={styles.appliedBannerLeft}>
+            <Ionicons name="pricetag" size={14} color="#10B981" />
+            <Text style={styles.appliedFilterText}>
+              Phân loại:{' '}
+              <Text style={styles.appliedFilterBold}>
+                {categories.find((c) => c.id === selectedCategoryId)?.name ||
+                  selectedCategoryId}
+              </Text>
             </Text>
-          </Text>
-          <TouchableOpacity onPress={() => setSelectedCategoryId('all')}>
-            <Ionicons name="close" size={16} color="#38BDF8" />
+          </View>
+          <TouchableOpacity
+            onPress={() =>
+              setTransactionFilter((prev) => ({ ...prev, categoryId: 'all' }))
+            }
+          >
+            <Ionicons name="close-circle" size={18} color="#38BDF8" />
           </TouchableOpacity>
         </View>
       )}
@@ -265,39 +407,50 @@ export default function TransactionsScreen() {
         renderItem={({ item }) => {
           const isIncome = item.type === 'income';
           return (
-            <TouchableOpacity
-              style={styles.txRow}
-              activeOpacity={0.7}
-              onPress={() => setDetailModalTx(item)}
-            >
-              <View style={styles.txIconBox}>
-                <Ionicons
-                  name={isIncome ? 'arrow-down-circle' : 'arrow-up-circle'}
-                  size={24}
-                  color={isIncome ? '#10B981' : '#EF4444'}
-                />
-              </View>
-
-              <View style={styles.txDetails}>
-                <Text style={styles.txCategoryName}>{item.categoryName}</Text>
-                <Text style={styles.txNote} numberOfLines={1}>
-                  {item.note}
-                </Text>
-                <View style={styles.txSourceBadge}>
-                  <Text style={styles.txSourceText}>{item.source}</Text>
-                  <Text style={styles.txTimeText}>• {formatTime(item.timestamp)}</Text>
-                </View>
-              </View>
-
-              <Text
-                style={[
-                  styles.txAmount,
-                  isIncome ? styles.txAmountIncome : styles.txAmountExpense,
-                ]}
+            <View style={styles.txRow}>
+              <TouchableOpacity
+                style={styles.txRowMain}
+                activeOpacity={0.7}
+                onPress={() => setDetailModalTx(item)}
               >
-                {isIncome ? '+' : '-'} {formatCurrency(item.amount)}
-              </Text>
-            </TouchableOpacity>
+                <View style={styles.txIconBox}>
+                  <Ionicons
+                    name={isIncome ? 'arrow-down-circle' : 'arrow-up-circle'}
+                    size={24}
+                    color={isIncome ? '#10B981' : '#EF4444'}
+                  />
+                </View>
+
+                <View style={styles.txDetails}>
+                  <Text style={styles.txCategoryName}>{item.categoryName}</Text>
+                  <Text style={styles.txNote} numberOfLines={1}>
+                    {item.note}
+                  </Text>
+                  <View style={styles.txSourceBadge}>
+                    <Text style={styles.txSourceText}>{item.source}</Text>
+                    <Text style={styles.txTimeText}>• {formatTime(item.timestamp)}</Text>
+                  </View>
+                </View>
+
+                <Text
+                  style={[
+                    styles.txAmount,
+                    isIncome ? styles.txAmountIncome : styles.txAmountExpense,
+                  ]}
+                >
+                  {isIncome ? '+' : '-'} {formatCurrency(item.amount)}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Direct Delete Button right on list item with confirmation popup */}
+              <TouchableOpacity
+                style={styles.rowDeleteBtn}
+                onPress={() => handleDelete(item)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="trash-outline" size={18} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
           );
         }}
         ListEmptyComponent={
@@ -311,6 +464,22 @@ export default function TransactionsScreen() {
             </Text>
           </View>
         }
+      />
+
+      {/* Custom DateRange Modal */}
+      <DateTimeRangeModal
+        visible={showDateModal}
+        initialStart={customStartDate}
+        initialEnd={customEndDate}
+        onClose={() => setShowDateModal(false)}
+        onApply={(s, e) => {
+          setTransactionFilter((prev) => ({
+            ...prev,
+            timeRange: 'custom',
+            customStartDate: s,
+            customEndDate: e,
+          }));
+        }}
       />
 
       {/* Transaction Detail Modal */}
@@ -339,7 +508,8 @@ export default function TransactionsScreen() {
                       : styles.txAmountExpense,
                   ]}
                 >
-                  {detailModalTx.type === 'income' ? '+' : '-'} {formatCurrency(detailModalTx.amount)}
+                  {detailModalTx.type === 'income' ? '+' : '-'}{' '}
+                  {formatCurrency(detailModalTx.amount)}
                 </Text>
                 <Text style={styles.detailCategory}>{detailModalTx.categoryName}</Text>
               </View>
@@ -353,7 +523,8 @@ export default function TransactionsScreen() {
                 <View style={styles.detailInfoRow}>
                   <Text style={styles.detailLabel}>Thời gian:</Text>
                   <Text style={styles.detailValue}>
-                    {formatDate(detailModalTx.timestamp)} lúc {formatTime(detailModalTx.timestamp)}
+                    {formatDate(detailModalTx.timestamp)} lúc{' '}
+                    {formatTime(detailModalTx.timestamp)}
                   </Text>
                 </View>
 
@@ -399,7 +570,7 @@ export default function TransactionsScreen() {
           </View>
         </Modal>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -413,7 +584,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#1E293B',
     marginHorizontal: 16,
-    marginTop: 12,
+    marginTop: 10,
     marginBottom: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -427,16 +598,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginLeft: 8,
   },
-  filterScroll: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+  filterGroup: {
     gap: 6,
-    flexWrap: 'wrap',
+    marginBottom: 6,
+  },
+  filterRowContent: {
+    paddingHorizontal: 16,
+    gap: 6,
+    alignItems: 'center',
+  },
+  divider: {
+    width: 1,
+    height: 18,
+    backgroundColor: '#334155',
+    marginHorizontal: 2,
   },
   filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 16,
     backgroundColor: '#1E293B',
     borderWidth: 1,
@@ -445,6 +627,10 @@ const styles = StyleSheet.create({
   filterChipActive: {
     backgroundColor: '#3B82F6',
     borderColor: '#3B82F6',
+  },
+  filterChipBank: {
+    backgroundColor: '#8B5CF6',
+    borderColor: '#8B5CF6',
   },
   filterChipExpense: {
     backgroundColor: '#EF4444',
@@ -466,8 +652,8 @@ const styles = StyleSheet.create({
   resetFilterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 16,
     backgroundColor: '#EF444420',
     gap: 4,
@@ -475,7 +661,7 @@ const styles = StyleSheet.create({
   resetFilterText: {
     color: '#EF4444',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   appliedFilterBanner: {
     flexDirection: 'row',
@@ -490,11 +676,23 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 6,
   },
+  appliedBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
   appliedFilterText: {
-    color: '#38BDF8',
-    fontSize: 12,
+    color: '#E2E8F0',
+    fontSize: 11,
   },
   appliedFilterBold: {
+    fontWeight: '700',
+    color: '#38BDF8',
+  },
+  editDateLink: {
+    color: '#38BDF8',
+    fontSize: 11,
     fontWeight: '700',
   },
   listContent: {
@@ -534,11 +732,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1E293B',
-    padding: 12,
+    paddingLeft: 12,
+    paddingRight: 8,
+    paddingVertical: 10,
     borderRadius: 10,
     marginTop: 8,
     borderWidth: 1,
     borderColor: '#334155',
+  },
+  txRowMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   txIconBox: {
     marginRight: 10,
@@ -575,12 +780,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     marginLeft: 8,
+    marginRight: 6,
   },
   txAmountExpense: {
     color: '#EF4444',
   },
   txAmountIncome: {
     color: '#10B981',
+  },
+  rowDeleteBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#EF444418',
+    marginLeft: 4,
   },
   emptyContainer: {
     alignItems: 'center',

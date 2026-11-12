@@ -6,42 +6,62 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useApp } from '../../contexts/AppContext';
-import { formatCurrency } from '../../utils/formatters';
-
-type TimeRange = 'today' | 'week' | 'month' | 'year';
+import { TimeRangePreset } from '../../models/types';
+import {
+  formatCurrency,
+  getDefaultMonthStartDisplay,
+  getDefaultTodayEndDisplay,
+  isTransactionInTimeRange,
+} from '../../utils/formatters';
+import { PieChartSvg } from '../../components/PieChartSvg';
+import { DateTimeRangeModal } from '../../components/DateTimeRangeModal';
+import { SUPPORTED_APPS } from '../../constants/defaultData';
 
 export default function StatisticsScreen() {
-  const { transactions, categories } = useApp();
+  const { transactions, categories, setTransactionFilter } = useApp();
 
-  const [timeRange, setTimeRange] = useState<TimeRange>('month');
+  const [timeRange, setTimeRange] = useState<TimeRangePreset>('month');
+  const [customStart, setCustomStart] = useState<string>(() => getDefaultMonthStartDisplay());
+  const [customEnd, setCustomEnd] = useState<string>(() => getDefaultTodayEndDisplay());
+  const [showDateModal, setShowDateModal] = useState(false);
+
+  const [selectedSource, setSelectedSource] = useState<string>('all');
   const [activeType, setActiveType] = useState<'expense' | 'income'>('expense');
 
-  // Filter transactions by timeRange
-  const scopedTransactions = useMemo(() => {
-    const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-
-    return transactions.filter((tx) => {
-      const txDate = new Date(tx.timestamp);
-      if (timeRange === 'today') {
-        return tx.date === todayStr;
-      }
-      if (timeRange === 'week') {
-        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        return txDate >= oneWeekAgo;
-      }
-      if (timeRange === 'month') {
-        return txDate.getMonth() === now.getMonth() && txDate.getFullYear() === now.getFullYear();
-      }
-      if (timeRange === 'year') {
-        return txDate.getFullYear() === now.getFullYear();
-      }
-      return true;
+  // Available banks/wallets from transactions + default popular apps
+  const sourceOptions = useMemo(() => {
+    const set = new Set<string>();
+    transactions.forEach((t) => {
+      if (t.source) set.add(t.source);
     });
-  }, [transactions, timeRange]);
+    SUPPORTED_APPS.forEach((app) => {
+      if (app.category !== 'email_sms') {
+        set.add(app.name);
+      }
+    });
+    set.add('Tiền mặt');
+    return ['all', ...Array.from(set)];
+  }, [transactions]);
+
+  // Filter transactions by timeRange + source
+  const scopedTransactions = useMemo(() => {
+    return transactions.filter((tx) => {
+      if (selectedSource !== 'all' && tx.source !== selectedSource) {
+        return false;
+      }
+      return isTransactionInTimeRange(
+        tx.timestamp,
+        tx.date,
+        timeRange,
+        customStart,
+        customEnd
+      );
+    });
+  }, [transactions, selectedSource, timeRange, customStart, customEnd]);
 
   // Overall sums
   const totalIncome = useMemo(() => {
@@ -99,205 +119,268 @@ export default function StatisticsScreen() {
     return list.sort((a, b) => b.total - a.total);
   }, [scopedTransactions, activeType, totalExpense, totalIncome, categories]);
 
-  // Drill down to transactions
+  // Drill down to transactions screen with all active filters applied
   const handleDrillDown = (categoryId: string) => {
-    router.push({
-      pathname: '/(tabs)/transactions',
-      params: {
-        filterCategoryId: categoryId,
-        filterType: activeType,
-        filterTimeRange: timeRange,
-      },
+    setTransactionFilter({
+      type: activeType,
+      categoryId,
+      source: selectedSource,
+      timeRange,
+      customStartDate: customStart,
+      customEndDate: customEnd,
+      searchQuery: '',
     });
+    router.push('/(tabs)/transactions');
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Time Range Selector */}
-      <View style={styles.timeRangeBar}>
-        {(['today', 'week', 'month', 'year'] as const).map((t) => {
-          const labels = {
-            today: 'Hôm nay',
-            week: 'Tuần này',
-            month: 'Tháng này',
-            year: 'Năm nay',
-          };
-          const isSelected = timeRange === t;
-          return (
-            <TouchableOpacity
-              key={t}
-              style={[styles.timeBtn, isSelected && styles.timeBtnActive]}
-              onPress={() => setTimeRange(t)}
-            >
-              <Text style={[styles.timeBtnText, isSelected && styles.timeBtnTextActive]}>
-                {labels[t]}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {/* Summary Cards */}
-      <View style={styles.summaryContainer}>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Tổng Thu</Text>
-          <Text style={[styles.summaryValue, styles.incomeColor]}>
-            +{formatCurrency(totalIncome)}
-          </Text>
-        </View>
-
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Tổng Chi</Text>
-          <Text style={[styles.summaryValue, styles.expenseColor]}>
-            -{formatCurrency(totalExpense)}
-          </Text>
-        </View>
-
-        <View style={[styles.summaryCard, styles.balanceCard]}>
-          <Text style={styles.summaryLabel}>Chênh lệch (Số dư ròng)</Text>
-          <Text
-            style={[
-              styles.summaryValue,
-              balanceDiff >= 0 ? styles.incomeColor : styles.expenseColor,
-            ]}
-          >
-            {balanceDiff >= 0 ? '+' : '-'}
-            {formatCurrency(balanceDiff)}
-          </Text>
-        </View>
-      </View>
-
-      {/* Type Switcher: Chi tiêu / Thu nhập */}
-      <View style={styles.typeSwitcher}>
-        <TouchableOpacity
-          style={[
-            styles.typeSwitchBtn,
-            activeType === 'expense' && styles.typeSwitchBtnActiveExpense,
-          ]}
-          onPress={() => setActiveType('expense')}
-        >
-          <Ionicons
-            name="arrow-up-circle"
-            size={16}
-            color={activeType === 'expense' ? '#FFFFFF' : '#EF4444'}
-          />
-          <Text
-            style={[
-              styles.typeSwitchText,
-              activeType === 'expense' && styles.typeSwitchTextActive,
-            ]}
-          >
-            Cơ cấu Chi tiêu
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.typeSwitchBtn,
-            activeType === 'income' && styles.typeSwitchBtnActiveIncome,
-          ]}
-          onPress={() => setActiveType('income')}
-        >
-          <Ionicons
-            name="arrow-down-circle"
-            size={16}
-            color={activeType === 'income' ? '#FFFFFF' : '#10B981'}
-          />
-          <Text
-            style={[
-              styles.typeSwitchText,
-              activeType === 'income' && styles.typeSwitchTextActive,
-            ]}
-          >
-            Cơ cấu Thu nhập
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Visual Proportion Bar (Pie representation in horizontal gradient segments) */}
-      {categoryBreakdown.length > 0 && (
-        <View style={styles.pieContainer}>
-          <Text style={styles.pieTitle}>Tỷ trọng các nhóm danh mục</Text>
-          <View style={styles.proportionalBar}>
-            {categoryBreakdown.map((item) => (
-              <View
-                key={item.categoryId}
-                style={{
-                  width: `${Math.max(item.percentage, 2)}%`,
-                  backgroundColor: item.color,
-                  height: 18,
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        {/* Time Range Selector */}
+        <View style={styles.timeRangeBar}>
+          {(['today', 'week', 'month', 'year', 'custom'] as const).map((t) => {
+            const labels: Record<string, string> = {
+              today: 'Hôm nay',
+              week: 'Tuần',
+              month: 'Tháng',
+              year: 'Năm',
+              custom: 'Tùy chọn',
+            };
+            const isSelected = timeRange === t;
+            return (
+              <TouchableOpacity
+                key={t}
+                style={[styles.timeBtn, isSelected && styles.timeBtnActive]}
+                onPress={() => {
+                  setTimeRange(t);
+                  if (t === 'custom') {
+                    setShowDateModal(true);
+                  }
                 }}
-              />
-            ))}
+              >
+                <Text style={[styles.timeBtnText, isSelected && styles.timeBtnTextActive]}>
+                  {labels[t]}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Custom DateTime Range Banner */}
+        {timeRange === 'custom' && (
+          <TouchableOpacity
+            style={styles.customRangeBanner}
+            onPress={() => setShowDateModal(true)}
+          >
+            <Ionicons name="calendar-outline" size={16} color="#38BDF8" />
+            <Text style={styles.customRangeText}>
+              {customStart}  →  {customEnd}
+            </Text>
+            <Text style={styles.customRangeEdit}>Đổi</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Bank / Wallet Source Filter */}
+        <View style={styles.sourceFilterSection}>
+          <Text style={styles.filterSubLabel}>Ngân hàng / Ví điện tử:</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.sourceScrollContent}
+          >
+            {sourceOptions.map((src) => {
+              const active = selectedSource === src;
+              return (
+                <TouchableOpacity
+                  key={src}
+                  style={[styles.sourceChip, active && styles.sourceChipActive]}
+                  onPress={() => setSelectedSource(src)}
+                >
+                  <Text
+                    style={[
+                      styles.sourceChipText,
+                      active && styles.sourceChipTextActive,
+                    ]}
+                  >
+                    {src === 'all' ? 'Tất cả ngân hàng/ví' : src}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Summary Cards */}
+        <View style={styles.summaryContainer}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Tổng Thu</Text>
+            <Text style={[styles.summaryValue, styles.incomeColor]}>
+              +{formatCurrency(totalIncome)}
+            </Text>
+          </View>
+
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Tổng Chi</Text>
+            <Text style={[styles.summaryValue, styles.expenseColor]}>
+              -{formatCurrency(totalExpense)}
+            </Text>
+          </View>
+
+          <View style={[styles.summaryCard, styles.balanceCard]}>
+            <Text style={styles.summaryLabel}>Chênh lệch (Số dư ròng)</Text>
+            <Text
+              style={[
+                styles.summaryValue,
+                balanceDiff >= 0 ? styles.incomeColor : styles.expenseColor,
+              ]}
+            >
+              {balanceDiff >= 0 ? '+' : '-'}
+              {formatCurrency(balanceDiff)}
+            </Text>
           </View>
         </View>
-      )}
 
-      {/* Detailed Categories List */}
-      <View style={styles.breakdownHeader}>
-        <Text style={styles.breakdownTitle}>
-          Chi tiết theo {activeType === 'expense' ? 'khoản chi' : 'nguồn thu'}
-        </Text>
-        <Text style={styles.drillDownHint}>Chạm vào mục để xem giao dịch</Text>
-      </View>
-
-      {categoryBreakdown.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="pie-chart-outline" size={48} color="#64748B" />
-          <Text style={styles.emptyText}>
-            Chưa có giao dịch {activeType === 'expense' ? 'chi tiêu' : 'thu nhập'} trong khoảng thời gian này
-          </Text>
-        </View>
-      ) : (
-        categoryBreakdown.map((item) => (
+        {/* Type Switcher: Chi tiêu / Thu nhập */}
+        <View style={styles.typeSwitcher}>
           <TouchableOpacity
-            key={item.categoryId}
-            style={styles.catCard}
-            activeOpacity={0.7}
-            onPress={() => handleDrillDown(item.categoryId)}
+            style={[
+              styles.typeSwitchBtn,
+              activeType === 'expense' && styles.typeSwitchBtnActiveExpense,
+            ]}
+            onPress={() => setActiveType('expense')}
           >
-            <View style={styles.catCardTop}>
-              <View style={[styles.catIconBox, { backgroundColor: `${item.color}25` }]}>
-                <Ionicons name={item.icon as any} size={20} color={item.color} />
-              </View>
-
-              <View style={styles.catInfo}>
-                <View style={styles.catNameRow}>
-                  <Text style={styles.catName}>{item.categoryName}</Text>
-                  <Text style={styles.catCount}>({item.count} GD)</Text>
-                </View>
-                <Text style={styles.catPercent}>{item.percentage.toFixed(1)}% tổng</Text>
-              </View>
-
-              <View style={styles.catAmountBox}>
-                <Text
-                  style={[
-                    styles.catAmount,
-                    activeType === 'expense' ? styles.expenseColor : styles.incomeColor,
-                  ]}
-                >
-                  {formatCurrency(item.total)}
-                </Text>
-                <Ionicons name="chevron-forward" size={16} color="#64748B" />
-              </View>
-            </View>
-
-            {/* Progress Bar */}
-            <View style={styles.progressTrack}>
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: `${item.percentage}%`,
-                    backgroundColor: item.color,
-                  },
-                ]}
-              />
-            </View>
+            <Ionicons
+              name="arrow-up-circle"
+              size={16}
+              color={activeType === 'expense' ? '#FFFFFF' : '#EF4444'}
+            />
+            <Text
+              style={[
+                styles.typeSwitchText,
+                activeType === 'expense' && styles.typeSwitchTextActive,
+              ]}
+            >
+              Cơ cấu Chi tiêu
+            </Text>
           </TouchableOpacity>
-        ))
-      )}
-    </ScrollView>
+
+          <TouchableOpacity
+            style={[
+              styles.typeSwitchBtn,
+              activeType === 'income' && styles.typeSwitchBtnActiveIncome,
+            ]}
+            onPress={() => setActiveType('income')}
+          >
+            <Ionicons
+              name="arrow-down-circle"
+              size={16}
+              color={activeType === 'income' ? '#FFFFFF' : '#10B981'}
+            />
+            <Text
+              style={[
+                styles.typeSwitchText,
+                activeType === 'income' && styles.typeSwitchTextActive,
+              ]}
+            >
+              Cơ cấu Thu nhập
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Circular Pie / Donut Chart with % */}
+        {categoryBreakdown.length > 0 && (
+          <View style={styles.pieContainer}>
+            <Text style={styles.pieTitle}>
+              Biểu đồ tròn tỷ trọng {activeType === 'expense' ? 'Chi tiêu' : 'Thu nhập'} (%)
+            </Text>
+            <PieChartSvg
+              data={categoryBreakdown}
+              totalAmount={activeType === 'expense' ? totalExpense : totalIncome}
+              centerLabel={activeType === 'expense' ? 'Tổng chi' : 'Tổng thu'}
+              onPressSlice={(categoryId) => handleDrillDown(categoryId)}
+            />
+          </View>
+        )}
+
+        {/* Detailed Categories List */}
+        <View style={styles.breakdownHeader}>
+          <Text style={styles.breakdownTitle}>
+            Chi tiết theo {activeType === 'expense' ? 'khoản chi' : 'nguồn thu'}
+          </Text>
+          <Text style={styles.drillDownHint}>Chạm vào mục để xem giao dịch</Text>
+        </View>
+
+        {categoryBreakdown.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="pie-chart-outline" size={48} color="#64748B" />
+            <Text style={styles.emptyText}>
+              Chưa có giao dịch {activeType === 'expense' ? 'chi tiêu' : 'thu nhập'} phù hợp với bộ lọc hiện tại
+            </Text>
+          </View>
+        ) : (
+          categoryBreakdown.map((item) => (
+            <TouchableOpacity
+              key={item.categoryId}
+              style={styles.catCard}
+              activeOpacity={0.7}
+              onPress={() => handleDrillDown(item.categoryId)}
+            >
+              <View style={styles.catCardTop}>
+                <View style={[styles.catIconBox, { backgroundColor: `${item.color}25` }]}>
+                  <Ionicons name={item.icon as any} size={20} color={item.color} />
+                </View>
+
+                <View style={styles.catInfo}>
+                  <View style={styles.catNameRow}>
+                    <Text style={styles.catName}>{item.categoryName}</Text>
+                    <Text style={styles.catCount}>({item.count} GD)</Text>
+                  </View>
+                  <Text style={styles.catPercent}>{item.percentage.toFixed(1)}% tổng</Text>
+                </View>
+
+                <View style={styles.catAmountBox}>
+                  <Text
+                    style={[
+                      styles.catAmount,
+                      activeType === 'expense' ? styles.expenseColor : styles.incomeColor,
+                    ]}
+                  >
+                    {formatCurrency(item.total)}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={16} color="#64748B" />
+                </View>
+              </View>
+
+              {/* Progress Bar */}
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: `${item.percentage}%`,
+                      backgroundColor: item.color,
+                    },
+                  ]}
+                />
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
+      </ScrollView>
+
+      {/* DateTime Range Picker Modal */}
+      <DateTimeRangeModal
+        visible={showDateModal}
+        initialStart={customStart}
+        initialEnd={customEnd}
+        onClose={() => setShowDateModal(false)}
+        onApply={(s, e) => {
+          setCustomStart(s);
+          setCustomEnd(e);
+          setTimeRange('custom');
+        }}
+      />
+    </SafeAreaView>
   );
 }
 
@@ -305,6 +388,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0F172A',
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
     padding: 16,
@@ -315,7 +401,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     borderRadius: 12,
     padding: 4,
-    marginBottom: 16,
+    marginBottom: 10,
   },
   timeBtn: {
     flex: 1,
@@ -328,10 +414,67 @@ const styles = StyleSheet.create({
   },
   timeBtnText: {
     color: '#94A3B8',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
   timeBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  customRangeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#38BDF860',
+    gap: 8,
+  },
+  customRangeText: {
+    color: '#E2E8F0',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  customRangeEdit: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  sourceFilterSection: {
+    marginBottom: 14,
+  },
+  filterSubLabel: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  sourceScrollContent: {
+    gap: 6,
+    paddingRight: 8,
+  },
+  sourceChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  sourceChipActive: {
+    backgroundColor: '#8B5CF6',
+    borderColor: '#8B5CF6',
+  },
+  sourceChipText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  sourceChipTextActive: {
     color: '#FFFFFF',
     fontWeight: '700',
   },
@@ -404,23 +547,16 @@ const styles = StyleSheet.create({
   pieContainer: {
     backgroundColor: '#1E293B',
     borderRadius: 12,
-    padding: 12,
+    padding: 14,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#334155',
   },
   pieTitle: {
     color: '#F8FAFC',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    marginBottom: 8,
-  },
-  proportionalBar: {
-    flexDirection: 'row',
-    borderRadius: 9,
-    overflow: 'hidden',
-    height: 18,
-    backgroundColor: '#334155',
+    marginBottom: 12,
   },
   breakdownHeader: {
     flexDirection: 'row',
@@ -513,4 +649,3 @@ const styles = StyleSheet.create({
     maxWidth: 260,
   },
 });
-

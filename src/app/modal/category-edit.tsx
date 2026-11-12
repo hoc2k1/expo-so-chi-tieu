@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../contexts/AppContext';
 import { Category, TransactionType } from '../../models/types';
@@ -81,7 +82,8 @@ export default function CategoryEditModal() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Type Toggle */}
       <View style={styles.typeSwitcher}>
         <TouchableOpacity
@@ -173,7 +175,8 @@ export default function CategoryEditModal() {
           </View>
         ))}
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

@@ -7,16 +7,21 @@ export default {
   requestPermission(): boolean {
     return false;
   },
+  ensureServiceConnected(): boolean {
+    return false;
+  },
   getCachedNotifications(): RawNotification[] {
     return [];
   },
   clearCachedNotifications(): boolean {
     return true;
   },
-  addListener() {
+  addListener(
+    _eventName: 'onNotificationReceived',
+    _listener: (notification: RawNotification) => void
+  ) {
     return { remove: () => {} };
   },
-  removeListeners() {},
 };
 
 export * from './NotificationListener.types';

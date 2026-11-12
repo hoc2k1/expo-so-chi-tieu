@@ -6,29 +6,26 @@
 
 ## 🌟 Tính Năng Nổi Bật
 
-1. **Lắng nghe thông báo ngân hàng & ví điện tử tự động**:
-   - Tích hợp Native Android `NotificationListenerService`.
-   - Hỗ trợ sẵn các ngân hàng & ví phổ biến tại Việt Nam: **Vietcombank, MB Bank, Techcombank, BIDV, VietinBank, ACB, TPBank, VPBank, Sacombank, Agribank, MSB, MoMo, ZaloPay, VNPay, ShopeePay, Gmail (nhận mail biến động số dư), Tin nhắn SMS**.
+1. **Lắng nghe thông báo ngân hàng & ví điện tử tự động (Kể cả khi chạy ngầm hoặc tắt app)**:
+   - Tích hợp Native Android `NotificationListenerService` với cơ chế tự động kết nối lại (`requestRebind` + `stopWithTask="false"`) và quét lại thanh trạng thái hệ thống khi mở lại ứng dụng.
+   - Hỗ trợ sẵn các ngân hàng & ví phổ biến tại Việt Nam: **Vietcombank, MB Bank, Techcombank, BIDV, VietinBank, ACB, TPBank, VPBank, Sacombank, Agribank, MSB, Timo, MoMo, ZaloPay, Viettel Money, VNPay, ShopeePay, Gmail (nhận mail biến động số dư), Tin nhắn SMS**.
    - Cho phép bật/tắt hoặc thêm package app bất kỳ trên thiết bị.
 2. **Cơ chế Chống trùng Thông báo 2 Lớp (Deduplication Engine)**:
    - **Lớp 1 - Chặn ngầm 100% (Hard Duplicate)**: Tự động bỏ qua không tạo bản ghi mới nếu thông báo đến trong vòng 5 phút có nội dung trùng lặp hoàn toàn, hoặc trùng đồng thời (Số tiền + Loại Thu/Chi + Mã GD hoặc Số dư sau GD).
-   - **Lớp 2 - Cảnh báo Nghi trùng (Soft Duplicate)**: Nếu trong 3 phút xuất hiện 2 giao dịch cùng số tiền (ví dụ vừa nhận thông báo từ App Ngân hàng vừa nhận email từ Gmail), app vẫn đưa vào Hàng chờ nhưng gắn nhãn cảnh báo vàng/đỏ `"⚠️ Nghi trùng"` kèm nút `"Bỏ qua / Xóa trùng"` 1 chạm.
-3. **Phân loại Thông minh & Hàng loạt (Batch Mode)**:
-   - Tự động gợi ý Phân loại & Ghi chú dựa trên từ khóa trong nội dung (VD: `GRAB`, `SHOPEE`, `HIGHLANDS`, `TIEN DIEN`, `LUONG`...).
-   - Cho phép phân loại 1 giao dịch hoặc chọn nhiều giao dịch trong Hàng chờ để phân loại/xóa cùng lúc.
+   - **Lớp 2 - Cảnh báo Nghi trùng (Soft Duplicate)**: Nếu trong 3 phút xuất hiện 2 giao dịch trùng cả **Ngân hàng/Ví nguồn + Số tiền + Loại Thu/Chi**, app vẫn đưa vào Hàng chờ nhưng gắn nhãn cảnh báo vàng/đỏ `"⚠️ Nghi trùng"` kèm nút `"Bỏ qua / Xóa trùng"` 1 chạm.
+3. **Phân loại Thông minh & Hàng loạt (Nhấn giữ để chọn nhiều)**:
+   - Tự động nhận diện Thu nhập (`+`) / Chi tiêu (`-`) từ thông báo và gợi ý Phân loại & Ghi chú dựa trên từ khóa trong nội dung (VD: `GRAB`, `SHOPEE`, `HIGHLANDS`, `TIEN DIEN`, `LUONG`...).
+   - Nhấn giữ (`Long Press`) vào bất kỳ khoản nào trong Hàng chờ để bật chế độ chọn nhiều và phân loại/xóa hàng loạt.
    - Tự do nhập tay Phân loại / Ghi chú mới kèm tùy chọn *"Lưu vào danh sách mẫu"*.
-4. **Màn hình Thống kê Trực quan & Drill-down**:
+4. **Màn hình Thống kê Biểu đồ Tròn (`%`) & Drill-down Đồng bộ Bộ lọc**:
    - Thẻ tổng kết: Tổng Thu, Tổng Chi, Số dư chênh lệch ròng.
-   - Biểu đồ phân bổ tỷ trọng phần trăm theo từng Phân loại.
-   - **Liên kết Drill-down**: Nhấn vào bất kỳ Phân loại nào trên màn Thống kê sẽ tự động chuyển sang màn Sổ giao dịch với bộ lọc danh mục đó được áp dụng sẵn.
-5. **Lưu trữ Cục bộ (Local JSON Storage - No DB)**:
+   - Bộ lọc nâng cao theo **Khoảng thời gian tùy chỉnh (Từ ngày giờ - Đến ngày giờ)** và **Ngân hàng / Ví điện tử**.
+   - **Biểu đồ Hình tròn (Donut / Pie Chart)** hiển thị trực quan tỷ trọng phần trăm (`%`) của từng Phân loại.
+   - **Liên kết Drill-down**: Nhấn vào bất kỳ Phân loại nào trên màn Thống kê sẽ tự động chuyển sang màn Sổ giao dịch và áp dụng sẵn toàn bộ bộ lọc tương ứng (Phân loại, Khoảng thời gian, Ngân hàng/Ví, Chi/Thu).
+5. **Lưu trữ Cục bộ (Local JSON Storage - No DB) & Cập nhật OTA trong App**:
    - Mọi dữ liệu lưu trữ trực tiếp trên máy dạng file `.json` (`expo-file-system`).
-   - Sao lưu toàn bộ dữ liệu ra 1 file JSON duy nhất để lưu trữ hoặc gửi qua Google Drive/Zalo.
-   - Khôi phục dữ liệu nguyên vẹn từ file JSON khi đổi máy hoặc cài lại app.
-   - Xuất danh sách giao dịch ra file **Excel (CSV)** mã hóa **UTF-8 BOM** hiển thị chuẩn tiếng Việt không bị lỗi font.
-6. **Bộ Giả lập Thông báo Ngân hàng (Test Simulator)**:
-   - Bắn thử thông báo mẫu của VCB, MB, MoMo,...
-   - Thử nghiệm ngay kịch bản bắn trùng (Lớp 1 & Lớp 2) mà không cần chuyển khoản thật.
+   - Sao lưu & Khôi phục toàn bộ dữ liệu qua 1 file JSON duy nhất; xuất báo cáo ra file **Excel (CSV)** mã hóa **UTF-8 BOM**.
+   - Tích hợp nút **"Kiểm tra & Cập nhật ngay"** và **"Xem các bản cập nhật"** ngay trong màn Cài đặt để kiểm tra, tải và áp dụng bản cập nhật OTA trực tiếp trên điện thoại.
 
 ---
 
@@ -149,10 +146,18 @@ git commit -m "feat: cập nhật logic bóc tách thông báo và giao diện t
 git push origin main
 
 # Bước 4: Phát hành bản cập nhật OTA tức thì qua EAS Update
-eas update --branch preview --message "Cập nhật bóc tách thông báo và biểu đồ"
+npx eas-cli@latest update --branch preview --message "Cập nhật tính năng mới"
+
+# (Hoặc nếu bạn đã cài đặt eas-cli global: eas update --branch preview --message "Cập nhật tính năng mới")
 ```
 
-Khi người dùng mở ứng dụng trên điện thoại, `expo-updates` sẽ tự động tải phiên bản JS mới nhất trong nền và áp dụng ngay!
+### Cách kiểm tra & áp dụng bản cập nhật ngay trên điện thoại:
+1. Mở ứng dụng **Sổ Chi Tiêu** -> Vào tab **Cài đặt**.
+2. Tại mục **Cập nhật ứng dụng (EAS Update OTA)**:
+   - Bấm **"Kiểm tra & Cập nhật ngay"**: Ứng dụng sẽ gọi `expo-updates` kiểm tra bản cập nhật mới nhất trên nhánh `preview`, tải về và hỏi bạn khởi động lại app để áp dụng ngay lập tức.
+   - Bấm **"Xem các bản cập nhật"**: Xem thông tin bản build hiện tại, mã Update ID, kênh (`channel`), thời gian phát hành và lịch sử các bản cập nhật đã áp dụng trên máy.
+
+> **Lưu ý quan trọng**: Nếu có thay đổi trong thư mục **Native Android** (`modules/notification-listener/android/...` hoặc `app.json` native plugins), bạn cần chạy lại `npx eas-cli@latest build -p android --profile preview` (hoặc `npx expo run:android`) để cập nhật tầng Native. Mọi thay đổi trong `src/` (TypeScript/JavaScript/UI) chỉ cần chạy `eas update`!
 
 ---
 
@@ -212,6 +217,8 @@ Dự án đã được khởi tạo Git và liên kết với kho lưu trữ ri�
 1. **Sau khi cài file APK vào điện thoại Android**:
    - Mở ứng dụng, app sẽ hiển thị banner nhắc cấp quyền đọc thông báo.
    - Bấm nút **"Cấp quyền"** -> Chọn **"Sổ Chi Tiêu"** trong danh sách và gạt công tắc cho phép.
-   - Vào mục **Cài đặt** -> **Danh sách App Ngân hàng & Ví** để kiểm tra các app bạn đang dùng đã được bật chưa.
-2. **Thử nghiệm không cần chuyển khoản thật**:
-   - Tại tab **Hàng chờ**, bấm nút **"Bắn thử thông báo"** để thử nghiệm bóc tách số tiền và tính năng chống trùng 2 lớp ngay lập tức!
+   - Để đảm bảo hệ điều hành Android (đặc biệt Xiaomi/MIUI, Samsung, Oppo, Vivo) không tắt ngầm dịch vụ đọc thông báo khi bạn vuốt tắt app, hãy bật **"Tự khởi chạy" (Autostart)** và chọn **"Không hạn chế pin" (Unrestricted Battery)** cho ứng dụng Sổ Chi Tiêu.
+   - Vào mục **Cài đặt** -> **Danh sách App Ngân hàng & Ví** để kiểm tra các app bạn đang dùng (bao gồm Timo, Viettel Money, MoMo, VCB, MB...) đã được bật chưa.
+2. **Thao tác nhanh trên Hàng chờ & Thống kê**:
+   - **Nhấn giữ (Long-press)** vào một khoản trong Hàng chờ để bật chế độ chọn nhiều (phân loại hoặc xóa hàng loạt).
+   - Tại màn **Thống kê**, bấm vào một mục trên **Biểu đồ Tròn** hoặc danh sách phân loại bên dưới để chuyển ngay sang màn **Sổ giao dịch** với bộ lọc đã được áp dụng tự động.

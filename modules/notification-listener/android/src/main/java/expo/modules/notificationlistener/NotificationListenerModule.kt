@@ -1,9 +1,12 @@
 package expo.modules.notificationlistener
 
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.Bundle
 import android.provider.Settings
+import android.service.notification.NotificationListenerService
 import androidx.core.app.NotificationManagerCompat
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -17,10 +20,11 @@ class NotificationListenerModule : Module() {
 
     OnCreate {
       NotificationService.listenerModule = this@NotificationListenerModule
+      ensureRebind()
     }
 
     OnDestroy {
-      if (NotificationService.listenerModule == this@NotificationListenerModule) {
+      if (NotificationService.listenerModule === this@NotificationListenerModule) {
         NotificationService.listenerModule = null
       }
     }
@@ -29,7 +33,11 @@ class NotificationListenerModule : Module() {
       val context = appContext.reactContext ?: return@Function false
       val packageName = context.packageName
       val enabledPackages = NotificationManagerCompat.getEnabledListenerPackages(context)
-      return@Function enabledPackages.contains(packageName)
+      val granted = enabledPackages.contains(packageName)
+      if (granted) {
+        ensureRebind()
+      }
+      return@Function granted
     }
 
     Function("requestPermission") {
@@ -41,9 +49,14 @@ class NotificationListenerModule : Module() {
       return@Function true
     }
 
-    Function("getCachedNotifications") {
-      val context = appContext.reactContext ?: return@Function emptyList<Map<String, Any>>()
-      return@Function NotificationService.getCachedNotifications(context)
+    Function("ensureServiceConnected") {
+      return@Function ensureRebind()
+    }
+
+    Function("getCachedNotificationsJson") {
+      val context = appContext.reactContext ?: return@Function "[]"
+      ensureRebind()
+      return@Function NotificationService.getCachedNotificationsJson(context)
     }
 
     Function("clearCachedNotifications") {
@@ -53,7 +66,46 @@ class NotificationListenerModule : Module() {
     }
   }
 
-  fun sendNotificationEvent(data: Map<String, Any>) {
-    sendEvent("onNotificationReceived", data)
+  private fun ensureRebind(): Boolean {
+    val context = appContext.reactContext ?: return false
+    try {
+      val enabledPackages = NotificationManagerCompat.getEnabledListenerPackages(context)
+      if (!enabledPackages.contains(context.packageName)) {
+        return false
+      }
+
+      val componentName = ComponentName(context, NotificationService::class.java)
+
+      // If service is not currently active, toggle component state to force Android OS to rebind it
+      if (NotificationService.activeService == null) {
+        val pm = context.packageManager
+        pm.setComponentEnabledSetting(
+          componentName,
+          PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+          PackageManager.DONT_KILL_APP
+        )
+        pm.setComponentEnabledSetting(
+          componentName,
+          PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+          PackageManager.DONT_KILL_APP
+        )
+      }
+
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        NotificationListenerService.requestRebind(componentName)
+      }
+      return true
+    } catch (e: Exception) {
+      e.printStackTrace()
+      return false
+    }
+  }
+
+  fun sendNotificationEvent(bundle: Bundle) {
+    try {
+      sendEvent("onNotificationReceived", bundle)
+    } catch (e: Exception) {
+      e.printStackTrace()
+    }
   }
 }

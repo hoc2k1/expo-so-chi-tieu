@@ -2,8 +2,10 @@
     <application>
         <service
             android:name=".NotificationService"
-            android:label="SoChiTieuNotificationListener"
+            android:label="Sổ Chi Tiêu"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:stopWithTask="false"
+            android:enabled="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />

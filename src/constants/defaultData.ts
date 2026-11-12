@@ -93,7 +93,25 @@ export const SUPPORTED_APPS: SupportedApp[] = [
   { packageName: 'com.vnpay.Agribank', name: 'Agribank E-Mobile Banking', shortName: 'Agribank', icon: 'business', color: '#7E122A', category: 'bank' },
   { packageName: 'com.msb.smartBanking', name: 'MSB mBank', shortName: 'MSB', icon: 'business', color: '#E86624', category: 'bank' },
 
-  // Ví điện tử
+  // Ví điện tử & Ngân hàng số (Thêm Timo và Viettel Money)
+  {
+    packageName: 'io.lifestyle.timo',
+    aliases: ['vn.timo.timo', 'com.timo.bank'],
+    name: 'Timo Digital Bank',
+    shortName: 'Timo',
+    icon: 'wallet',
+    color: '#6C3CE9',
+    category: 'wallet',
+  },
+  {
+    packageName: 'com.bplus.vtpay',
+    aliases: ['vn.viettelpay', 'com.viettel.viettelpay'],
+    name: 'Viettel Money',
+    shortName: 'Viettel Money',
+    icon: 'wallet',
+    color: '#EE0033',
+    category: 'wallet',
+  },
   { packageName: 'com.mservice.momotransfer', name: 'Ví MoMo', shortName: 'MoMo', icon: 'wallet', color: '#A50064', category: 'wallet' },
   { packageName: 'vn.com.vng.zalopay', name: 'Ví ZaloPay', shortName: 'ZaloPay', icon: 'wallet', color: '#008FE5', category: 'wallet' },
   { packageName: 'com.vnpay.vnpay', name: 'Ví VNPay', shortName: 'VNPay', icon: 'wallet', color: '#E11B22', category: 'wallet' },
@@ -106,9 +124,9 @@ export const SUPPORTED_APPS: SupportedApp[] = [
 ];
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  enabledPackages: SUPPORTED_APPS.map(a => a.packageName),
+  enabledPackages: SUPPORTED_APPS.flatMap((a) => [a.packageName, ...(a.aliases || [])]),
   duplicateWindowMinutes: 3,
   hardDuplicateWindowMinutes: 5,
   autoCategorizeEnabled: true,
+  updateHistory: [],
 };
-

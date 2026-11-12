@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { Platform } from 'react-native';
+import { AppState, AppStateStatus, Platform } from 'react-native';
+import * as Updates from 'expo-updates';
 import {
   Transaction,
   PendingTransaction,
@@ -8,11 +9,14 @@ import {
   AutoRule,
   AppSettings,
   TransactionType,
+  TransactionFilterState,
 } from '../models/types';
 import { StorageService } from '../services/storage';
 import { parseNotification } from '../services/parser';
 import { checkDeduplication } from '../services/deduplication';
 import { matchRule } from '../services/ruleMatcher';
+import { SUPPORTED_APPS } from '../constants/defaultData';
+import { getDefaultMonthStartDisplay, getDefaultTodayEndDisplay } from '../utils/formatters';
 import NotificationListener, { RawNotification } from '../../modules/notification-listener/src/NotificationListenerModule';
 
 interface AppContextValue {
@@ -25,8 +29,14 @@ interface AppContextValue {
   settings: AppSettings;
   isPermissionGranted: boolean;
 
+  // Shared Transaction Filter (used by Transactions screen & Statistics drill-down)
+  transactionFilter: TransactionFilterState;
+  setTransactionFilter: React.Dispatch<React.SetStateAction<TransactionFilterState>>;
+  resetTransactionFilter: () => void;
+
   // Actions
   refreshAllData: () => Promise<void>;
+  syncCachedNotifications: () => Promise<void>;
   checkPermission: () => Promise<boolean>;
   requestPermission: () => Promise<boolean>;
   classifyTransaction: (
@@ -76,16 +86,40 @@ interface AppContextValue {
 
   // Settings
   updateSettings: (newSettings: Partial<AppSettings>) => Promise<void>;
-
-  // Simulation
-  simulateNotification: (packageName: string, title: string, text: string) => Promise<{
-    status: 'added' | 'ignored_otp' | 'ignored_not_enabled' | 'hard_duplicate' | 'soft_duplicate_added';
-    message: string;
-    item?: PendingTransaction;
-  }>;
 }
 
+const DEFAULT_FILTER: TransactionFilterState = {
+  type: 'all',
+  categoryId: 'all',
+  source: 'all',
+  timeRange: 'all',
+  customStartDate: getDefaultMonthStartDisplay(),
+  customEndDate: getDefaultTodayEndDisplay(),
+  searchQuery: '',
+};
+
 const AppContext = createContext<AppContextValue | null>(null);
+
+function isPackageAllowed(packageName: string, enabledPackages: string[]): boolean {
+  const pkgLower = (packageName || '').toLowerCase();
+  if (!pkgLower) return false;
+
+  // Direct match
+  if (enabledPackages.some((p) => p.toLowerCase() === pkgLower)) {
+    return true;
+  }
+
+  // Match via SUPPORTED_APPS aliases
+  for (const app of SUPPORTED_APPS) {
+    const allAppPkgs = [app.packageName, ...(app.aliases || [])].map((x) => x.toLowerCase());
+    if (allAppPkgs.includes(pkgLower)) {
+      const isAppEnabled = enabledPackages.some((ep) => allAppPkgs.includes(ep.toLowerCase()));
+      if (isAppEnabled) return true;
+    }
+  }
+
+  return false;
+}
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
@@ -99,14 +133,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     duplicateWindowMinutes: 3,
     hardDuplicateWindowMinutes: 5,
     autoCategorizeEnabled: true,
+    updateHistory: [],
   });
   const [isPermissionGranted, setIsPermissionGranted] = useState(false);
+  const [transactionFilter, setTransactionFilter] = useState<TransactionFilterState>(DEFAULT_FILTER);
 
   // Refs to access latest state inside event listeners without re-subscribing
   const pendingRef = useRef(pendingTransactions);
   const txsRef = useRef(transactions);
   const settingsRef = useRef(settings);
   const rulesRef = useRef(rules);
+  const isSyncingRef = useRef(false);
+  const processedRawIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     pendingRef.current = pendingTransactions;
@@ -114,6 +152,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     settingsRef.current = settings;
     rulesRef.current = rules;
   }, [pendingTransactions, transactions, settings, rules]);
+
+  const resetTransactionFilter = useCallback(() => {
+    setTransactionFilter({
+      ...DEFAULT_FILTER,
+      customStartDate: getDefaultMonthStartDisplay(),
+      customEndDate: getDefaultTodayEndDisplay(),
+    });
+  }, []);
 
   // Load initial data
   const refreshAllData = useCallback(async () => {
@@ -127,6 +173,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         StorageService.getRules(),
         StorageService.getSettings(),
       ]);
+      pendingRef.current = pending;
+      txsRef.current = txs;
+      settingsRef.current = appSettings;
+      rulesRef.current = autoRules;
+
       setTransactions(txs);
       setPendingTransactions(pending);
       setCategories(cats);
@@ -145,6 +196,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const granted = NotificationListener.isPermissionGranted();
       setIsPermissionGranted(granted);
+      if (granted) {
+        NotificationListener.ensureServiceConnected();
+      }
       return granted;
     } catch {
       return false;
@@ -160,30 +214,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  // Process a raw notification
-  const handleIncomingNotification = useCallback(
-    async (
+  // Process a single raw notification into currentPending
+  const processSingleRawNotification = useCallback(
+    (
       raw: RawNotification,
       currentPending: PendingTransaction[],
       currentCompleted: Transaction[],
       currentSettings: AppSettings,
       currentRules: AutoRule[]
-    ) => {
+    ): { item?: PendingTransaction; status: string } => {
+      if (raw.id && processedRawIdsRef.current.has(raw.id)) {
+        return { status: 'already_processed' };
+      }
+
       // 1. Check if package is enabled in Settings
-      const isEnabled = currentSettings.enabledPackages.some(
-        (pkg) => pkg.toLowerCase() === raw.packageName.toLowerCase()
-      );
-      if (!isEnabled) {
-        return { status: 'ignored_not_enabled', message: 'Ứng dụng chưa được bật trong Cài đặt' };
+      if (!isPackageAllowed(raw.packageName, currentSettings.enabledPackages)) {
+        return { status: 'ignored_not_enabled' };
       }
 
       // 2. Parse text & amount
-      const parsed = parseNotification(raw.packageName, raw.title, raw.text);
+      const parsed = parseNotification(raw.packageName, raw.title || '', raw.text || '');
       if (!parsed.isValidTransaction) {
-        return { status: 'ignored_otp', message: parsed.ignoreReason || 'Không phải giao dịch hợp lệ' };
+        if (raw.id) processedRawIdsRef.current.add(raw.id);
+        return { status: 'ignored_otp' };
       }
 
-      // 3. Check 2-Layer Deduplication
+      if (raw.id) {
+        processedRawIdsRef.current.add(raw.id);
+      }
+
+      // 3. Check Deduplication (must match same bank + amount + type)
       const dedupResult = checkDeduplication(
         {
           amount: parsed.amount,
@@ -191,7 +251,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           rawContent: parsed.rawContent,
           referenceCode: parsed.referenceCode,
           balanceAfter: parsed.balanceAfter,
-          timestamp: raw.timestamp || Date.now(),
+          timestamp: Number(raw.timestamp) || Date.now(),
           source: parsed.source,
         },
         currentPending,
@@ -200,12 +260,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentSettings.duplicateWindowMinutes || 3
       );
 
-      // Layer 1: Hard Duplicate -> Skip 100%
       if (dedupResult.isHardDuplicate) {
-        return {
-          status: 'hard_duplicate',
-          message: dedupResult.duplicateReason || 'Trùng lặp hoàn toàn với giao dịch trước',
-        };
+        return { status: 'hard_duplicate' };
       }
 
       // 4. Auto-Rule Suggestion
@@ -222,7 +278,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      // 5. Create Pending Transaction Item
       const newPending: PendingTransaction = {
         id: `pending_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         amount: parsed.amount,
@@ -232,7 +287,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         rawContent: parsed.rawContent,
         referenceCode: parsed.referenceCode,
         balanceAfter: parsed.balanceAfter,
-        timestamp: raw.timestamp || Date.now(),
+        timestamp: Number(raw.timestamp) || Date.now(),
         suggestedCategoryId,
         suggestedCategoryName,
         suggestedNote,
@@ -241,20 +296,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         duplicateReferenceId: dedupResult.duplicateReferenceId,
       };
 
-      const updatedPending = [newPending, ...currentPending];
-      setPendingTransactions(updatedPending);
-      await StorageService.savePendingTransactions(updatedPending);
-
       return {
         status: dedupResult.isSoftDuplicate ? 'soft_duplicate_added' : 'added',
-        message: dedupResult.isSoftDuplicate ? 'Đã thêm (Cảnh báo nghi trùng)' : 'Đã thêm vào Hàng chờ',
         item: newPending,
       };
     },
     []
   );
 
-  // Initial load
+  // Pull & process all cached notifications from Android native SharedPreferences & status bar
+  const syncCachedNotifications = useCallback(async () => {
+    if (Platform.OS !== 'android') return;
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+
+    try {
+      const granted = NotificationListener.isPermissionGranted();
+      setIsPermissionGranted(granted);
+      if (!granted) return;
+
+      const cached = NotificationListener.getCachedNotifications();
+      if (!cached || cached.length === 0) return;
+
+      // Sort oldest to newest so deduplication checks in chronological order
+      const sorted = [...cached].sort(
+        (a, b) => (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0)
+      );
+
+      let curPending = [...pendingRef.current];
+      const curCompleted = txsRef.current;
+      const curSettings = settingsRef.current;
+      const curRules = rulesRef.current;
+      let addedAny = false;
+
+      for (const rawItem of sorted) {
+        const res = processSingleRawNotification(
+          rawItem,
+          curPending,
+          curCompleted,
+          curSettings,
+          curRules
+        );
+        if (res.item) {
+          curPending = [res.item, ...curPending];
+          addedAny = true;
+        }
+      }
+
+      // Clear native buffer after processing
+      NotificationListener.clearCachedNotifications();
+
+      if (addedAny) {
+        pendingRef.current = curPending;
+        setPendingTransactions(curPending);
+        await StorageService.savePendingTransactions(curPending);
+      }
+    } catch (e) {
+      console.error('Error syncing cached notifications:', e);
+    } finally {
+      isSyncingRef.current = false;
+    }
+  }, [processSingleRawNotification]);
+
+  // Initial load + AppState listener + Periodic sync
   useEffect(() => {
     let isMounted = true;
 
@@ -269,6 +373,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           StorageService.getRules(),
           StorageService.getSettings(),
         ]);
+
+        // Record current EAS Update in history if running an OTA update not yet logged
+        if (Updates.updateId) {
+          const history = appSettings.updateHistory || [];
+          const exists = history.some((h) => h.updateId === Updates.updateId);
+          if (!exists) {
+            const newEntry = {
+              id: `upd_${Date.now()}`,
+              updateId: Updates.updateId,
+              channel: Updates.channel || 'preview',
+              runtimeVersion: Updates.runtimeVersion || '1.0.0',
+              appliedAt: (Updates.createdAt ? Updates.createdAt.toISOString() : new Date().toISOString()),
+              note: 'Bản cập nhật OTA (EAS Update)',
+            };
+            appSettings.updateHistory = [newEntry, ...history].slice(0, 20);
+            await StorageService.saveSettings(appSettings);
+          }
+        }
+
+        pendingRef.current = pending;
+        txsRef.current = txs;
+        settingsRef.current = appSettings;
+        rulesRef.current = autoRules;
+
         if (isMounted) {
           setTransactions(txs);
           setPendingTransactions(pending);
@@ -280,21 +408,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         if (Platform.OS === 'android') {
-          const granted = NotificationListener.isPermissionGranted();
-          if (isMounted) setIsPermissionGranted(granted);
-
-          // Process cached notifications
-          const cached = NotificationListener.getCachedNotifications();
-          if (cached && cached.length > 0) {
-            let curPending = [...pending];
-            for (const item of cached) {
-              const res = await handleIncomingNotification(item, curPending, txs, appSettings, autoRules);
-              if (res.item) {
-                curPending = [res.item, ...curPending];
-              }
-            }
-            NotificationListener.clearCachedNotifications();
-          }
+          await syncCachedNotifications();
         }
       } catch (e) {
         console.error('Initialization error:', e);
@@ -305,45 +419,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     initialize();
 
     if (Platform.OS === 'android') {
-      const subscription = NotificationListener.addListener('onNotificationReceived', (event: RawNotification) => {
-        handleIncomingNotification(
-          event,
-          pendingRef.current,
-          txsRef.current,
-          settingsRef.current,
-          rulesRef.current
-        );
-      });
+      // 1. Live event listener when notification arrives while JS is active
+      const notifSubscription = NotificationListener.addListener(
+        'onNotificationReceived',
+        () => {
+          // Immediately sync from SharedPreferences buffer so both background and foreground share one atomic path
+          syncCachedNotifications();
+        }
+      );
+
+      // 2. AppState listener: whenever user reopens app from background/recents, sync immediately
+      const appStateSubscription = AppState.addEventListener(
+        'change',
+        (nextState: AppStateStatus) => {
+          if (nextState === 'active') {
+            NotificationListener.ensureServiceConnected();
+            syncCachedNotifications();
+          }
+        }
+      );
+
+      // 3. Periodic check while app is open
+      const intervalId = setInterval(() => {
+        if (AppState.currentState === 'active') {
+          syncCachedNotifications();
+        }
+      }, 4000);
 
       return () => {
         isMounted = false;
-        subscription.remove();
+        notifSubscription.remove();
+        appStateSubscription.remove();
+        clearInterval(intervalId);
       };
     }
 
     return () => {
       isMounted = false;
     };
-  }, [handleIncomingNotification]);
-
-  // Simulate notification (for testing)
-  const simulateNotification = async (packageName: string, title: string, text: string) => {
-    const raw: RawNotification = {
-      id: `sim_${Date.now()}`,
-      packageName,
-      title,
-      text,
-      timestamp: Date.now(),
-    };
-    const res = await handleIncomingNotification(
-      raw,
-      pendingTransactions,
-      transactions,
-      settings,
-      rules
-    );
-    return res as any;
-  };
+  }, [syncCachedNotifications]);
 
   // Classify single transaction
   const classifyTransaction = async (
@@ -424,6 +538,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updatedCompleted = [completedTx, ...transactions];
     const updatedPending = pendingTransactions.filter((p) => p.id !== pendingId);
 
+    txsRef.current = updatedCompleted;
+    pendingRef.current = updatedPending;
     setTransactions(updatedCompleted);
     setPendingTransactions(updatedPending);
 
@@ -465,6 +581,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updatedCompleted = [...newTransactions, ...transactions];
     const updatedPending = pendingTransactions.filter((p) => !pendingIds.includes(p.id));
 
+    txsRef.current = updatedCompleted;
+    pendingRef.current = updatedPending;
     setTransactions(updatedCompleted);
     setPendingTransactions(updatedPending);
 
@@ -475,6 +593,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Delete single pending
   const deletePending = async (id: string) => {
     const updated = pendingTransactions.filter((p) => p.id !== id);
+    pendingRef.current = updated;
     setPendingTransactions(updated);
     await StorageService.savePendingTransactions(updated);
   };
@@ -482,6 +601,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Batch delete pending
   const batchDeletePending = async (ids: string[]) => {
     const updated = pendingTransactions.filter((p) => !ids.includes(p.id));
+    pendingRef.current = updated;
     setPendingTransactions(updated);
     await StorageService.savePendingTransactions(updated);
   };
@@ -511,6 +631,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const updated = [tx, ...transactions];
+    txsRef.current = updated;
     setTransactions(updated);
     await StorageService.saveTransactions(updated);
   };
@@ -518,6 +639,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Update existing transaction
   const updateTransaction = async (tx: Transaction) => {
     const updated = transactions.map((t) => (t.id === tx.id ? tx : t));
+    txsRef.current = updated;
     setTransactions(updated);
     await StorageService.saveTransactions(updated);
   };
@@ -525,6 +647,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Delete transaction
   const deleteTransaction = async (id: string) => {
     const updated = transactions.filter((t) => t.id !== id);
+    txsRef.current = updated;
     setTransactions(updated);
     await StorageService.saveTransactions(updated);
   };
@@ -575,6 +698,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addRule = async (rule: Omit<AutoRule, 'id'>) => {
     const newRule: AutoRule = { ...rule, id: `rule_${Date.now()}` };
     const updated = [...rules, newRule];
+    rulesRef.current = updated;
     setRules(updated);
     await StorageService.saveRules(updated);
     return newRule;
@@ -582,12 +706,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateRule = async (rule: AutoRule) => {
     const updated = rules.map((r) => (r.id === rule.id ? rule : r));
+    rulesRef.current = updated;
     setRules(updated);
     await StorageService.saveRules(updated);
   };
 
   const deleteRule = async (id: string) => {
     const updated = rules.filter((r) => r.id !== id);
+    rulesRef.current = updated;
     setRules(updated);
     await StorageService.saveRules(updated);
   };
@@ -595,6 +721,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Settings
   const updateSettings = async (newSettings: Partial<AppSettings>) => {
     const merged = { ...settings, ...newSettings };
+    settingsRef.current = merged;
     setSettings(merged);
     await StorageService.saveSettings(merged);
   };
@@ -610,7 +737,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         rules,
         settings,
         isPermissionGranted,
+        transactionFilter,
+        setTransactionFilter,
+        resetTransactionFilter,
         refreshAllData,
+        syncCachedNotifications,
         checkPermission,
         requestPermission,
         classifyTransaction,
@@ -630,7 +761,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateRule,
         deleteRule,
         updateSettings,
-        simulateNotification,
       }}
     >
       {children}

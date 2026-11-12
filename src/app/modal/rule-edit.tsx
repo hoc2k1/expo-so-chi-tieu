@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../contexts/AppContext';
 import { AutoRule } from '../../models/types';
@@ -54,8 +55,9 @@ export default function RuleEditModal() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Intro */}
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        {/* Intro */}
       <View style={styles.introBox}>
         <Ionicons name="sparkles" size={18} color="#F59E0B" />
         <Text style={styles.introText}>
@@ -126,7 +128,8 @@ export default function RuleEditModal() {
           </View>
         ))}
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../contexts/AppContext';
 import { SavedNote } from '../../models/types';
@@ -44,7 +45,8 @@ export default function NoteEditModal() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Add note section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>+ Thêm Ghi chú mẫu mới</Text>
@@ -107,7 +109,8 @@ export default function NoteEditModal() {
           );
         })}
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

@@ -61,7 +61,7 @@ export function parseNotification(
 
   // 4. Extract Balance After (Số dư / SD)
   let balanceAfter: number | undefined;
-  const balanceMatch = fullText.match(/(?:sd|số dư|so du|số dư cuối|so du cuoi)[:\s]*([0-9]{1,3}(?:[.,][0-9]{3})+|[0-9]{4,})\s*(?:vnd|vnđ|đ)?/i);
+  const balanceMatch = fullText.match(/(?:sd|số dư|so du|số dư cuối|so du cuoi|số dư khả dụng)[:\s]*([0-9]{1,3}(?:[.,][0-9]{3})+|[0-9]{4,})\s*(?:vnd|vnđ|đ)?/i);
   if (balanceMatch && balanceMatch[1]) {
     balanceAfter = cleanNumber(balanceMatch[1]);
   }
@@ -81,17 +81,15 @@ export function parseNotification(
     // If not explicitly signed with +/-:
     // Check keywords for income: cộng, nhận, nạp tiền vào, tăng, hoàn tiền
     const isIncome = /(?:cộng|nhận|nhận tiền|vào tk|tiền vào|hoàn tiền|tăng)/i.test(fullText) &&
-      !/(?:thanh toán|trừ|chuyển đi|rút tiền)/i.test(fullText);
+      !/(?:thanh toán|trừ|chuyển đi|rút tiền|giảm)/i.test(fullText);
 
     // Regex to match amount, excluding balance if possible
-    // Match something like "50,000 VND" or "50.000đ"
-    const amountRegex = /(?:gd|số tiền|so tien|thanh toán|chuyển|nhận|rút)?[:\s]*([0-9]{1,3}(?:[.,][0-9]{3})+|[0-9]{4,})\s*(?:vnd|vnđ|đ)/gi;
+    const amountRegex = /(?:gd|số tiền|so tien|thanh toán|chuyển|nhận|rút|tăng|giảm)?[:\s]*([0-9]{1,3}(?:[.,][0-9]{3})+|[0-9]{4,})\s*(?:vnd|vnđ|đ)/gi;
     let match: RegExpExecArray | null;
     const candidates: number[] = [];
 
     while ((match = amountRegex.exec(fullText)) !== null) {
       const val = cleanNumber(match[1]);
-      // If it's the balance, skip it
       if (balanceAfter && val === balanceAfter) continue;
       candidates.push(val);
     }
@@ -100,7 +98,6 @@ export function parseNotification(
       amount = candidates[0];
       type = isIncome ? 'income' : 'expense';
     } else {
-      // General number fallback
       const genericMatch = fullText.match(/([0-9]{1,3}(?:[.,][0-9]{3})+)\s*(?:vnd|vnđ|đ)?/i);
       if (genericMatch) {
         amount = cleanNumber(genericMatch[1]);
@@ -134,35 +131,40 @@ export function parseNotification(
 
 function cleanNumber(str: string): number {
   if (!str) return 0;
-  // Remove all commas, dots, spaces
   const cleaned = str.replace(/[.,\s]/g, '');
   const num = parseInt(cleaned, 10);
   return isNaN(num) ? 0 : num;
 }
 
 export function getAppFriendlyName(packageName: string, fullText?: string): string {
+  const pkgLower = packageName.toLowerCase();
   const found = SUPPORTED_APPS.find(
-    (app) => app.packageName.toLowerCase() === packageName.toLowerCase()
+    (app) =>
+      app.packageName.toLowerCase() === pkgLower ||
+      (app.aliases && app.aliases.some((alias) => alias.toLowerCase() === pkgLower))
   );
   if (found) {
-    // If it's Gmail or SMS, check if bank name is mentioned in text
     if (found.category === 'email_sms' && fullText) {
       const lower = fullText.toLowerCase();
-      if (lower.includes('vietcombank') || lower.includes('vcb')) return 'Vietcombank (qua ' + found.shortName + ')';
-      if (lower.includes('mbbank') || lower.includes('mb bank')) return 'MB Bank (qua ' + found.shortName + ')';
-      if (lower.includes('techcombank') || lower.includes('tcb')) return 'Techcombank (qua ' + found.shortName + ')';
-      if (lower.includes('bidv')) return 'BIDV (qua ' + found.shortName + ')';
-      if (lower.includes('vietinbank')) return 'VietinBank (qua ' + found.shortName + ')';
-      if (lower.includes('acb')) return 'ACB (qua ' + found.shortName + ')';
-      if (lower.includes('tpbank')) return 'TPBank (qua ' + found.shortName + ')';
-      if (lower.includes('vpbank')) return 'VPBank (qua ' + found.shortName + ')';
-      if (lower.includes('momo')) return 'MoMo (qua ' + found.shortName + ')';
-      if (lower.includes('zalopay')) return 'ZaloPay (qua ' + found.shortName + ')';
+      if (lower.includes('vietcombank') || lower.includes('vcb')) return 'Vietcombank (VCB Digibank)';
+      if (lower.includes('mbbank') || lower.includes('mb bank') || /\bmb\b/.test(lower)) return 'MB Bank (Quân Đội)';
+      if (lower.includes('techcombank') || lower.includes('tcb')) return 'Techcombank Mobile';
+      if (lower.includes('bidv')) return 'BIDV SmartBanking';
+      if (lower.includes('vietinbank')) return 'VietinBank iPay';
+      if (lower.includes('acb')) return 'ACB ONE';
+      if (lower.includes('tpbank')) return 'TPBank Mobile';
+      if (lower.includes('vpbank')) return 'VPBank NEO';
+      if (lower.includes('timo')) return 'Timo Digital Bank';
+      if (lower.includes('viettel money') || lower.includes('viettelpay')) return 'Viettel Money';
+      if (lower.includes('momo')) return 'Ví MoMo';
+      if (lower.includes('zalopay')) return 'Ví ZaloPay';
     }
     return found.name;
   }
 
-  // Fallback to beautifying package name
+  if (pkgLower.includes('timo')) return 'Timo Digital Bank';
+  if (pkgLower.includes('vtpay') || pkgLower.includes('viettel')) return 'Viettel Money';
+
   const parts = packageName.split('.');
   const lastPart = parts[parts.length - 1] || packageName;
   return lastPart.charAt(0).toUpperCase() + lastPart.slice(1);

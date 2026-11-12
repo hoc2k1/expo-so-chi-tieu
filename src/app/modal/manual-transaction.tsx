@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useApp } from '../../contexts/AppContext';
@@ -50,130 +51,152 @@ export default function ManualTransactionModal() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Amount Input */}
-      <View style={styles.section}>
-        <Text style={styles.label}>Số tiền (VND)</Text>
-        <TextInput
-          style={styles.amountInput}
-          keyboardType="numeric"
-          placeholder="VD: 50000"
-          placeholderTextColor="#64748B"
-          value={amountStr}
-          onChangeText={setAmountStr}
-        />
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        {/* Amount Input */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Số tiền (VND)</Text>
+          <TextInput
+            style={styles.amountInput}
+            keyboardType="numeric"
+            placeholder="VD: 50000"
+            placeholderTextColor="#64748B"
+            value={amountStr}
+            onChangeText={setAmountStr}
+          />
 
-        <View style={styles.typeRow}>
-          <TouchableOpacity
-            style={[
-              styles.typeBtn,
-              txType === 'expense' && styles.typeBtnActiveExpense,
-            ]}
-            onPress={() => {
-              setTxType('expense');
-              setSelectedCatId('');
-              setSelectedCatName('');
-            }}
-          >
-            <Text
-              style={[
-                styles.typeBtnText,
-                txType === 'expense' && styles.typeBtnTextActive,
-              ]}
-            >
-              Chi tiêu (-)
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.typeBtn,
-              txType === 'income' && styles.typeBtnActiveIncome,
-            ]}
-            onPress={() => {
-              setTxType('income');
-              setSelectedCatId('');
-              setSelectedCatName('');
-            }}
-          >
-            <Text
-              style={[
-                styles.typeBtnText,
-                txType === 'income' && styles.typeBtnTextActive,
-              ]}
-            >
-              Thu nhập (+)
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Category Selection */}
-      <View style={styles.section}>
-        <Text style={styles.label}>Chọn Phân loại</Text>
-        <View style={styles.catGrid}>
-          {filteredCategories.map((cat) => {
-            const isSelected = selectedCatId === cat.id;
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                style={[
-                  styles.catItem,
-                  isSelected && { borderColor: cat.color, backgroundColor: `${cat.color}25` },
-                ]}
-                onPress={() => {
-                  setSelectedCatId(cat.id);
-                  setSelectedCatName(cat.name);
-                }}
-              >
-                <Ionicons name={cat.icon as any} size={18} color={cat.color} />
-                <Text
-                  style={[
-                    styles.catName,
-                    isSelected && { color: '#FFFFFF', fontWeight: '700' },
-                  ]}
-                >
-                  {cat.name}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* Note */}
-      <View style={styles.section}>
-        <Text style={styles.label}>Ghi chú & Nguồn tiền</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Nội dung ghi chú..."
-          placeholderTextColor="#64748B"
-          value={noteText}
-          onChangeText={setNoteText}
-        />
-
-        <Text style={[styles.subLabel, { marginTop: 10 }]}>Hình thức thanh toán / Nguồn:</Text>
-        <View style={styles.sourcePills}>
-          {['Tiền mặt', 'Ví Momo', 'VCB', 'MB Bank', 'Chuyển khoản'].map((s) => (
+          <View style={styles.typeRow}>
             <TouchableOpacity
-              key={s}
-              style={[styles.sourcePill, sourceName === s && styles.sourcePillActive]}
-              onPress={() => setSourceName(s)}
+              style={[
+                styles.typeBtn,
+                txType === 'expense' && styles.typeBtnActiveExpense,
+              ]}
+              onPress={() => {
+                setTxType('expense');
+                setSelectedCatId('');
+                setSelectedCatName('');
+              }}
             >
-              <Text style={[styles.sourcePillText, sourceName === s && styles.sourcePillTextActive]}>
-                {s}
+              <Text
+                style={[
+                  styles.typeBtnText,
+                  txType === 'expense' && styles.typeBtnTextActive,
+                ]}
+              >
+                Chi tiêu (-)
               </Text>
             </TouchableOpacity>
-          ))}
-        </View>
-      </View>
 
-      {/* Submit Button */}
-      <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-        <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-        <Text style={styles.saveBtnText}>Lưu giao dịch</Text>
-      </TouchableOpacity>
-    </ScrollView>
+            <TouchableOpacity
+              style={[
+                styles.typeBtn,
+                txType === 'income' && styles.typeBtnActiveIncome,
+              ]}
+              onPress={() => {
+                setTxType('income');
+                setSelectedCatId('');
+                setSelectedCatName('');
+              }}
+            >
+              <Text
+                style={[
+                  styles.typeBtnText,
+                  txType === 'income' && styles.typeBtnTextActive,
+                ]}
+              >
+                Thu nhập (+)
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Category Selection */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Chọn Phân loại</Text>
+          <View style={styles.catGrid}>
+            {filteredCategories.map((cat) => {
+              const isSelected = selectedCatId === cat.id;
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[
+                    styles.catItem,
+                    isSelected && {
+                      borderColor: cat.color,
+                      backgroundColor: `${cat.color}25`,
+                    },
+                  ]}
+                  onPress={() => {
+                    setSelectedCatId(cat.id);
+                    setSelectedCatName(cat.name);
+                  }}
+                >
+                  <Ionicons name={cat.icon as any} size={18} color={cat.color} />
+                  <Text
+                    style={[
+                      styles.catName,
+                      isSelected && { color: '#FFFFFF', fontWeight: '700' },
+                    ]}
+                  >
+                    {cat.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Note */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Ghi chú & Nguồn tiền</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Nội dung ghi chú..."
+            placeholderTextColor="#64748B"
+            value={noteText}
+            onChangeText={setNoteText}
+          />
+
+          <Text style={[styles.subLabel, { marginTop: 10 }]}>
+            Hình thức thanh toán / Nguồn:
+          </Text>
+          <View style={styles.sourcePills}>
+            {[
+              'Tiền mặt',
+              'Timo Digital Bank',
+              'Viettel Money',
+              'Ví MoMo',
+              'Vietcombank (VCB Digibank)',
+              'MB Bank (Quân Đội)',
+            ].map((s) => (
+              <TouchableOpacity
+                key={s}
+                style={[
+                  styles.sourcePill,
+                  sourceName === s && styles.sourcePillActive,
+                ]}
+                onPress={() => setSourceName(s)}
+              >
+                <Text
+                  style={[
+                    styles.sourcePillText,
+                    sourceName === s && styles.sourcePillTextActive,
+                  ]}
+                >
+                  {s}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Submit Button */}
+        <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+          <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+          <Text style={styles.saveBtnText}>Lưu giao dịch</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -181,6 +204,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0F172A',
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
     padding: 16,
