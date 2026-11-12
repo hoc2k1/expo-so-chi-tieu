@@ -1,0 +1,114 @@
+import { Category, SavedNote, AutoRule, SupportedApp, AppSettings } from '../models/types';
+
+export const DEFAULT_CATEGORIES: Category[] = [
+  // Chi tiêu
+  { id: 'cat_food', name: 'Ăn uống', type: 'expense', icon: 'restaurant', color: '#EF4444' },
+  { id: 'cat_transport', name: 'Di chuyển', type: 'expense', icon: 'car', color: '#F97316' },
+  { id: 'cat_shopping', name: 'Mua sắm', type: 'expense', icon: 'cart', color: '#EC4899' },
+  { id: 'cat_bills', name: 'Hóa đơn & Tiện ích', type: 'expense', icon: 'flash', color: '#F59E0B' },
+  { id: 'cat_house', name: 'Tiền nhà', type: 'expense', icon: 'home', color: '#8B5CF6' },
+  { id: 'cat_entertainment', name: 'Giải trí & Du lịch', type: 'expense', icon: 'film', color: '#06B6D4' },
+  { id: 'cat_health', name: 'Y tế & Sức khỏe', type: 'expense', icon: 'medkit', color: '#10B981' },
+  { id: 'cat_education', name: 'Học tập & Sách', type: 'expense', icon: 'book', color: '#3B82F6' },
+  { id: 'cat_other_expense', name: 'Chi tiêu khác', type: 'expense', icon: 'ellipsis-horizontal-circle', color: '#64748B' },
+
+  // Thu nhập
+  { id: 'cat_salary', name: 'Lương', type: 'income', icon: 'cash', color: '#10B981' },
+  { id: 'cat_bonus', name: 'Thưởng', type: 'income', icon: 'gift', color: '#14B8A6' },
+  { id: 'cat_investment', name: 'Đầu tư / Lãi', type: 'income', icon: 'trending-up', color: '#3B82F6' },
+  { id: 'cat_other_income', name: 'Thu nhập khác', type: 'income', icon: 'wallet', color: '#8B5CF6' },
+];
+
+export const DEFAULT_NOTES: SavedNote[] = [
+  // Ăn uống
+  { id: 'note_1', text: 'Ăn sáng', categoryId: 'cat_food' },
+  { id: 'note_2', text: 'Ăn trưa', categoryId: 'cat_food' },
+  { id: 'note_3', text: 'Ăn tối', categoryId: 'cat_food' },
+  { id: 'note_4', text: 'Cà phê / Trà sữa', categoryId: 'cat_food' },
+  { id: 'note_5', text: 'Đi chợ / Siêu thị', categoryId: 'cat_food' },
+  { id: 'note_6', text: 'Ăn nhậu / Liên hoan', categoryId: 'cat_food' },
+
+  // Di chuyển
+  { id: 'note_7', text: 'Đổ xăng', categoryId: 'cat_transport' },
+  { id: 'note_8', text: 'Grab / Be / Taxi', categoryId: 'cat_transport' },
+  { id: 'note_9', text: 'Gửi xe', categoryId: 'cat_transport' },
+  { id: 'note_10', text: 'Bảo dưỡng / Rửa xe', categoryId: 'cat_transport' },
+
+  // Mua sắm
+  { id: 'note_11', text: 'Mua sắm Shopee / TikTok Shop', categoryId: 'cat_shopping' },
+  { id: 'note_12', text: 'Quần áo & Giày dép', categoryId: 'cat_shopping' },
+  { id: 'note_13', text: 'Đồ gia dụng', categoryId: 'cat_shopping' },
+
+  // Hóa đơn
+  { id: 'note_14', text: 'Tiền điện', categoryId: 'cat_bills' },
+  { id: 'note_15', text: 'Tiền nước', categoryId: 'cat_bills' },
+  { id: 'note_16', text: 'Internet / WiFi', categoryId: 'cat_bills' },
+  { id: 'note_17', text: 'Nạp tiền điện thoại', categoryId: 'cat_bills' },
+
+  // Giải trí
+  { id: 'note_18', text: 'Xem phim rạp', categoryId: 'cat_entertainment' },
+  { id: 'note_19', text: 'Netflix / Spotify / Youtube', categoryId: 'cat_entertainment' },
+
+  // Thu nhập
+  { id: 'note_20', text: 'Lương tháng công ty', categoryId: 'cat_salary' },
+  { id: 'note_21', text: 'Thưởng dự án / KPI', categoryId: 'cat_bonus' },
+
+  // Chung
+  { id: 'note_22', text: 'Chuyển khoản thanh toán' },
+  { id: 'note_23', text: 'Chi tiêu sinh hoạt' },
+];
+
+export const DEFAULT_RULES: AutoRule[] = [
+  { id: 'rule_grab', keyword: 'GRAB', categoryId: 'cat_transport', categoryName: 'Di chuyển', note: 'Grab' },
+  { id: 'rule_be', keyword: 'BE GROUP', categoryId: 'cat_transport', categoryName: 'Di chuyển', note: 'Be' },
+  { id: 'rule_xang', keyword: 'PETROLIMEX', categoryId: 'cat_transport', categoryName: 'Di chuyển', note: 'Đổ xăng' },
+  { id: 'rule_shopee', keyword: 'SHOPEE', categoryId: 'cat_shopping', categoryName: 'Mua sắm', note: 'Mua sắm Shopee' },
+  { id: 'rule_tiktok', keyword: 'TIKTOK', categoryId: 'cat_shopping', categoryName: 'Mua sắm', note: 'TikTok Shop' },
+  { id: 'rule_tiki', keyword: 'TIKI', categoryId: 'cat_shopping', categoryName: 'Mua sắm', note: 'Tiki' },
+  { id: 'rule_highlands', keyword: 'HIGHLANDS', categoryId: 'cat_food', categoryName: 'Ăn uống', note: 'Highlands Coffee' },
+  { id: 'rule_phuclong', keyword: 'PHUC LONG', categoryId: 'cat_food', categoryName: 'Ăn uống', note: 'Phúc Long' },
+  { id: 'rule_thecoffeehouse', keyword: 'THE COFFEE HOUSE', categoryId: 'cat_food', categoryName: 'Ăn uống', note: 'The Coffee House' },
+  { id: 'rule_winmart', keyword: 'WINMART', categoryId: 'cat_food', categoryName: 'Ăn uống', note: 'Đi chợ WinMart' },
+  { id: 'rule_bachhoaxanh', keyword: 'BACH HOA XANH', categoryId: 'cat_food', categoryName: 'Ăn uống', note: 'Bách Hóa Xanh' },
+  { id: 'rule_dien', keyword: 'TIEN DIEN', categoryId: 'cat_bills', categoryName: 'Hóa đơn & Tiện ích', note: 'Tiền điện' },
+  { id: 'rule_nuoc', keyword: 'TIEN NUOC', categoryId: 'cat_bills', categoryName: 'Hóa đơn & Tiện ích', note: 'Tiền nước' },
+  { id: 'rule_viettel', keyword: 'VIETTEL', categoryId: 'cat_bills', categoryName: 'Hóa đơn & Tiện ích', note: 'Cước Viettel' },
+  { id: 'rule_netflix', keyword: 'NETFLIX', categoryId: 'cat_entertainment', categoryName: 'Giải trí & Du lịch', note: 'Netflix' },
+  { id: 'rule_spotify', keyword: 'SPOTIFY', categoryId: 'cat_entertainment', categoryName: 'Giải trí & Du lịch', note: 'Spotify' },
+  { id: 'rule_luong', keyword: 'LUONG', categoryId: 'cat_salary', categoryName: 'Lương', note: 'Lương' },
+  { id: 'rule_thuong', keyword: 'THUONG', categoryId: 'cat_bonus', categoryName: 'Thưởng', note: 'Thưởng' },
+];
+
+export const SUPPORTED_APPS: SupportedApp[] = [
+  // Ngân hàng
+  { packageName: 'com.VCB', name: 'Vietcombank (VCB Digibank)', shortName: 'VCB', icon: 'business', color: '#005A36', category: 'bank' },
+  { packageName: 'com.mbmobile', name: 'MB Bank (Quân Đội)', shortName: 'MB', icon: 'business', color: '#0C2074', category: 'bank' },
+  { packageName: 'vn.com.techcombank.bb.app', name: 'Techcombank Mobile', shortName: 'TCB', icon: 'business', color: '#E31B23', category: 'bank' },
+  { packageName: 'com.vnpay.bidv', name: 'BIDV SmartBanking', shortName: 'BIDV', icon: 'business', color: '#015B7E', category: 'bank' },
+  { packageName: 'com.vietinbank.ipay', name: 'VietinBank iPay', shortName: 'VietinBank', icon: 'business', color: '#0054A6', category: 'bank' },
+  { packageName: 'mobile.acb.com.vn', name: 'ACB ONE', shortName: 'ACB', icon: 'business', color: '#0072BC', category: 'bank' },
+  { packageName: 'com.tpb.mb.gprsandroid', name: 'TPBank Mobile', shortName: 'TPBank', icon: 'business', color: '#8B2188', category: 'bank' },
+  { packageName: 'com.vnpay.vpbankonline', name: 'VPBank NEO', shortName: 'VPBank', icon: 'business', color: '#00904B', category: 'bank' },
+  { packageName: 'com.sacombank.mplus', name: 'Sacombank Pay', shortName: 'Sacombank', icon: 'business', color: '#00539F', category: 'bank' },
+  { packageName: 'com.vnpay.Agribank', name: 'Agribank E-Mobile Banking', shortName: 'Agribank', icon: 'business', color: '#7E122A', category: 'bank' },
+  { packageName: 'com.msb.smartBanking', name: 'MSB mBank', shortName: 'MSB', icon: 'business', color: '#E86624', category: 'bank' },
+
+  // Ví điện tử
+  { packageName: 'com.mservice.momotransfer', name: 'Ví MoMo', shortName: 'MoMo', icon: 'wallet', color: '#A50064', category: 'wallet' },
+  { packageName: 'vn.com.vng.zalopay', name: 'Ví ZaloPay', shortName: 'ZaloPay', icon: 'wallet', color: '#008FE5', category: 'wallet' },
+  { packageName: 'com.vnpay.vnpay', name: 'Ví VNPay', shortName: 'VNPay', icon: 'wallet', color: '#E11B22', category: 'wallet' },
+  { packageName: 'com.airpay', name: 'Ví ShopeePay', shortName: 'ShopeePay', icon: 'wallet', color: '#EE4D2D', category: 'wallet' },
+
+  // Email & SMS
+  { packageName: 'com.google.android.gm', name: 'Gmail (Biến động qua email)', shortName: 'Gmail', icon: 'mail', color: '#EA4335', category: 'email_sms' },
+  { packageName: 'com.google.android.apps.messaging', name: 'Tin nhắn SMS (Google Messages)', shortName: 'SMS', icon: 'chatbubbles', color: '#1A73E8', category: 'email_sms' },
+  { packageName: 'com.samsung.android.messaging', name: 'Tin nhắn Samsung SMS', shortName: 'Samsung SMS', icon: 'chatbubbles', color: '#0381FE', category: 'email_sms' },
+];
+
+export const DEFAULT_SETTINGS: AppSettings = {
+  enabledPackages: SUPPORTED_APPS.map(a => a.packageName),
+  duplicateWindowMinutes: 3,
+  hardDuplicateWindowMinutes: 5,
+  autoCategorizeEnabled: true,
+};
+
