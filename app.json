@@ -20,7 +20,8 @@
       },
       "permissions": [
         "POST_NOTIFICATIONS",
-        "RECEIVE_BOOT_COMPLETED"
+        "RECEIVE_BOOT_COMPLETED",
+        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
       ],
       "predictiveBackGestureEnabled": false
     },

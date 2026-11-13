@@ -10,11 +10,26 @@ export default {
   ensureServiceConnected(): boolean {
     return false;
   },
+  forceScanStatusBar(): boolean {
+    return false;
+  },
+  setEnabledPackages(_packages: string[]): boolean {
+    return true;
+  },
   getCachedNotifications(): RawNotification[] {
     return [];
   },
+  removeCachedNotificationsByIds(_ids: string[]): boolean {
+    return true;
+  },
   clearCachedNotifications(): boolean {
     return true;
+  },
+  isBatteryOptimizationIgnored(): boolean {
+    return true;
+  },
+  requestIgnoreBatteryOptimization(): boolean {
+    return false;
   },
   addListener(
     _eventName: 'onNotificationReceived',

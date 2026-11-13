@@ -30,7 +30,9 @@ export default function SettingsScreen() {
     transactions,
     refreshAllData,
     isPermissionGranted,
+    isBatteryOptimizationIgnored,
     requestPermission,
+    requestIgnoreBatteryOptimization,
   } = useApp();
 
   const [isExporting, setIsExporting] = useState(false);
@@ -213,7 +215,7 @@ export default function SettingsScreen() {
         {/* Notification Access Android Check */}
         {Platform.OS === 'android' && (
           <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Quyền truy cập thông báo</Text>
+            <Text style={styles.sectionHeader}>Quyền truy cập thông báo & Chạy ngầm</Text>
             <View style={styles.row}>
               <View style={styles.rowLeft}>
                 <Ionicons
@@ -233,6 +235,32 @@ export default function SettingsScreen() {
               {!isPermissionGranted && (
                 <TouchableOpacity style={styles.grantBtn} onPress={() => requestPermission()}>
                   <Text style={styles.grantBtnText}>Cấp quyền</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={[styles.row, { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#334155' }]}>
+              <View style={styles.rowLeft}>
+                <Ionicons
+                  name={isBatteryOptimizationIgnored ? 'battery-charging' : 'battery-half'}
+                  size={22}
+                  color={isBatteryOptimizationIgnored ? '#10B981' : '#F59E0B'}
+                />
+                <View style={styles.rowTexts}>
+                  <Text style={styles.rowTitle}>Chạy ngầm không giới hạn pin</Text>
+                  <Text style={styles.rowSubtitle}>
+                    {isBatteryOptimizationIgnored
+                      ? 'Đã tắt tiết kiệm pin (không bị hệ điều hành đóng băng khi tắt app)'
+                      : 'Nên bật để tránh máy tự tắt dịch vụ khi khóa màn hình hoặc vuốt app'}
+                  </Text>
+                </View>
+              </View>
+              {!isBatteryOptimizationIgnored && (
+                <TouchableOpacity
+                  style={styles.grantBtn}
+                  onPress={() => requestIgnoreBatteryOptimization()}
+                >
+                  <Text style={styles.grantBtnText}>Cho phép</Text>
                 </TouchableOpacity>
               )}
             </View>

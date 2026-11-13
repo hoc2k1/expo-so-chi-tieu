@@ -13,6 +13,7 @@ import {
   DEFAULT_NOTES,
   DEFAULT_RULES,
   DEFAULT_SETTINGS,
+  SUPPORTED_APPS,
 } from '../constants/defaultData';
 
 const BASE_DIR = FileSystem.documentDirectory ? `${FileSystem.documentDirectory}data/` : 'data/';
@@ -28,14 +29,16 @@ const FILES = {
 
 // In-memory web fallback if localStorage or FileSystem not available
 const webMemoryStore: Record<string, string> = {};
+let dirInitialized = false;
 
 async function ensureDirExists(): Promise<void> {
-  if (Platform.OS === 'web') return;
+  if (Platform.OS === 'web' || dirInitialized) return;
   try {
     const dirInfo = await FileSystem.getInfoAsync(BASE_DIR);
     if (!dirInfo.exists) {
       await FileSystem.makeDirectoryAsync(BASE_DIR, { intermediates: true });
     }
+    dirInitialized = true;
   } catch (err) {
     console.error('Error ensuring dir exists:', err);
   }
@@ -72,6 +75,9 @@ async function readFileJson<T>(path: string, defaultValue: T): Promise<T> {
   }
 }
 
+// Serialize writes per file path to prevent concurrent write corruption
+const writeQueues: Record<string, Promise<void>> = {};
+
 async function writeFileJson<T>(path: string, data: T): Promise<void> {
   const jsonStr = JSON.stringify(data, null, 2);
 
@@ -89,24 +95,25 @@ async function writeFileJson<T>(path: string, data: T): Promise<void> {
     return;
   }
 
-  try {
-    await ensureDirExists();
-    await FileSystem.writeAsStringAsync(path, jsonStr);
-  } catch (error) {
-    console.error(`Error writing ${path}:`, error);
-  }
+  const prevTask = writeQueues[path] || Promise.resolve();
+  const nextTask = prevTask
+    .catch(() => {})
+    .then(async () => {
+      try {
+        await ensureDirExists();
+        await FileSystem.writeAsStringAsync(path, jsonStr);
+      } catch (error) {
+        console.error(`Error writing ${path}:`, error);
+      }
+    });
+
+  writeQueues[path] = nextTask;
+  return nextTask;
 }
 
 export const StorageService = {
   async initStorage(): Promise<void> {
     await ensureDirExists();
-    // Seed initial files if not present
-    await this.getCategories();
-    await this.getNotes();
-    await this.getRules();
-    await this.getSettings();
-    await this.getTransactions();
-    await this.getPendingTransactions();
   },
 
   // Transactions
@@ -152,18 +159,34 @@ export const StorageService = {
   // Settings
   async getSettings(): Promise<AppSettings> {
     const loaded = await readFileJson<AppSettings>(FILES.SETTINGS, DEFAULT_SETTINGS);
-    // Ensure new default packages (Timo, Viettel Money, aliases) are present
-    const mandatoryExtras = ['io.lifestyle.timo', 'vn.timo.timo', 'com.bplus.vtpay', 'vn.viettelpay'];
-    const currentSet = new Set(loaded.enabledPackages || []);
+    const currentList = Array.isArray(loaded.enabledPackages) ? loaded.enabledPackages : [];
+    const currentLowerSet = new Set(currentList.map((p) => p.toLowerCase()));
     let changed = false;
-    for (const pkg of mandatoryExtras) {
-      if (!currentSet.has(pkg)) {
-        currentSet.add(pkg);
-        changed = true;
+
+    // If user had enabled an app, ensure all of its aliases (e.g. new Techcombank, Sacombank, SMS) are also enabled
+    // And ensure newly added default apps are included if enabledPackages was using default set
+    for (const app of SUPPORTED_APPS) {
+      const allPkgs = [app.packageName, ...(app.aliases || [])];
+      const hasAnyEnabled = allPkgs.some((p) => currentLowerSet.has(p.toLowerCase()));
+      if (hasAnyEnabled || currentList.length > 0) {
+        // Always sync aliases of enabled apps, plus new banks/SMS apps
+        const shouldAddAllAliases =
+          hasAnyEnabled ||
+          ['com.vib.myvib2', 'com.vnpay.hdbank', 'vn.shb.mbanking', 'vn.com.ocb.awe', 'vn.com.seabank.mb1', 'vn.com.lpb.lienviet24h', 'xyz.be.cake', 'vn.tnex.consumer', 'com.zing.zalo'].includes(app.packageName);
+        if (shouldAddAllAliases) {
+          for (const pkg of allPkgs) {
+            if (!currentLowerSet.has(pkg.toLowerCase())) {
+              currentList.push(pkg);
+              currentLowerSet.add(pkg.toLowerCase());
+              changed = true;
+            }
+          }
+        }
       }
     }
+
     if (changed) {
-      loaded.enabledPackages = Array.from(currentSet);
+      loaded.enabledPackages = currentList;
       await this.saveSettings(loaded);
     }
     if (!loaded.updateHistory) {

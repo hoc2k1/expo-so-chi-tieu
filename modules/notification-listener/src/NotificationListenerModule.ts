@@ -5,21 +5,58 @@ declare class NotificationListenerNativeModule extends NativeModule<Notification
   isPermissionGranted(): boolean;
   requestPermission(): boolean;
   ensureServiceConnected(): boolean;
+  forceScanStatusBar(): boolean;
+  setEnabledPackages(packagesJson: string): boolean;
   getCachedNotificationsJson(): string;
+  removeCachedNotificationsByIds(idsJson: string): boolean;
   clearCachedNotifications(): boolean;
+  isBatteryOptimizationIgnored(): boolean;
+  requestIgnoreBatteryOptimization(): boolean;
 }
 
 const nativeModule = requireNativeModule<NotificationListenerNativeModule>('NotificationListener');
 
 export default {
   isPermissionGranted(): boolean {
-    return nativeModule.isPermissionGranted();
+    try {
+      return nativeModule.isPermissionGranted();
+    } catch {
+      return false;
+    }
   },
   requestPermission(): boolean {
-    return nativeModule.requestPermission();
+    try {
+      return nativeModule.requestPermission();
+    } catch {
+      return false;
+    }
   },
   ensureServiceConnected(): boolean {
-    return nativeModule.ensureServiceConnected();
+    try {
+      return nativeModule.ensureServiceConnected();
+    } catch {
+      return false;
+    }
+  },
+  forceScanStatusBar(): boolean {
+    try {
+      if (typeof nativeModule.forceScanStatusBar === 'function') {
+        return nativeModule.forceScanStatusBar();
+      }
+      return nativeModule.ensureServiceConnected();
+    } catch {
+      return false;
+    }
+  },
+  setEnabledPackages(packages: string[]): boolean {
+    try {
+      if (typeof nativeModule.setEnabledPackages === 'function') {
+        return nativeModule.setEnabledPackages(JSON.stringify(packages || []));
+      }
+      return false;
+    } catch {
+      return false;
+    }
   },
   getCachedNotifications(): RawNotification[] {
     try {
@@ -32,8 +69,44 @@ export default {
       return [];
     }
   },
+  removeCachedNotificationsByIds(ids: string[]): boolean {
+    try {
+      if (!ids || ids.length === 0) return true;
+      if (typeof nativeModule.removeCachedNotificationsByIds === 'function') {
+        return nativeModule.removeCachedNotificationsByIds(JSON.stringify(ids));
+      }
+      // Fallback for older native builds that don't have removeCachedNotificationsByIds yet
+      return nativeModule.clearCachedNotifications();
+    } catch {
+      return false;
+    }
+  },
   clearCachedNotifications(): boolean {
-    return nativeModule.clearCachedNotifications();
+    try {
+      return nativeModule.clearCachedNotifications();
+    } catch {
+      return false;
+    }
+  },
+  isBatteryOptimizationIgnored(): boolean {
+    try {
+      if (typeof nativeModule.isBatteryOptimizationIgnored === 'function') {
+        return nativeModule.isBatteryOptimizationIgnored();
+      }
+      return true;
+    } catch {
+      return true;
+    }
+  },
+  requestIgnoreBatteryOptimization(): boolean {
+    try {
+      if (typeof nativeModule.requestIgnoreBatteryOptimization === 'function') {
+        return nativeModule.requestIgnoreBatteryOptimization();
+      }
+      return false;
+    } catch {
+      return false;
+    }
   },
   addListener(
     eventName: 'onNotificationReceived',

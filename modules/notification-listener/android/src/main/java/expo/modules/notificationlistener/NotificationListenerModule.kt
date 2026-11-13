@@ -1,12 +1,12 @@
 package expo.modules.notificationlistener
 
-import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.Settings
-import android.service.notification.NotificationListenerService
 import androidx.core.app.NotificationManagerCompat
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -20,7 +20,10 @@ class NotificationListenerModule : Module() {
 
     OnCreate {
       NotificationService.listenerModule = this@NotificationListenerModule
-      ensureRebind()
+      val context = appContext.reactContext
+      if (context != null) {
+        NotificationService.ensureServiceBound(context, forceToggle = false)
+      }
     }
 
     OnDestroy {
@@ -34,8 +37,8 @@ class NotificationListenerModule : Module() {
       val packageName = context.packageName
       val enabledPackages = NotificationManagerCompat.getEnabledListenerPackages(context)
       val granted = enabledPackages.contains(packageName)
-      if (granted) {
-        ensureRebind()
+      if (granted && NotificationService.activeService == null) {
+        NotificationService.ensureServiceBound(context, forceToggle = false)
       }
       return@Function granted
     }
@@ -50,13 +53,33 @@ class NotificationListenerModule : Module() {
     }
 
     Function("ensureServiceConnected") {
-      return@Function ensureRebind()
+      val context = appContext.reactContext ?: return@Function false
+      return@Function NotificationService.ensureServiceBound(context, forceToggle = false)
+    }
+
+    Function("forceScanStatusBar") {
+      val context = appContext.reactContext ?: return@Function false
+      return@Function NotificationService.forceScanStatusBar(context)
+    }
+
+    Function("setEnabledPackages") { packagesJson: String ->
+      val context = appContext.reactContext ?: return@Function false
+      NotificationService.setEnabledPackages(context, packagesJson)
+      return@Function true
     }
 
     Function("getCachedNotificationsJson") {
       val context = appContext.reactContext ?: return@Function "[]"
-      ensureRebind()
+      if (NotificationService.activeService == null) {
+        NotificationService.ensureServiceBound(context, forceToggle = false)
+      }
       return@Function NotificationService.getCachedNotificationsJson(context)
+    }
+
+    Function("removeCachedNotificationsByIds") { idsJson: String ->
+      val context = appContext.reactContext ?: return@Function false
+      NotificationService.removeCachedNotificationsByIds(context, idsJson)
+      return@Function true
     }
 
     Function("clearCachedNotifications") {
@@ -64,40 +87,39 @@ class NotificationListenerModule : Module() {
       NotificationService.clearCachedNotifications(context)
       return@Function true
     }
-  }
 
-  private fun ensureRebind(): Boolean {
-    val context = appContext.reactContext ?: return false
-    try {
-      val enabledPackages = NotificationManagerCompat.getEnabledListenerPackages(context)
-      if (!enabledPackages.contains(context.packageName)) {
-        return false
+    Function("isBatteryOptimizationIgnored") {
+      val context = appContext.reactContext ?: return@Function true
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+        return@Function pm?.isIgnoringBatteryOptimizations(context.packageName) ?: true
       }
+      return@Function true
+    }
 
-      val componentName = ComponentName(context, NotificationService::class.java)
-
-      // If service is not currently active, toggle component state to force Android OS to rebind it
-      if (NotificationService.activeService == null) {
-        val pm = context.packageManager
-        pm.setComponentEnabledSetting(
-          componentName,
-          PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-          PackageManager.DONT_KILL_APP
-        )
-        pm.setComponentEnabledSetting(
-          componentName,
-          PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-          PackageManager.DONT_KILL_APP
-        )
+    Function("requestIgnoreBatteryOptimization") {
+      val context = appContext.currentActivity ?: appContext.reactContext ?: return@Function false
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        try {
+          val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+            data = Uri.parse("package:${context.packageName}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+          }
+          context.startActivity(intent)
+          return@Function true
+        } catch (e: Exception) {
+          try {
+            val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+              addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(fallbackIntent)
+            return@Function true
+          } catch (ex: Exception) {
+            ex.printStackTrace()
+          }
+        }
       }
-
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-        NotificationListenerService.requestRebind(componentName)
-      }
-      return true
-    } catch (e: Exception) {
-      e.printStackTrace()
-      return false
+      return@Function false
     }
   }
 

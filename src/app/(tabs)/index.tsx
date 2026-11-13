@@ -326,7 +326,9 @@ export default function PendingQueueScreen() {
           {Platform.OS === 'android' && (
             <TouchableOpacity
               style={styles.actionPill}
-              onPress={() => syncCachedNotifications()}
+              onPress={() =>
+                syncCachedNotifications({ forceRescan: true, showFeedbackToast: true })
+              }
             >
               <Ionicons name="sync" size={16} color="#38BDF8" />
               <Text style={styles.actionPillText}>Đồng bộ thông báo</Text>
