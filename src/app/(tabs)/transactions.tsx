@@ -7,12 +7,11 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
-  Alert,
   ScrollView,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useApp } from '../../contexts/AppContext';
 import { Transaction, TimeRangePreset } from '../../models/types';
 import {
@@ -21,7 +20,9 @@ import {
   formatTime,
   isTransactionInTimeRange,
 } from '../../utils/formatters';
-import { DateTimeRangeModal } from '../../components/DateTimeRangeModal';
+import { MultiSelectGridModal, MultiSelectOption } from '../../components/MultiSelectGridModal';
+import { DateRangePickerModal } from '../../components/DateRangePickerModal';
+import { ConfirmModal } from '../../components/ConfirmModal';
 import { SUPPORTED_APPS } from '../../constants/defaultData';
 
 export default function TransactionsScreen() {
@@ -32,23 +33,54 @@ export default function TransactionsScreen() {
     transactionFilter,
     setTransactionFilter,
     resetTransactionFilter,
+    showToast,
   } = useApp();
 
   const [detailModalTx, setDetailModalTx] = useState<Transaction | null>(null);
+  const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
   const [showDateModal, setShowDateModal] = useState(false);
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   const {
     type: selectedType,
-    categoryId: selectedCategoryId,
-    source: selectedSource,
+    categoryIds: rawCategoryIds,
+    sources: rawSources,
+    categoryId: legacyCategoryId,
+    source: legacySource,
     timeRange: selectedTimeRange,
     customStartDate,
     customEndDate,
     searchQuery = '',
   } = transactionFilter;
 
-  // Unique list of bank/wallet sources
-  const availableSources = useMemo(() => {
+  // Active multi-select category IDs (with fallback to legacy categoryId)
+  const activeCategoryIds = useMemo(() => {
+    if (rawCategoryIds && rawCategoryIds.length > 0) return rawCategoryIds;
+    if (legacyCategoryId && legacyCategoryId !== 'all') return [legacyCategoryId];
+    return [];
+  }, [rawCategoryIds, legacyCategoryId]);
+
+  // Active multi-select bank/wallet sources (with fallback to legacy source)
+  const activeSources = useMemo(() => {
+    if (rawSources && rawSources.length > 0) return rawSources;
+    if (legacySource && legacySource !== 'all') return [legacySource];
+    return [];
+  }, [rawSources, legacySource]);
+
+  // Options for Category MultiSelectGridModal
+  const categoryOptions = useMemo<MultiSelectOption[]>(() => {
+    return categories.map((c) => ({
+      id: c.id,
+      name: c.name,
+      icon: c.icon,
+      color: c.color,
+      subtitle: c.type === 'expense' ? 'Chi tiêu' : 'Thu nhập',
+    }));
+  }, [categories]);
+
+  // Options for Bank/Wallet MultiSelectGridModal
+  const bankOptions = useMemo<MultiSelectOption[]>(() => {
     const set = new Set<string>();
     transactions.forEach((t) => {
       if (t.source) set.add(t.source);
@@ -59,7 +91,11 @@ export default function TransactionsScreen() {
       }
     });
     set.add('Tiền mặt');
-    return ['all', ...Array.from(set)];
+    return Array.from(set).map((s) => ({
+      id: s,
+      name: s,
+      icon: s === 'Tiền mặt' ? 'cash-outline' : 'business-outline',
+    }));
   }, [transactions]);
 
   // Filter transactions
@@ -68,11 +104,15 @@ export default function TransactionsScreen() {
       // 1. Type filter (Chi / Thu)
       if (selectedType !== 'all' && tx.type !== selectedType) return false;
 
-      // 2. Category filter
-      if (selectedCategoryId !== 'all' && tx.categoryId !== selectedCategoryId) return false;
+      // 2. Category multi-select filter
+      if (activeCategoryIds.length > 0 && !activeCategoryIds.includes(tx.categoryId)) {
+        return false;
+      }
 
-      // 3. Bank / Wallet Source filter
-      if (selectedSource !== 'all' && tx.source !== selectedSource) return false;
+      // 3. Bank / Wallet multi-select filter
+      if (activeSources.length > 0 && !activeSources.includes(tx.source)) {
+        return false;
+      }
 
       // 4. Time range / DateRange filter
       if (
@@ -102,8 +142,8 @@ export default function TransactionsScreen() {
   }, [
     transactions,
     selectedType,
-    selectedCategoryId,
-    selectedSource,
+    activeCategoryIds,
+    activeSources,
     selectedTimeRange,
     customStartDate,
     customEndDate,
@@ -134,68 +174,61 @@ export default function TransactionsScreen() {
   }, [filteredTransactions]);
 
   const handleDelete = (tx: Transaction) => {
-    const msg = `Bạn có chắc chắn muốn xóa giao dịch "${tx.categoryName} - ${formatCurrency(tx.amount)}" (${tx.source}) không?`;
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm(msg)) {
-        deleteTransaction(tx.id);
-        setDetailModalTx(null);
-      }
-      return;
-    }
-
-    Alert.alert('Xác nhận xóa giao dịch', msg, [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa giao dịch',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteTransaction(tx.id);
-          setDetailModalTx(null);
-        },
-      },
-    ]);
+    setTxToDelete(tx);
   };
 
   const hasActiveFilter =
     selectedType !== 'all' ||
-    selectedCategoryId !== 'all' ||
+    activeCategoryIds.length > 0 ||
+    activeSources.length > 0 ||
     selectedTimeRange !== 'all' ||
-    selectedSource !== 'all' ||
     searchQuery.trim().length > 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      {/* Search Input */}
-      <View style={styles.searchBar}>
-        <Ionicons name="search" size={18} color="#94A3B8" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Tìm theo ghi chú, phân loại, ngân hàng..."
-          placeholderTextColor="#64748B"
-          value={searchQuery}
-          onChangeText={(val) =>
-            setTransactionFilter((prev) => ({ ...prev, searchQuery: val }))
-          }
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity
-            onPress={() =>
-              setTransactionFilter((prev) => ({ ...prev, searchQuery: '' }))
+      {/* Top Bar: Search Input & Add Transaction Button */}
+      <View style={styles.topSearchBarRow}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={18} color="#94A3B8" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Tìm theo ghi chú, phân loại, ngân hàng..."
+            placeholderTextColor="#64748B"
+            value={searchQuery}
+            onChangeText={(val) =>
+              setTransactionFilter((prev) => ({ ...prev, searchQuery: val }))
             }
-          >
-            <Ionicons name="close-circle" size={18} color="#94A3B8" />
-          </TouchableOpacity>
-        )}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() =>
+                setTransactionFilter((prev) => ({ ...prev, searchQuery: '' }))
+              }
+            >
+              <Ionicons name="close-circle" size={18} color="#94A3B8" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={() => router.push('/modal/manual-transaction')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={18} color="#0F172A" />
+          <Text style={styles.addBtnText}>Thêm</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Filter Row 1: Chi / Thu & DateRange */}
+      {/* Filter Controls */}
       <View style={styles.filterGroup}>
+        {/* Row 1: Thu / Chi & DateRange Presets */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterRowContent}
         >
-          {/* Chi / Thu filter */}
+          {/* Thu / Chi */}
           <TouchableOpacity
             style={[
               styles.filterChip,
@@ -261,28 +294,24 @@ export default function TransactionsScreen() {
 
           <View style={styles.divider} />
 
-          {/* DateRange presets + Custom DateRange */}
-          {(['all', 'today', 'week', 'month', 'year', 'custom'] as TimeRangePreset[]).map(
+          {/* Quick Date presets */}
+          {(['all', 'today', 'week', 'month', 'year'] as TimeRangePreset[]).map(
             (t) => {
-              const labels: Record<TimeRangePreset, string> = {
-                all: 'Mọi thời gian',
+              const labels: Record<string, string> = {
+                all: 'Mọi lúc',
                 today: 'Hôm nay',
                 week: 'Tuần này',
                 month: 'Tháng này',
                 year: 'Năm nay',
-                custom: 'Chọn DateRange 📅',
               };
               const isSelected = selectedTimeRange === t;
               return (
                 <TouchableOpacity
                   key={t}
                   style={[styles.filterChip, isSelected && styles.filterChipActive]}
-                  onPress={() => {
-                    setTransactionFilter((prev) => ({ ...prev, timeRange: t }));
-                    if (t === 'custom') {
-                      setShowDateModal(true);
-                    }
-                  }}
+                  onPress={() =>
+                    setTransactionFilter((prev) => ({ ...prev, timeRange: t }))
+                  }
                 >
                   <Text
                     style={[
@@ -296,51 +325,108 @@ export default function TransactionsScreen() {
               );
             }
           )}
+
+          {/* DateRange picker trigger */}
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              selectedTimeRange === 'custom' && styles.filterChipActive,
+            ]}
+            onPress={() => setShowDateModal(true)}
+          >
+            <Ionicons
+              name="calendar"
+              size={13}
+              color={selectedTimeRange === 'custom' ? '#0F172A' : '#38BDF8'}
+            />
+            <Text
+              style={[
+                styles.filterChipText,
+                selectedTimeRange === 'custom' && styles.filterChipTextActive,
+              ]}
+            >
+              Chọn DateRange 📅
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
 
-        {/* Filter Row 2: Ngân hàng / Ví điện tử */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterRowContent}
-        >
-          {availableSources.map((src) => {
-            const active = selectedSource === src;
-            return (
-              <TouchableOpacity
-                key={src}
-                style={[styles.filterChip, active && styles.filterChipBank]}
-                onPress={() =>
-                  setTransactionFilter((prev) => ({ ...prev, source: src }))
-                }
-              >
-                <Ionicons
-                  name="business-outline"
-                  size={12}
-                  color={active ? '#FFFFFF' : '#38BDF8'}
-                />
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    active && styles.filterChipTextActive,
-                  ]}
-                >
-                  {src === 'all' ? 'Tất cả Ngân hàng/Ví' : src}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+        {/* Row 2: Ngân hàng / Ví Multi-Select & Phân loại Multi-Select */}
+        <View style={styles.dropdownRow}>
+          {/* Ngân hàng / Ví Dropdown Button */}
+          <TouchableOpacity
+            style={[
+              styles.dropdownBtn,
+              activeSources.length > 0 && styles.dropdownBtnActiveBank,
+            ]}
+            onPress={() => setShowBankModal(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="business-outline"
+              size={14}
+              color={activeSources.length > 0 ? '#38BDF8' : '#94A3B8'}
+            />
+            <Text
+              style={[
+                styles.dropdownBtnText,
+                activeSources.length > 0 && styles.dropdownBtnTextActive,
+              ]}
+              numberOfLines={1}
+            >
+              {activeSources.length === 0
+                ? 'Ngân hàng / Ví'
+                : `Ngân hàng (${activeSources.length})`}
+            </Text>
+            <Ionicons
+              name="chevron-down"
+              size={13}
+              color={activeSources.length > 0 ? '#38BDF8' : '#64748B'}
+            />
+          </TouchableOpacity>
 
+          {/* Phân loại Dropdown Button */}
+          <TouchableOpacity
+            style={[
+              styles.dropdownBtn,
+              activeCategoryIds.length > 0 && styles.dropdownBtnActiveCategory,
+            ]}
+            onPress={() => setShowCategoryModal(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="pricetag-outline"
+              size={14}
+              color={activeCategoryIds.length > 0 ? '#10B981' : '#94A3B8'}
+            />
+            <Text
+              style={[
+                styles.dropdownBtnText,
+                activeCategoryIds.length > 0 && styles.dropdownBtnTextActive,
+              ]}
+              numberOfLines={1}
+            >
+              {activeCategoryIds.length === 0
+                ? 'Phân loại'
+                : `Phân loại (${activeCategoryIds.length})`}
+            </Text>
+            <Ionicons
+              name="chevron-down"
+              size={13}
+              color={activeCategoryIds.length > 0 ? '#10B981' : '#64748B'}
+            />
+          </TouchableOpacity>
+
+          {/* Reset Filter Button */}
           {hasActiveFilter && (
             <TouchableOpacity
               style={styles.resetFilterChip}
               onPress={resetTransactionFilter}
             >
-              <Ionicons name="refresh" size={12} color="#EF4444" />
-              <Text style={styles.resetFilterText}>Xóa bộ lọc</Text>
+              <Ionicons name="refresh" size={13} color="#EF4444" />
+              <Text style={styles.resetFilterText}>Xóa lọc</Text>
             </TouchableOpacity>
           )}
-        </ScrollView>
+        </View>
       </View>
 
       {/* Active Custom DateRange Banner */}
@@ -355,26 +441,53 @@ export default function TransactionsScreen() {
               Khoảng ngày: <Text style={styles.appliedFilterBold}>{customStartDate} → {customEndDate}</Text>
             </Text>
           </View>
-          <Text style={styles.editDateLink}>Sửa</Text>
+          <Text style={styles.editDateLink}>Đổi</Text>
         </TouchableOpacity>
       )}
 
-      {/* Active Category Indicator (e.g. from Statistics Drill-down) */}
-      {selectedCategoryId !== 'all' && (
+      {/* Active Categories Tags Banner */}
+      {activeCategoryIds.length > 0 && (
         <View style={styles.appliedFilterBanner}>
           <View style={styles.appliedBannerLeft}>
             <Ionicons name="pricetag" size={14} color="#10B981" />
-            <Text style={styles.appliedFilterText}>
-              Phân loại:{' '}
-              <Text style={styles.appliedFilterBold}>
-                {categories.find((c) => c.id === selectedCategoryId)?.name ||
-                  selectedCategoryId}
+            <Text style={styles.appliedFilterText} numberOfLines={1}>
+              Phân loại: <Text style={styles.appliedFilterBold}>
+                {activeCategoryIds
+                  .map((id) => categories.find((c) => c.id === id)?.name || id)
+                  .join(', ')}
               </Text>
             </Text>
           </View>
           <TouchableOpacity
             onPress={() =>
-              setTransactionFilter((prev) => ({ ...prev, categoryId: 'all' }))
+              setTransactionFilter((prev) => ({
+                ...prev,
+                categoryIds: [],
+                categoryId: 'all',
+              }))
+            }
+          >
+            <Ionicons name="close-circle" size={18} color="#38BDF8" />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Active Bank Tags Banner */}
+      {activeSources.length > 0 && (
+        <View style={styles.appliedFilterBanner}>
+          <View style={styles.appliedBannerLeft}>
+            <Ionicons name="business" size={14} color="#38BDF8" />
+            <Text style={styles.appliedFilterText} numberOfLines={1}>
+              Nguồn tiền: <Text style={styles.appliedFilterBold}>{activeSources.join(', ')}</Text>
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={() =>
+              setTransactionFilter((prev) => ({
+                ...prev,
+                sources: [],
+                source: 'all',
+              }))
             }
           >
             <Ionicons name="close-circle" size={18} color="#38BDF8" />
@@ -423,9 +536,14 @@ export default function TransactionsScreen() {
 
                 <View style={styles.txDetails}>
                   <Text style={styles.txCategoryName}>{item.categoryName}</Text>
-                  <Text style={styles.txNote} numberOfLines={1}>
-                    {item.note}
-                  </Text>
+                  {item.note ? (
+                    <View style={styles.txNoteRow}>
+                      <Ionicons name="document-text-outline" size={12} color="#38BDF8" />
+                      <Text style={styles.txNote} numberOfLines={2}>
+                        {item.note}
+                      </Text>
+                    </View>
+                  ) : null}
                   <View style={styles.txSourceBadge}>
                     <Text style={styles.txSourceText}>{item.source}</Text>
                     <Text style={styles.txTimeText}>• {formatTime(item.timestamp)}</Text>
@@ -466,8 +584,8 @@ export default function TransactionsScreen() {
         }
       />
 
-      {/* Custom DateRange Modal */}
-      <DateTimeRangeModal
+      {/* DateRange Picker Modal */}
+      <DateRangePickerModal
         visible={showDateModal}
         initialStart={customStartDate}
         initialEnd={customEndDate}
@@ -478,6 +596,42 @@ export default function TransactionsScreen() {
             timeRange: 'custom',
             customStartDate: s,
             customEndDate: e,
+          }));
+        }}
+      />
+
+      {/* Bank & Wallet Multi-Select Grid Modal (2 columns) */}
+      <MultiSelectGridModal
+        visible={showBankModal}
+        title="Lọc theo Ngân hàng & Ví điện tử"
+        options={bankOptions}
+        selectedIds={activeSources}
+        columns={2}
+        allLabel="Tất cả ngân hàng/ví"
+        onClose={() => setShowBankModal(false)}
+        onApply={(selected) => {
+          setTransactionFilter((prev) => ({
+            ...prev,
+            sources: selected,
+            source: 'all',
+          }));
+        }}
+      />
+
+      {/* Category Multi-Select Grid Modal (2 columns) */}
+      <MultiSelectGridModal
+        visible={showCategoryModal}
+        title="Lọc theo Phân loại"
+        options={categoryOptions}
+        selectedIds={activeCategoryIds}
+        columns={2}
+        allLabel="Tất cả phân loại"
+        onClose={() => setShowCategoryModal(false)}
+        onApply={(selected) => {
+          setTransactionFilter((prev) => ({
+            ...prev,
+            categoryIds: selected,
+            categoryId: 'all',
           }));
         }}
       />
@@ -515,9 +669,15 @@ export default function TransactionsScreen() {
               </View>
 
               <View style={styles.detailInfoList}>
-                <View style={styles.detailInfoRow}>
-                  <Text style={styles.detailLabel}>Ghi chú:</Text>
-                  <Text style={styles.detailValue}>{detailModalTx.note}</Text>
+                {/* Ghi chú nổi bật */}
+                <View style={styles.detailNoteCard}>
+                  <View style={styles.detailNoteHeader}>
+                    <Ionicons name="document-text" size={15} color="#38BDF8" />
+                    <Text style={styles.detailNoteLabel}>Ghi chú giao dịch:</Text>
+                  </View>
+                  <Text style={styles.detailNoteText}>
+                    {detailModalTx.note || '(Chưa có ghi chú)'}
+                  </Text>
                 </View>
 
                 <View style={styles.detailInfoRow}>
@@ -570,6 +730,31 @@ export default function TransactionsScreen() {
           </View>
         </Modal>
       )}
+
+      {/* Custom Confirm Delete Modal */}
+      <ConfirmModal
+        visible={!!txToDelete}
+        title="Xác nhận xóa giao dịch"
+        message={
+          txToDelete
+            ? `Bạn có chắc chắn muốn xóa giao dịch "${txToDelete.categoryName} - ${formatCurrency(txToDelete.amount)}" (${txToDelete.source}) không? Dữ liệu đã xóa không thể khôi phục.`
+            : ''
+        }
+        confirmText="Xóa giao dịch"
+        cancelText="Hủy"
+        type="danger"
+        onCancel={() => setTxToDelete(null)}
+        onConfirm={async () => {
+          if (txToDelete) {
+            await deleteTransaction(txToDelete.id);
+            if (detailModalTx?.id === txToDelete.id) {
+              setDetailModalTx(null);
+            }
+            setTxToDelete(null);
+            showToast('Đã xóa giao dịch thành công!', 'info');
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -579,18 +764,38 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0F172A',
   },
-  searchBar: {
+  topSearchBarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E293B',
     marginHorizontal: 16,
     marginTop: 10,
     marginBottom: 8,
+    gap: 8,
+  },
+  searchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#334155',
+  },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#38BDF8',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 10,
+    gap: 4,
+  },
+  addBtnText: {
+    color: '#0F172A',
+    fontSize: 13,
+    fontWeight: '700',
   },
   searchInput: {
     flex: 1,
@@ -663,6 +868,48 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+  dropdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    gap: 8,
+    marginTop: 4,
+    flexWrap: 'wrap',
+  },
+  dropdownBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#334155',
+    gap: 4,
+  },
+  dropdownBtnActiveBank: {
+    borderColor: '#38BDF8',
+    backgroundColor: '#0284C725',
+  },
+  dropdownBtnActiveCategory: {
+    borderColor: '#10B981',
+    backgroundColor: '#05966925',
+  },
+  dropdownBtnText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  dropdownBtnTextActive: {
+    color: '#F8FAFC',
+    fontWeight: '700',
+  },
+  editDateLink: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '700',
+    paddingHorizontal: 4,
+  },
   appliedFilterBanner: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -689,11 +936,6 @@ const styles = StyleSheet.create({
   appliedFilterBold: {
     fontWeight: '700',
     color: '#38BDF8',
-  },
-  editDateLink: {
-    color: '#38BDF8',
-    fontSize: 11,
-    fontWeight: '700',
   },
   listContent: {
     paddingHorizontal: 16,
@@ -756,10 +998,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  txNoteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
   txNote: {
-    color: '#94A3B8',
+    color: '#CBD5E1',
     fontSize: 12,
-    marginTop: 1,
+    fontWeight: '500',
+    flex: 1,
   },
   txSourceBadge: {
     flexDirection: 'row',
@@ -855,6 +1104,31 @@ const styles = StyleSheet.create({
   },
   detailInfoList: {
     gap: 8,
+  },
+  detailNoteCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#38BDF840',
+    marginBottom: 4,
+  },
+  detailNoteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  detailNoteLabel: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  detailNoteText: {
+    color: '#F8FAFC',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
   },
   detailInfoRow: {
     flexDirection: 'row',

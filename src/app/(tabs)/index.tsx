@@ -5,7 +5,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Alert,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +13,7 @@ import { router } from 'expo-router';
 import { useApp } from '../../contexts/AppContext';
 import { PendingTransaction } from '../../models/types';
 import { formatCurrency, formatRelativeTime } from '../../utils/formatters';
+import { ConfirmModal } from '../../components/ConfirmModal';
 
 export default function PendingQueueScreen() {
   const {
@@ -23,11 +23,17 @@ export default function PendingQueueScreen() {
     syncCachedNotifications,
     deletePending,
     batchDeletePending,
+    showToast,
   } = useApp();
 
   const [isBatchMode, setIsBatchMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [expandedContentId, setExpandedContentId] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => Promise<void>;
+  } | null>(null);
 
   const handleLongPressItem = (id: string) => {
     if (!isBatchMode) {
@@ -66,22 +72,28 @@ export default function PendingQueueScreen() {
 
   const handleBatchDelete = () => {
     if (selectedIds.length === 0) return;
-    Alert.alert(
-      'Xóa các mục đã chọn',
-      `Bạn có chắc chắn muốn xóa ${selectedIds.length} giao dịch khỏi hàng chờ?`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa',
-          style: 'destructive',
-          onPress: async () => {
-            await batchDeletePending(selectedIds);
-            setSelectedIds([]);
-            setIsBatchMode(false);
-          },
-        },
-      ]
-    );
+    setDeleteConfirm({
+      title: 'Xác nhận xóa hàng chờ',
+      message: `Bạn có chắc chắn muốn xóa ${selectedIds.length} thông báo khỏi hàng chờ?`,
+      onConfirm: async () => {
+        const count = selectedIds.length;
+        await batchDeletePending(selectedIds);
+        setSelectedIds([]);
+        setIsBatchMode(false);
+        showToast(`Đã xóa ${count} thông báo khỏi hàng chờ`, 'info');
+      },
+    });
+  };
+
+  const handleDeleteSingle = (item: PendingTransaction) => {
+    setDeleteConfirm({
+      title: 'Bỏ qua thông báo',
+      message: `Bạn có chắc muốn bỏ qua thông báo ${item.source} (${formatCurrency(item.amount)})?`,
+      onConfirm: async () => {
+        await deletePending(item.id);
+        showToast('Đã bỏ qua thông báo', 'info');
+      },
+    });
   };
 
   const handleBatchClassify = () => {
@@ -126,7 +138,7 @@ export default function PendingQueueScreen() {
             </View>
             <TouchableOpacity
               style={styles.duplicateDiscardBtn}
-              onPress={() => deletePending(item.id)}
+              onPress={() => handleDeleteSingle(item)}
             >
               <Ionicons name="trash-bin-outline" size={14} color="#EF4444" />
               <Text style={styles.duplicateDiscardBtnText}>Bỏ qua / Xóa trùng</Text>
@@ -227,7 +239,7 @@ export default function PendingQueueScreen() {
           <View style={styles.cardActions}>
             <TouchableOpacity
               style={styles.deleteBtn}
-              onPress={() => deletePending(item.id)}
+              onPress={() => handleDeleteSingle(item)}
             >
               <Ionicons name="close" size={16} color="#94A3B8" />
               <Text style={styles.deleteBtnText}>Bỏ qua</Text>
@@ -308,7 +320,7 @@ export default function PendingQueueScreen() {
             onPress={() => router.push('/modal/manual-transaction')}
           >
             <Ionicons name="add-circle" size={18} color="#10B981" />
-            <Text style={styles.actionPillText}>+ Tiền mặt</Text>
+            <Text style={styles.actionPillText}>+ Thêm giao dịch</Text>
           </TouchableOpacity>
 
           {Platform.OS === 'android' && (
@@ -368,6 +380,22 @@ export default function PendingQueueScreen() {
           </TouchableOpacity>
         </View>
       )}
+      {/* Custom Confirm Modal */}
+      <ConfirmModal
+        visible={!!deleteConfirm}
+        title={deleteConfirm?.title || ''}
+        message={deleteConfirm?.message || ''}
+        confirmText="Xác nhận xóa"
+        cancelText="Hủy"
+        type="danger"
+        onCancel={() => setDeleteConfirm(null)}
+        onConfirm={async () => {
+          if (deleteConfirm) {
+            await deleteConfirm.onConfirm();
+            setDeleteConfirm(null);
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }

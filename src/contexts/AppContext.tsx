@@ -18,6 +18,7 @@ import { matchRule } from '../services/ruleMatcher';
 import { SUPPORTED_APPS } from '../constants/defaultData';
 import { getDefaultMonthStartDisplay, getDefaultTodayEndDisplay } from '../utils/formatters';
 import NotificationListener, { RawNotification } from '../../modules/notification-listener/src/NotificationListenerModule';
+import { Toast, ToastData } from '../components/Toast';
 
 interface AppContextValue {
   isLoading: boolean;
@@ -69,9 +70,13 @@ interface AppContextValue {
     note: string;
     source?: string;
     date?: string;
+    timestamp?: number;
   }) => Promise<void>;
   updateTransaction: (tx: Transaction) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
+
+  // Toast
+  showToast: (message: string, type?: 'success' | 'info' | 'error') => void;
 
   // Category & Note Management
   addCategory: (cat: Omit<Category, 'id'>) => Promise<Category>;
@@ -90,6 +95,8 @@ interface AppContextValue {
 
 const DEFAULT_FILTER: TransactionFilterState = {
   type: 'all',
+  categoryIds: [],
+  sources: [],
   categoryId: 'all',
   source: 'all',
   timeRange: 'all',
@@ -137,6 +144,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   const [isPermissionGranted, setIsPermissionGranted] = useState(false);
   const [transactionFilter, setTransactionFilter] = useState<TransactionFilterState>(DEFAULT_FILTER);
+  const [toast, setToast] = useState<ToastData | null>(null);
+
+  const showToast = useCallback((message: string, type: 'success' | 'info' | 'error' = 'success') => {
+    setToast({ id: Date.now(), message, type });
+  }, []);
+
+  const hideToast = useCallback(() => {
+    setToast(null);
+  }, []);
 
   // Refs to access latest state inside event listeners without re-subscribing
   const pendingRef = useRef(pendingTransactions);
@@ -606,7 +622,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await StorageService.savePendingTransactions(updated);
   };
 
-  // Manual cash transaction
+  // Manual transaction
   const addManualTransaction = async (params: {
     amount: number;
     type: TransactionType;
@@ -615,17 +631,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     note: string;
     source?: string;
     date?: string;
+    timestamp?: number;
   }) => {
-    const dateStr = params.date || new Date().toISOString().split('T')[0];
+    const timestamp =
+      params.timestamp || (params.date ? new Date(params.date).getTime() : Date.now());
+    const dateStr =
+      params.date ? params.date.split('T')[0] : new Date(timestamp).toISOString().split('T')[0];
+
     const tx: Transaction = {
       id: `tx_${Date.now()}`,
       amount: params.amount,
       type: params.type,
       categoryId: params.categoryId,
       categoryName: params.categoryName,
-      note: params.note.trim() || 'Tiền mặt',
+      note: params.note.trim() || params.categoryName,
       source: params.source || 'Tiền mặt',
-      timestamp: Date.now(),
+      timestamp,
       date: dateStr,
       createdAt: new Date().toISOString(),
     };
@@ -761,9 +782,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateRule,
         deleteRule,
         updateSettings,
+        showToast,
       }}
     >
       {children}
+      <Toast toast={toast} onHide={hideToast} />
     </AppContext.Provider>
   );
 };

@@ -6,65 +6,167 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useApp } from '../../contexts/AppContext';
-import { TransactionType } from '../../models/types';
+import { TransactionType, SavedNote } from '../../models/types';
+import { SUPPORTED_APPS } from '../../constants/defaultData';
+import { formatCurrency } from '../../utils/formatters';
+import { DateRangePickerModal } from '../../components/DateRangePickerModal';
+
+type SourceTypeGroup = 'cash' | 'bank' | 'wallet';
+
+function padZero(n: number): string {
+  return n < 10 ? `0${n}` : `${n}`;
+}
 
 export default function ManualTransactionModal() {
-  const { categories, addManualTransaction } = useApp();
+  const { categories, notes, addManualTransaction, showToast } = useApp();
 
   const [amountStr, setAmountStr] = useState('');
   const [txType, setTxType] = useState<TransactionType>('expense');
   const [selectedCatId, setSelectedCatId] = useState('');
   const [selectedCatName, setSelectedCatName] = useState('');
   const [noteText, setNoteText] = useState('');
-  const [sourceName, setSourceName] = useState('Tiền mặt');
+
+  // Source selection states
+  const [sourceGroup, setSourceGroup] = useState<SourceTypeGroup>('cash');
+  const [selectedSource, setSelectedSource] = useState('Tiền mặt');
+  const [customSource, setCustomSource] = useState('');
+  const [isCustomSource, setIsCustomSource] = useState(false);
+
+  // Date & Time states (Default is current moment)
+  const [txDateTime, setTxDateTime] = useState<Date>(() => new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const filteredCategories = categories.filter((c) => c.type === txType);
+
+  // Relevant notes for the selected category + shared notes
+  const relevantNotes = notes.filter(
+    (n: SavedNote) => !n.categoryId || n.categoryId === selectedCatId
+  );
+
+  // Banks and Wallets from SUPPORTED_APPS
+  const bankApps = SUPPORTED_APPS.filter((a) => a.category === 'bank');
+  const walletApps = SUPPORTED_APPS.filter((a) => a.category === 'wallet');
+
+  // Quick Amount Additions
+  const addQuickAmount = (val: number) => {
+    const curr = parseInt(amountStr.replace(/[^0-9]/g, ''), 10) || 0;
+    setAmountStr((curr + val).toString());
+  };
+
+  const handleSelectGroup = (group: SourceTypeGroup) => {
+    setSourceGroup(group);
+    setIsCustomSource(false);
+    if (group === 'cash') {
+      setSelectedSource('Tiền mặt');
+    } else if (group === 'bank') {
+      setSelectedSource(bankApps[0]?.name || 'Vietcombank (VCB Digibank)');
+    } else if (group === 'wallet') {
+      setSelectedSource(walletApps[0]?.name || 'Ví MoMo');
+    }
+  };
+
+  // Date and Time helpers
+  const setQuickDate = (daysAgo: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    d.setHours(txDateTime.getHours(), txDateTime.getMinutes(), 0, 0);
+    setTxDateTime(d);
+  };
+
+  const setNowTime = () => {
+    setTxDateTime(new Date());
+  };
+
+  const adjustMinutes = (deltaMin: number) => {
+    const d = new Date(txDateTime.getTime() + deltaMin * 60000);
+    setTxDateTime(d);
+  };
 
   const handleSave = async () => {
     const cleanAmount = parseInt(amountStr.replace(/[^0-9]/g, ''), 10);
     if (!cleanAmount || cleanAmount <= 0) {
-      Alert.alert('Chưa nhập số tiền', 'Vui lòng nhập số tiền hợp lệ.');
+      showToast('Vui lòng nhập số tiền hợp lệ', 'error');
       return;
     }
 
     if (!selectedCatName) {
-      Alert.alert('Chưa chọn phân loại', 'Vui lòng chọn 1 danh mục phân loại.');
+      showToast('Vui lòng chọn 1 danh mục phân loại', 'error');
       return;
     }
+
+    const finalSource = isCustomSource
+      ? customSource.trim() || (sourceGroup === 'bank' ? 'Ngân hàng khác' : 'Ví khác')
+      : selectedSource;
 
     await addManualTransaction({
       amount: cleanAmount,
       type: txType,
       categoryId: selectedCatId,
       categoryName: selectedCatName,
-      note: noteText.trim() || 'Giao dịch tiền mặt',
-      source: sourceName.trim() || 'Tiền mặt',
+      note: noteText.trim() || selectedCatName,
+      source: finalSource,
+      date: txDateTime.toISOString(),
+      timestamp: txDateTime.getTime(),
     });
 
+    showToast('Đã thêm giao dịch thành công!', 'success');
     router.back();
   };
+
+  const numericAmount = parseInt(amountStr.replace(/[^0-9]/g, ''), 10) || 0;
+
+  // Formatted date string for display
+  const dayStr = `${padZero(txDateTime.getDate())}/${padZero(txDateTime.getMonth() + 1)}/${txDateTime.getFullYear()}`;
+  const timeStr = `${padZero(txDateTime.getHours())}:${padZero(txDateTime.getMinutes())}`;
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        {/* Amount Input */}
+        {/* 1. Amount Input & Type Toggle */}
         <View style={styles.section}>
           <Text style={styles.label}>Số tiền (VND)</Text>
-          <TextInput
-            style={styles.amountInput}
-            keyboardType="numeric"
-            placeholder="VD: 50000"
-            placeholderTextColor="#64748B"
-            value={amountStr}
-            onChangeText={setAmountStr}
-          />
+          <View style={styles.amountInputRow}>
+            <TextInput
+              style={styles.amountInput}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor="#64748B"
+              value={amountStr}
+              onChangeText={setAmountStr}
+              autoFocus
+            />
+            {numericAmount > 0 && (
+              <Text style={styles.amountPreview}>
+                {formatCurrency(numericAmount)}
+              </Text>
+            )}
+          </View>
 
+          {/* Quick Amount Buttons */}
+          <View style={styles.quickAmountRow}>
+            <TouchableOpacity style={styles.quickAmountBtn} onPress={() => addQuickAmount(10000)}>
+              <Text style={styles.quickAmountText}>+10k</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickAmountBtn} onPress={() => addQuickAmount(20000)}>
+              <Text style={styles.quickAmountText}>+20k</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickAmountBtn} onPress={() => addQuickAmount(50000)}>
+              <Text style={styles.quickAmountText}>+50k</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickAmountBtn} onPress={() => addQuickAmount(100000)}>
+              <Text style={styles.quickAmountText}>+100k</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickAmountBtn} onPress={() => addQuickAmount(500000)}>
+              <Text style={styles.quickAmountText}>+500k</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Type Toggle: Chi tiêu / Thu nhập */}
           <View style={styles.typeRow}>
             <TouchableOpacity
               style={[
@@ -77,6 +179,11 @@ export default function ManualTransactionModal() {
                 setSelectedCatName('');
               }}
             >
+              <Ionicons
+                name="arrow-down-circle"
+                size={16}
+                color={txType === 'expense' ? '#FFFFFF' : '#EF4444'}
+              />
               <Text
                 style={[
                   styles.typeBtnText,
@@ -98,6 +205,11 @@ export default function ManualTransactionModal() {
                 setSelectedCatName('');
               }}
             >
+              <Ionicons
+                name="arrow-up-circle"
+                size={16}
+                color={txType === 'income' ? '#FFFFFF' : '#10B981'}
+              />
               <Text
                 style={[
                   styles.typeBtnText,
@@ -110,7 +222,332 @@ export default function ManualTransactionModal() {
           </View>
         </View>
 
-        {/* Category Selection */}
+        {/* 2. Nguồn tiền / Hình thức thanh toán (Nằm ngay dưới số tiền) */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Nguồn tiền / Hình thức thanh toán</Text>
+
+          {/* Source Group Selector (3 Tabs) */}
+          <View style={styles.sourceGroupTabs}>
+            <TouchableOpacity
+              style={[
+                styles.sourceGroupTab,
+                sourceGroup === 'cash' && styles.sourceGroupTabActive,
+              ]}
+              onPress={() => handleSelectGroup('cash')}
+            >
+              <Ionicons
+                name="cash-outline"
+                size={16}
+                color={sourceGroup === 'cash' ? '#38BDF8' : '#94A3B8'}
+              />
+              <Text
+                style={[
+                  styles.sourceGroupTabText,
+                  sourceGroup === 'cash' && styles.sourceGroupTabTextActive,
+                ]}
+              >
+                Tiền mặt
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.sourceGroupTab,
+                sourceGroup === 'bank' && styles.sourceGroupTabActive,
+              ]}
+              onPress={() => handleSelectGroup('bank')}
+            >
+              <Ionicons
+                name="business-outline"
+                size={16}
+                color={sourceGroup === 'bank' ? '#38BDF8' : '#94A3B8'}
+              />
+              <Text
+                style={[
+                  styles.sourceGroupTabText,
+                  sourceGroup === 'bank' && styles.sourceGroupTabTextActive,
+                ]}
+              >
+                Ngân hàng
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.sourceGroupTab,
+                sourceGroup === 'wallet' && styles.sourceGroupTabActive,
+              ]}
+              onPress={() => handleSelectGroup('wallet')}
+            >
+              <Ionicons
+                name="wallet-outline"
+                size={16}
+                color={sourceGroup === 'wallet' ? '#38BDF8' : '#94A3B8'}
+              />
+              <Text
+                style={[
+                  styles.sourceGroupTabText,
+                  sourceGroup === 'wallet' && styles.sourceGroupTabTextActive,
+                ]}
+              >
+                Ví điện tử
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Group 1: Cash View */}
+          {sourceGroup === 'cash' && (
+            <View style={styles.cashSelectedCard}>
+              <View style={styles.cashBadge}>
+                <Ionicons name="cash" size={24} color="#10B981" />
+              </View>
+              <View style={styles.cashTexts}>
+                <Text style={styles.cashTitle}>Tiền mặt (Cash)</Text>
+                <Text style={styles.cashSubtitle}>Thanh toán tiền mặt trực tiếp</Text>
+              </View>
+              <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+            </View>
+          )}
+
+          {/* Group 2: Bank View */}
+          {sourceGroup === 'bank' && (
+            <View style={styles.subSourceContainer}>
+              <Text style={styles.subLabel}>Chọn ngân hàng:</Text>
+              <View style={styles.appGrid}>
+                {bankApps.map((app) => {
+                  const isSelected = !isCustomSource && selectedSource === app.name;
+                  return (
+                    <TouchableOpacity
+                      key={app.packageName}
+                      style={[
+                        styles.appCard,
+                        isSelected && styles.appCardActive,
+                      ]}
+                      onPress={() => {
+                        setSelectedSource(app.name);
+                        setIsCustomSource(false);
+                      }}
+                    >
+                      <View
+                        style={[
+                          styles.appIconBadge,
+                          { backgroundColor: app.color || '#3B82F6' },
+                        ]}
+                      >
+                        <Ionicons name="business" size={12} color="#FFFFFF" />
+                      </View>
+                      <Text
+                        style={[
+                          styles.appCardText,
+                          isSelected && styles.appCardTextActive,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {app.shortName || app.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+
+                {/* Other Bank option */}
+                <TouchableOpacity
+                  style={[
+                    styles.appCard,
+                    isCustomSource && styles.appCardActive,
+                  ]}
+                  onPress={() => setIsCustomSource(true)}
+                >
+                  <Ionicons name="create-outline" size={14} color="#94A3B8" />
+                  <Text
+                    style={[
+                      styles.appCardText,
+                      isCustomSource && styles.appCardTextActive,
+                    ]}
+                  >
+                    Ngân hàng khác
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {isCustomSource && (
+                <TextInput
+                  style={styles.customInput}
+                  placeholder="Nhập tên ngân hàng (VD: OCB, VIB, SeABank...)"
+                  placeholderTextColor="#64748B"
+                  value={customSource}
+                  onChangeText={setCustomSource}
+                  autoFocus
+                />
+              )}
+            </View>
+          )}
+
+          {/* Group 3: Wallet View */}
+          {sourceGroup === 'wallet' && (
+            <View style={styles.subSourceContainer}>
+              <Text style={styles.subLabel}>Chọn ví điện tử:</Text>
+              <View style={styles.appGrid}>
+                {walletApps.map((app) => {
+                  const isSelected = !isCustomSource && selectedSource === app.name;
+                  return (
+                    <TouchableOpacity
+                      key={app.packageName}
+                      style={[
+                        styles.appCard,
+                        isSelected && styles.appCardActive,
+                      ]}
+                      onPress={() => {
+                        setSelectedSource(app.name);
+                        setIsCustomSource(false);
+                      }}
+                    >
+                      <View
+                        style={[
+                          styles.appIconBadge,
+                          { backgroundColor: app.color || '#F59E0B' },
+                        ]}
+                      >
+                        <Ionicons name="wallet" size={12} color="#FFFFFF" />
+                      </View>
+                      <Text
+                        style={[
+                          styles.appCardText,
+                          isSelected && styles.appCardTextActive,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {app.shortName || app.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+
+                {/* Other Wallet option */}
+                <TouchableOpacity
+                  style={[
+                    styles.appCard,
+                    isCustomSource && styles.appCardActive,
+                  ]}
+                  onPress={() => setIsCustomSource(true)}
+                >
+                  <Ionicons name="create-outline" size={14} color="#94A3B8" />
+                  <Text
+                    style={[
+                      styles.appCardText,
+                      isCustomSource && styles.appCardTextActive,
+                    ]}
+                  >
+                    Ví khác
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {isCustomSource && (
+                <TextInput
+                  style={styles.customInput}
+                  placeholder="Nhập tên ví điện tử..."
+                  placeholderTextColor="#64748B"
+                  value={customSource}
+                  onChangeText={setCustomSource}
+                  autoFocus
+                />
+              )}
+            </View>
+          )}
+
+          {/* Selected Source Indicator */}
+          <View style={styles.sourceResultBox}>
+            <Text style={styles.sourceResultLabel}>Nguồn đã chọn: </Text>
+            <Text style={styles.sourceResultValue} numberOfLines={1}>
+              {isCustomSource
+                ? customSource.trim() || (sourceGroup === 'bank' ? 'Ngân hàng khác' : 'Ví khác')
+                : selectedSource}
+            </Text>
+          </View>
+        </View>
+
+        {/* 3. Thời gian giao dịch (Mặc định là hiện tại) */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Thời gian giao dịch</Text>
+
+          {/* Date & Time display banner */}
+          <View style={styles.dateTimeBanner}>
+            <View style={styles.dateTimeBannerLeft}>
+              <Ionicons name="time-outline" size={18} color="#38BDF8" />
+              <Text style={styles.dateTimeDisplay}>
+                {dayStr} lúc <Text style={styles.dateTimeBold}>{timeStr}</Text>
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.dateTimeEditBtn}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Ionicons name="calendar-outline" size={14} color="#38BDF8" />
+              <Text style={styles.dateTimeEditText}>Đổi ngày</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Quick Date Shortcuts */}
+          <View style={styles.quickDateRow}>
+            <TouchableOpacity
+              style={styles.quickDatePill}
+              onPress={() => setQuickDate(0)}
+            >
+              <Text style={styles.quickDateText}>Hôm nay</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.quickDatePill}
+              onPress={() => setQuickDate(1)}
+            >
+              <Text style={styles.quickDateText}>Hôm qua</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.quickDatePill}
+              onPress={() => setQuickDate(2)}
+            >
+              <Text style={styles.quickDateText}>Hôm kia</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.quickDatePill}
+              onPress={setNowTime}
+            >
+              <Text style={styles.quickDateText}>Vừa xong</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Quick Time Adjusters */}
+          <View style={styles.timeAdjustRow}>
+            <Text style={styles.subLabel}>Chỉnh giờ phút nhanh:</Text>
+            <View style={styles.timeButtonsGroup}>
+              <TouchableOpacity
+                style={styles.timeAdjustBtn}
+                onPress={() => adjustMinutes(-60)}
+              >
+                <Text style={styles.timeAdjustText}>-1 giờ</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.timeAdjustBtn}
+                onPress={() => adjustMinutes(-15)}
+              >
+                <Text style={styles.timeAdjustText}>-15p</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.timeAdjustBtn}
+                onPress={() => adjustMinutes(15)}
+              >
+                <Text style={styles.timeAdjustText}>+15p</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.timeAdjustBtn}
+                onPress={() => adjustMinutes(60)}
+              >
+                <Text style={styles.timeAdjustText}>+1 giờ</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* 4. Chọn Phân loại */}
         <View style={styles.section}>
           <Text style={styles.label}>Chọn Phân loại</Text>
           <View style={styles.catGrid}>
@@ -146,48 +583,54 @@ export default function ManualTransactionModal() {
           </View>
         </View>
 
-        {/* Note */}
+        {/* 5. Ghi chú giao dịch (Tách riêng ra, có danh sách dạng thẻ như phân loại) */}
         <View style={styles.section}>
-          <Text style={styles.label}>Ghi chú & Nguồn tiền</Text>
+          <Text style={styles.label}>Ghi chú giao dịch</Text>
+          <Text style={styles.subLabel}>Chọn nhanh từ danh sách ghi chú:</Text>
+
+          {/* Notes Grid like Categories */}
+          <View style={styles.notesGrid}>
+            {relevantNotes.map((n) => {
+              const isSelected = noteText === n.text;
+              return (
+                <TouchableOpacity
+                  key={n.id}
+                  style={[
+                    styles.noteCardItem,
+                    isSelected && styles.noteCardItemActive,
+                  ]}
+                  onPress={() => setNoteText(n.text)}
+                >
+                  <Ionicons
+                    name={isSelected ? 'checkmark-circle' : 'document-text-outline'}
+                    size={16}
+                    color={isSelected ? '#38BDF8' : '#94A3B8'}
+                  />
+                  <Text
+                    style={[
+                      styles.noteCardText,
+                      isSelected && styles.noteCardTextActive,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {n.text}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Custom Note input field */}
+          <Text style={[styles.subLabel, { marginTop: 12 }]}>
+            Hoặc nhập ghi chú tùy chỉnh:
+          </Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Nội dung ghi chú..."
+            placeholder="VD: Ăn sáng phở bò, Mua quà sinh nhật..."
             placeholderTextColor="#64748B"
             value={noteText}
             onChangeText={setNoteText}
           />
-
-          <Text style={[styles.subLabel, { marginTop: 10 }]}>
-            Hình thức thanh toán / Nguồn:
-          </Text>
-          <View style={styles.sourcePills}>
-            {[
-              'Tiền mặt',
-              'Timo Digital Bank',
-              'Viettel Money',
-              'Ví MoMo',
-              'Vietcombank (VCB Digibank)',
-              'MB Bank (Quân Đội)',
-            ].map((s) => (
-              <TouchableOpacity
-                key={s}
-                style={[
-                  styles.sourcePill,
-                  sourceName === s && styles.sourcePillActive,
-                ]}
-                onPress={() => setSourceName(s)}
-              >
-                <Text
-                  style={[
-                    styles.sourcePillText,
-                    sourceName === s && styles.sourcePillTextActive,
-                  ]}
-                >
-                  {s}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
         </View>
 
         {/* Submit Button */}
@@ -196,6 +639,26 @@ export default function ManualTransactionModal() {
           <Text style={styles.saveBtnText}>Lưu giao dịch</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Date Picker Modal */}
+      <DateRangePickerModal
+        visible={showDatePicker}
+        initialStart={dayStr}
+        initialEnd={dayStr}
+        onClose={() => setShowDatePicker(false)}
+        onApply={(startStr) => {
+          // Parse DD/MM/YYYY into date
+          const parts = startStr.split(' ')[0].split('/');
+          if (parts.length === 3) {
+            const d = new Date(txDateTime);
+            d.setDate(parseInt(parts[0], 10));
+            d.setMonth(parseInt(parts[1], 10) - 1);
+            d.setFullYear(parseInt(parts[2], 10));
+            setTxDateTime(d);
+          }
+          setShowDatePicker(false);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -214,7 +677,7 @@ const styles = StyleSheet.create({
   },
   section: {
     backgroundColor: '#1E293B',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 14,
     marginBottom: 16,
     borderWidth: 1,
@@ -222,39 +685,70 @@ const styles = StyleSheet.create({
   },
   label: {
     color: '#F8FAFC',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     marginBottom: 8,
   },
   subLabel: {
     color: '#94A3B8',
     fontSize: 11,
-    marginBottom: 6,
+    marginBottom: 8,
+    fontWeight: '500',
   },
-  amountInput: {
+  amountInputRow: {
     backgroundColor: '#0F172A',
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 12,
-    color: '#F8FAFC',
-    fontSize: 22,
-    fontWeight: '800',
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: '#334155',
+  },
+  amountInput: {
+    color: '#F8FAFC',
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  amountPreview: {
+    color: '#38BDF8',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  quickAmountRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 8,
+  },
+  quickAmountBtn: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  quickAmountText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
   },
   typeRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 10,
+    marginTop: 12,
   },
   typeBtn: {
     flex: 1,
-    paddingVertical: 8,
+    flexDirection: 'row',
+    paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 8,
+    justifyContent: 'center',
+    borderRadius: 10,
     backgroundColor: '#0F172A',
     borderWidth: 1,
     borderColor: '#334155',
+    gap: 6,
   },
   typeBtnActiveExpense: {
     backgroundColor: '#EF4444',
@@ -266,12 +760,229 @@ const styles = StyleSheet.create({
   },
   typeBtnText: {
     color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
   typeBtnTextActive: {
     color: '#FFFFFF',
+  },
+  sourceGroupTabs: {
+    flexDirection: 'row',
+    backgroundColor: '#0F172A',
+    borderRadius: 10,
+    padding: 3,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  sourceGroupTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 5,
+  },
+  sourceGroupTabActive: {
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#38BDF850',
+  },
+  sourceGroupTabText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  sourceGroupTabTextActive: {
+    color: '#38BDF8',
     fontWeight: '700',
+  },
+  cashSelectedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#10B98150',
+  },
+  cashBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#10B98120',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  cashTexts: {
+    flex: 1,
+  },
+  cashTitle: {
+    color: '#F8FAFC',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  cashSubtitle: {
+    color: '#94A3B8',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  subSourceContainer: {
+    marginTop: 4,
+  },
+  appGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  appCard: {
+    width: '48%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+    gap: 6,
+  },
+  appCardActive: {
+    borderColor: '#38BDF8',
+    backgroundColor: '#0284C720',
+  },
+  appIconBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appCardText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
+    flex: 1,
+  },
+  appCardTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  customInput: {
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    color: '#F8FAFC',
+    fontSize: 13,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#38BDF8',
+  },
+  sourceResultBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  sourceResultLabel: {
+    color: '#94A3B8',
+    fontSize: 11,
+  },
+  sourceResultValue: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '700',
+    flex: 1,
+  },
+  dateTimeBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  dateTimeBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dateTimeDisplay: {
+    color: '#CBD5E1',
+    fontSize: 13,
+  },
+  dateTimeBold: {
+    color: '#38BDF8',
+    fontWeight: '700',
+  },
+  dateTimeEditBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#0284C720',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  dateTimeEditText: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  quickDateRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 8,
+  },
+  quickDatePill: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  quickDateText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  timeAdjustRow: {
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+    paddingTop: 8,
+  },
+  timeButtonsGroup: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 4,
+  },
+  timeAdjustBtn: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  timeAdjustText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
   },
   catGrid: {
     flexDirection: 'row',
@@ -279,24 +990,56 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   catItem: {
+    width: '31%',
+    backgroundColor: '#0F172A',
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+    gap: 4,
+  },
+  catName: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  notesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  noteCardItem: {
+    width: '48%',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
     backgroundColor: '#0F172A',
+    paddingVertical: 9,
+    paddingHorizontal: 10,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#334155',
-    gap: 6,
+    gap: 8,
   },
-  catName: {
-    color: '#CBD5E1',
+  noteCardItemActive: {
+    borderColor: '#38BDF8',
+    backgroundColor: '#0284C720',
+  },
+  noteCardText: {
+    color: '#94A3B8',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
+    flex: 1,
+  },
+  noteCardTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   textInput: {
     backgroundColor: '#0F172A',
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     color: '#F8FAFC',
@@ -304,39 +1047,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
   },
-  sourcePills: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  sourcePill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  sourcePillActive: {
-    backgroundColor: '#3B82F6',
-    borderColor: '#3B82F6',
-  },
-  sourcePillText: {
-    color: '#94A3B8',
-    fontSize: 11,
-  },
-  sourcePillTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
   saveBtn: {
+    backgroundColor: '#10B981',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#10B981',
-    borderRadius: 12,
     paddingVertical: 14,
+    borderRadius: 12,
     gap: 8,
+    marginTop: 8,
   },
   saveBtnText: {
     color: '#FFFFFF',

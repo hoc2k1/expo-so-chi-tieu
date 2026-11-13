@@ -87,10 +87,12 @@ export interface AppSettings {
 
 export interface TransactionFilterState {
   type: 'all' | 'expense' | 'income';
-  categoryId: string; // 'all' or specific categoryId
-  source: string; // 'all' or specific bank/wallet name
+  categoryIds: string[]; // empty array = tất cả
+  sources: string[];     // empty array = tất cả
+  categoryId?: string;   // tương thích ngược
+  source?: string;       // tương thích ngược
   timeRange: TimeRangePreset;
-  customStartDate: string; // YYYY-MM-DD or YYYY-MM-DD HH:mm
-  customEndDate: string;   // YYYY-MM-DD or YYYY-MM-DD HH:mm
+  customStartDate: string; // YYYY-MM-DD or DD/MM/YYYY
+  customEndDate: string;   // YYYY-MM-DD or DD/MM/YYYY
   searchQuery?: string;
 }

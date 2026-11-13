@@ -175,9 +175,3 @@ function formatTimeHHMM(timestamp: number): string {
 function formatVND(val: number): string {
   return new Intl.NumberFormat('vi-VN').format(val) + ' đ';
 }
-
-}
-
-function formatVND(val: number): string {
-  return new Intl.NumberFormat('vi-VN').format(val) + ' đ';
-}

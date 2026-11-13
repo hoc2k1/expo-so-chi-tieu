@@ -18,7 +18,8 @@ import {
   isTransactionInTimeRange,
 } from '../../utils/formatters';
 import { PieChartSvg } from '../../components/PieChartSvg';
-import { DateTimeRangeModal } from '../../components/DateTimeRangeModal';
+import { DateRangePickerModal } from '../../components/DateRangePickerModal';
+import { MultiSelectGridModal, MultiSelectOption } from '../../components/MultiSelectGridModal';
 import { SUPPORTED_APPS } from '../../constants/defaultData';
 
 export default function StatisticsScreen() {
@@ -28,12 +29,15 @@ export default function StatisticsScreen() {
   const [customStart, setCustomStart] = useState<string>(() => getDefaultMonthStartDisplay());
   const [customEnd, setCustomEnd] = useState<string>(() => getDefaultTodayEndDisplay());
   const [showDateModal, setShowDateModal] = useState(false);
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
-  const [selectedSource, setSelectedSource] = useState<string>('all');
+  const [selectedSources, setSelectedSources] = useState<string[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [activeType, setActiveType] = useState<'expense' | 'income'>('expense');
 
-  // Available banks/wallets from transactions + default popular apps
-  const sourceOptions = useMemo(() => {
+  // Available banks/wallets for MultiSelectGridModal
+  const bankOptions = useMemo<MultiSelectOption[]>(() => {
     const set = new Set<string>();
     transactions.forEach((t) => {
       if (t.source) set.add(t.source);
@@ -44,15 +48,36 @@ export default function StatisticsScreen() {
       }
     });
     set.add('Tiền mặt');
-    return ['all', ...Array.from(set)];
+    return Array.from(set).map((s) => ({
+      id: s,
+      name: s,
+      icon: s === 'Tiền mặt' ? 'cash-outline' : 'business-outline',
+    }));
   }, [transactions]);
 
-  // Filter transactions by timeRange + source
+  // Available categories for MultiSelectGridModal
+  const categoryOptions = useMemo<MultiSelectOption[]>(() => {
+    return categories.map((c) => ({
+      id: c.id,
+      name: c.name,
+      icon: c.icon,
+      color: c.color,
+      subtitle: c.type === 'expense' ? 'Chi tiêu' : 'Thu nhập',
+    }));
+  }, [categories]);
+
+  // Filter transactions by timeRange + sources + categoryIds
   const scopedTransactions = useMemo(() => {
     return transactions.filter((tx) => {
-      if (selectedSource !== 'all' && tx.source !== selectedSource) {
+      // 1. Bank/Wallet source filter
+      if (selectedSources.length > 0 && !selectedSources.includes(tx.source)) {
         return false;
       }
+      // 2. Category filter
+      if (selectedCategoryIds.length > 0 && !selectedCategoryIds.includes(tx.categoryId)) {
+        return false;
+      }
+      // 3. Time range filter
       return isTransactionInTimeRange(
         tx.timestamp,
         tx.date,
@@ -61,7 +86,7 @@ export default function StatisticsScreen() {
         customEnd
       );
     });
-  }, [transactions, selectedSource, timeRange, customStart, customEnd]);
+  }, [transactions, selectedSources, selectedCategoryIds, timeRange, customStart, customEnd]);
 
   // Overall sums
   const totalIncome = useMemo(() => {
@@ -123,8 +148,8 @@ export default function StatisticsScreen() {
   const handleDrillDown = (categoryId: string) => {
     setTransactionFilter({
       type: activeType,
-      categoryId,
-      source: selectedSource,
+      categoryIds: [categoryId],
+      sources: selectedSources,
       timeRange,
       customStartDate: customStart,
       customEndDate: customEnd,
@@ -132,6 +157,17 @@ export default function StatisticsScreen() {
     });
     router.push('/(tabs)/transactions');
   };
+
+  const handleResetFilters = () => {
+    setTimeRange('month');
+    setSelectedSources([]);
+    setSelectedCategoryIds([]);
+  };
+
+  const hasActiveFilter =
+    selectedSources.length > 0 ||
+    selectedCategoryIds.length > 0 ||
+    timeRange !== 'month';
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
@@ -180,35 +216,117 @@ export default function StatisticsScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Bank / Wallet Source Filter */}
-        <View style={styles.sourceFilterSection}>
-          <Text style={styles.filterSubLabel}>Ngân hàng / Ví điện tử:</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.sourceScrollContent}
+        {/* Filter Row 2: Ngân hàng/Ví Multi-Select & Phân loại Multi-Select */}
+        <View style={styles.dropdownRow}>
+          {/* Ngân hàng / Ví Dropdown Button */}
+          <TouchableOpacity
+            style={[
+              styles.dropdownBtn,
+              selectedSources.length > 0 && styles.dropdownBtnActiveBank,
+            ]}
+            onPress={() => setShowBankModal(true)}
+            activeOpacity={0.7}
           >
-            {sourceOptions.map((src) => {
-              const active = selectedSource === src;
-              return (
-                <TouchableOpacity
-                  key={src}
-                  style={[styles.sourceChip, active && styles.sourceChipActive]}
-                  onPress={() => setSelectedSource(src)}
-                >
-                  <Text
-                    style={[
-                      styles.sourceChipText,
-                      active && styles.sourceChipTextActive,
-                    ]}
-                  >
-                    {src === 'all' ? 'Tất cả ngân hàng/ví' : src}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+            <Ionicons
+              name="business-outline"
+              size={14}
+              color={selectedSources.length > 0 ? '#38BDF8' : '#94A3B8'}
+            />
+            <Text
+              style={[
+                styles.dropdownBtnText,
+                selectedSources.length > 0 && styles.dropdownBtnTextActive,
+              ]}
+              numberOfLines={1}
+            >
+              {selectedSources.length === 0
+                ? 'Ngân hàng / Ví'
+                : `Ngân hàng (${selectedSources.length})`}
+            </Text>
+            <Ionicons
+              name="chevron-down"
+              size={13}
+              color={selectedSources.length > 0 ? '#38BDF8' : '#64748B'}
+            />
+          </TouchableOpacity>
+
+          {/* Phân loại Dropdown Button */}
+          <TouchableOpacity
+            style={[
+              styles.dropdownBtn,
+              selectedCategoryIds.length > 0 && styles.dropdownBtnActiveCategory,
+            ]}
+            onPress={() => setShowCategoryModal(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="pricetag-outline"
+              size={14}
+              color={selectedCategoryIds.length > 0 ? '#10B981' : '#94A3B8'}
+            />
+            <Text
+              style={[
+                styles.dropdownBtnText,
+                selectedCategoryIds.length > 0 && styles.dropdownBtnTextActive,
+              ]}
+              numberOfLines={1}
+            >
+              {selectedCategoryIds.length === 0
+                ? 'Phân loại'
+                : `Phân loại (${selectedCategoryIds.length})`}
+            </Text>
+            <Ionicons
+              name="chevron-down"
+              size={13}
+              color={selectedCategoryIds.length > 0 ? '#10B981' : '#64748B'}
+            />
+          </TouchableOpacity>
+
+          {/* Reset Filters button */}
+          {hasActiveFilter && (
+            <TouchableOpacity
+              style={styles.resetFilterChip}
+              onPress={handleResetFilters}
+            >
+              <Ionicons name="refresh" size={13} color="#EF4444" />
+              <Text style={styles.resetFilterText}>Mặc định</Text>
+            </TouchableOpacity>
+          )}
         </View>
+
+        {/* Active Categories Banner */}
+        {selectedCategoryIds.length > 0 && (
+          <View style={styles.appliedFilterBanner}>
+            <View style={styles.appliedBannerLeft}>
+              <Ionicons name="pricetag" size={14} color="#10B981" />
+              <Text style={styles.appliedFilterText} numberOfLines={1}>
+                Phân loại: <Text style={styles.appliedFilterBold}>
+                  {selectedCategoryIds
+                    .map((id) => categories.find((c) => c.id === id)?.name || id)
+                    .join(', ')}
+                </Text>
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => setSelectedCategoryIds([])}>
+              <Ionicons name="close-circle" size={18} color="#38BDF8" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Active Banks Banner */}
+        {selectedSources.length > 0 && (
+          <View style={styles.appliedFilterBanner}>
+            <View style={styles.appliedBannerLeft}>
+              <Ionicons name="business" size={14} color="#38BDF8" />
+              <Text style={styles.appliedFilterText} numberOfLines={1}>
+                Nguồn: <Text style={styles.appliedFilterBold}>{selectedSources.join(', ')}</Text>
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => setSelectedSources([])}>
+              <Ionicons name="close-circle" size={18} color="#38BDF8" />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Summary Cards */}
         <View style={styles.summaryContainer}>
@@ -368,8 +486,8 @@ export default function StatisticsScreen() {
         )}
       </ScrollView>
 
-      {/* DateTime Range Picker Modal */}
-      <DateTimeRangeModal
+      {/* DateRange Picker Modal */}
+      <DateRangePickerModal
         visible={showDateModal}
         initialStart={customStart}
         initialEnd={customEnd}
@@ -379,6 +497,30 @@ export default function StatisticsScreen() {
           setCustomEnd(e);
           setTimeRange('custom');
         }}
+      />
+
+      {/* Bank & Wallet Multi-Select Grid Modal (2 columns) */}
+      <MultiSelectGridModal
+        visible={showBankModal}
+        title="Lọc theo Ngân hàng & Ví điện tử"
+        options={bankOptions}
+        selectedIds={selectedSources}
+        columns={2}
+        allLabel="Tất cả ngân hàng/ví"
+        onClose={() => setShowBankModal(false)}
+        onApply={(selected) => setSelectedSources(selected)}
+      />
+
+      {/* Category Multi-Select Grid Modal (2 columns) */}
+      <MultiSelectGridModal
+        visible={showCategoryModal}
+        title="Lọc theo Phân loại"
+        options={categoryOptions}
+        selectedIds={selectedCategoryIds}
+        columns={2}
+        allLabel="Tất cả phân loại"
+        onClose={() => setShowCategoryModal(false)}
+        onApply={(selected) => setSelectedCategoryIds(selected)}
       />
     </SafeAreaView>
   );
@@ -444,39 +586,80 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  sourceFilterSection: {
-    marginBottom: 14,
+  dropdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    flexWrap: 'wrap',
   },
-  filterSubLabel: {
-    color: '#94A3B8',
-    fontSize: 11,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  sourceScrollContent: {
-    gap: 6,
-    paddingRight: 8,
-  },
-  sourceChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+  dropdownBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#1E293B',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderWidth: 1,
     borderColor: '#334155',
+    gap: 5,
   },
-  sourceChipActive: {
-    backgroundColor: '#8B5CF6',
-    borderColor: '#8B5CF6',
+  dropdownBtnActiveBank: {
+    borderColor: '#38BDF8',
+    backgroundColor: '#0284C725',
   },
-  sourceChipText: {
+  dropdownBtnActiveCategory: {
+    borderColor: '#10B981',
+    backgroundColor: '#05966925',
+  },
+  dropdownBtnText: {
     color: '#94A3B8',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
   },
-  sourceChipTextActive: {
-    color: '#FFFFFF',
+  dropdownBtnTextActive: {
+    color: '#F8FAFC',
     fontWeight: '700',
+  },
+  resetFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: '#EF444420',
+    gap: 4,
+  },
+  resetFilterText: {
+    color: '#EF4444',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  appliedFilterBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#0284C720',
+    borderWidth: 1,
+    borderColor: '#0284C740',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  appliedBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  appliedFilterText: {
+    color: '#E2E8F0',
+    fontSize: 11,
+  },
+  appliedFilterBold: {
+    fontWeight: '700',
+    color: '#38BDF8',
   },
   summaryContainer: {
     flexDirection: 'row',
