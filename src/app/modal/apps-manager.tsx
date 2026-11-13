@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   TextInput,
   Switch,
@@ -14,9 +13,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../contexts/AppContext';
 import { SUPPORTED_APPS } from '../../constants/defaultData';
 import { SupportedApp } from '../../models/types';
+import {
+  KeyboardAwareScrollView,
+  KeyboardAwareScrollViewRef,
+} from '../../components/KeyboardAwareScrollView';
 
 export default function AppsManagerModal() {
   const { settings, updateSettings } = useApp();
+  const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
 
   const [customPackage, setCustomPackage] = useState('');
 
@@ -72,7 +76,11 @@ export default function AppsManagerModal() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+      <KeyboardAwareScrollView
+        ref={scrollViewRef}
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+      >
         {/* Header controls */}
         <View style={styles.topBar}>
           <Text style={styles.countText}>
@@ -167,13 +175,16 @@ export default function AppsManagerModal() {
             value={customPackage}
             onChangeText={setCustomPackage}
             autoCapitalize="none"
+            onFocus={() =>
+              setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 150)
+            }
           />
           <TouchableOpacity style={styles.addBtn} onPress={handleAddCustom}>
             <Ionicons name="add" size={18} color="#FFFFFF" />
             <Text style={styles.addBtnText}>Thêm vào danh sách theo dõi</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

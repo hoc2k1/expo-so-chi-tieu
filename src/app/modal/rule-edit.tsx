@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../contexts/AppContext';
 import { AutoRule } from '../../models/types';
+import { KeyboardAwareScrollView } from '../../components/KeyboardAwareScrollView';
 
 export default function RuleEditModal() {
   const { rules, categories, addRule, deleteRule } = useApp();
@@ -56,7 +57,7 @@ export default function RuleEditModal() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <KeyboardAwareScrollView style={styles.container} contentContainerStyle={styles.content}>
         {/* Intro */}
       <View style={styles.introBox}>
         <Ionicons name="sparkles" size={18} color="#F59E0B" />
@@ -128,7 +129,7 @@ export default function RuleEditModal() {
           </View>
         ))}
       </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

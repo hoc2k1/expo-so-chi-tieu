@@ -1,9 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   TextInput,
   Alert,
@@ -13,8 +12,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useApp } from '../../contexts/AppContext';
 import { TransactionType } from '../../models/types';
+import {
+  KeyboardAwareScrollView,
+  KeyboardAwareScrollViewRef,
+} from '../../components/KeyboardAwareScrollView';
 
 export default function ClassifyModal() {
+  const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
   const params = useLocalSearchParams<{
     pendingId?: string;
     batchIds?: string;
@@ -134,7 +138,11 @@ export default function ClassifyModal() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+      <KeyboardAwareScrollView
+        ref={scrollViewRef}
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+      >
         {/* Header Info */}
         {isBatch ? (
           <View style={styles.batchInfoBanner}>
@@ -305,6 +313,9 @@ export default function ClassifyModal() {
             placeholderTextColor="#64748B"
             value={noteText}
             onChangeText={setNoteText}
+            onFocus={() =>
+              setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 150)
+            }
           />
 
           {noteText.trim().length > 0 && (
@@ -333,7 +344,7 @@ export default function ClassifyModal() {
               : 'Lưu giao dịch'}
           </Text>
         </TouchableOpacity>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

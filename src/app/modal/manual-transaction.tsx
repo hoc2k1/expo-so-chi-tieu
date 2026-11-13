@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   TextInput,
 } from 'react-native';
@@ -15,6 +14,10 @@ import { TransactionType, SavedNote } from '../../models/types';
 import { SUPPORTED_APPS } from '../../constants/defaultData';
 import { formatCurrency } from '../../utils/formatters';
 import { DateRangePickerModal } from '../../components/DateRangePickerModal';
+import {
+  KeyboardAwareScrollView,
+  KeyboardAwareScrollViewRef,
+} from '../../components/KeyboardAwareScrollView';
 
 type SourceTypeGroup = 'cash' | 'bank' | 'wallet';
 
@@ -24,6 +27,7 @@ function padZero(n: number): string {
 
 export default function ManualTransactionModal() {
   const { categories, notes, addManualTransaction, showToast } = useApp();
+  const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
 
   const [amountStr, setAmountStr] = useState('');
   const [txType, setTxType] = useState<TransactionType>('expense');
@@ -126,7 +130,11 @@ export default function ManualTransactionModal() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+      <KeyboardAwareScrollView
+        ref={scrollViewRef}
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+      >
         {/* 1. Amount Input & Type Toggle */}
         <View style={styles.section}>
           <Text style={styles.label}>Số tiền (VND)</Text>
@@ -630,6 +638,9 @@ export default function ManualTransactionModal() {
             placeholderTextColor="#64748B"
             value={noteText}
             onChangeText={setNoteText}
+            onFocus={() =>
+              setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 150)
+            }
           />
         </View>
 
@@ -638,7 +649,7 @@ export default function ManualTransactionModal() {
           <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
           <Text style={styles.saveBtnText}>Lưu giao dịch</Text>
         </TouchableOpacity>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {/* Date Picker Modal */}
       <DateRangePickerModal

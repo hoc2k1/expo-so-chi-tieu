@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -93,7 +94,7 @@ const MultiSelectGridModalContent: React.FC<Omit<MultiSelectGridModalProps, 'vis
   const colWidth = columns === 3 ? '31.5%' : '48.5%';
 
   return (
-    <View style={styles.overlay}>
+    <KeyboardAvoidingView style={styles.overlay} behavior="padding">
       <SafeAreaView style={styles.sheetContainer} edges={['bottom']}>
           {/* Header */}
           <View style={styles.header}>
@@ -263,7 +264,7 @@ const MultiSelectGridModalContent: React.FC<Omit<MultiSelectGridModalProps, 'vis
             </TouchableOpacity>
           </View>
         </SafeAreaView>
-      </View>
+      </KeyboardAvoidingView>
   );
 };
 

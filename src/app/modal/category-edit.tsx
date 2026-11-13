@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   TextInput,
   Alert,
@@ -12,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../contexts/AppContext';
 import { Category, TransactionType } from '../../models/types';
+import { KeyboardAwareScrollView } from '../../components/KeyboardAwareScrollView';
 
 const COLOR_PALETTE = [
   '#EF4444',
@@ -83,7 +83,7 @@ export default function CategoryEditModal() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <KeyboardAwareScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Type Toggle */}
       <View style={styles.typeSwitcher}>
         <TouchableOpacity
@@ -175,7 +175,7 @@ export default function CategoryEditModal() {
           </View>
         ))}
       </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
