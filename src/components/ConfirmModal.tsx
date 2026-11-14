@@ -16,8 +16,9 @@ export interface ConfirmModalProps {
   confirmText?: string;
   cancelText?: string;
   type?: 'danger' | 'warning' | 'info';
+  singleButton?: boolean;
   onConfirm: () => void;
-  onCancel: () => void;
+  onCancel?: () => void;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -27,10 +28,19 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   confirmText = 'Xác nhận',
   cancelText = 'Hủy',
   type = 'danger',
+  singleButton = false,
   onConfirm,
   onCancel,
 }) => {
   if (!visible) return null;
+
+  const handleClose = () => {
+    if (onCancel) {
+      onCancel();
+    } else {
+      onConfirm();
+    }
+  };
 
   const iconName =
     type === 'danger'
@@ -57,9 +67,9 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onCancel}
+      onRequestClose={handleClose}
     >
-      <TouchableWithoutFeedback onPress={onCancel}>
+      <TouchableWithoutFeedback onPress={handleClose}>
         <View style={styles.overlay}>
           <TouchableWithoutFeedback>
             <View style={styles.card}>
@@ -74,16 +84,22 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
               {/* Action Buttons */}
               <View style={styles.buttonRow}>
-                <TouchableOpacity
-                  style={styles.cancelBtn}
-                  activeOpacity={0.7}
-                  onPress={onCancel}
-                >
-                  <Text style={styles.cancelBtnText}>{cancelText}</Text>
-                </TouchableOpacity>
+                {!singleButton && onCancel && (
+                  <TouchableOpacity
+                    style={styles.cancelBtn}
+                    activeOpacity={0.7}
+                    onPress={onCancel}
+                  >
+                    <Text style={styles.cancelBtnText}>{cancelText}</Text>
+                  </TouchableOpacity>
+                )}
 
                 <TouchableOpacity
-                  style={[styles.confirmBtn, { backgroundColor: confirmBtnBg }]}
+                  style={[
+                    styles.confirmBtn,
+                    { backgroundColor: confirmBtnBg },
+                    singleButton && { flex: 1 },
+                  ]}
                   activeOpacity={0.7}
                   onPress={onConfirm}
                 >

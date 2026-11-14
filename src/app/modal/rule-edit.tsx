@@ -6,13 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../contexts/AppContext';
 import { AutoRule } from '../../models/types';
 import { KeyboardAwareScrollView } from '../../components/KeyboardAwareScrollView';
+import { ConfirmModal } from '../../components/ConfirmModal';
 
 export default function RuleEditModal() {
   const { rules, categories, addRule, updateRule, deleteRule, showToast } = useApp();
@@ -21,6 +21,7 @@ export default function RuleEditModal() {
   const [selectedCatId, setSelectedCatId] = useState(categories[0]?.id || '');
   const [note, setNote] = useState('');
   const [editingRule, setEditingRule] = useState<AutoRule | null>(null);
+  const [ruleToDelete, setRuleToDelete] = useState<AutoRule | null>(null);
 
   const handleStartEdit = (r: AutoRule) => {
     setEditingRule(r);
@@ -74,20 +75,17 @@ export default function RuleEditModal() {
   };
 
   const handleDelete = (r: AutoRule) => {
-    Alert.alert('Xóa quy tắc', `Bạn có chắc muốn xóa quy tắc cho từ khóa "${r.keyword}"?`, [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: async () => {
-          if (editingRule?.id === r.id) {
-            handleCancelEdit();
-          }
-          await deleteRule(r.id);
-          showToast(`Đã xóa quy tắc "${r.keyword}"!`, 'info');
-        },
-      },
-    ]);
+    setRuleToDelete(r);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!ruleToDelete) return;
+    if (editingRule?.id === ruleToDelete.id) {
+      handleCancelEdit();
+    }
+    await deleteRule(ruleToDelete.id);
+    showToast(`Đã xóa quy tắc "${ruleToDelete.keyword}"!`, 'info');
+    setRuleToDelete(null);
   };
 
   return (
@@ -197,6 +195,21 @@ export default function RuleEditModal() {
           ))}
         </View>
       </KeyboardAwareScrollView>
+
+      <ConfirmModal
+        visible={!!ruleToDelete}
+        title="Xác nhận xóa quy tắc"
+        message={
+          ruleToDelete
+            ? `Bạn có chắc muốn xóa quy tắc gợi ý cho từ khóa "${ruleToDelete.keyword}" không?`
+            : ''
+        }
+        confirmText="Xóa vĩnh viễn"
+        cancelText="Hủy"
+        type="danger"
+        onCancel={() => setRuleToDelete(null)}
+        onConfirm={handleConfirmDelete}
+      />
     </SafeAreaView>
   );
 }

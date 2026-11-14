@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -102,7 +101,6 @@ export default function ClassifyModal() {
 
     if (!finalCatName) {
       showToast('Vui lòng chọn hoặc nhập tên Phân loại.', 'error');
-      Alert.alert('Chưa chọn phân loại', 'Vui lòng chọn hoặc nhập tên Phân loại.');
       return;
     }
 

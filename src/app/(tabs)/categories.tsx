@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +13,7 @@ import { useApp } from '../../contexts/AppContext';
 import { Category, SavedNote, TransactionType } from '../../models/types';
 import { CategoryNoteFormModal } from '../../components/CategoryNoteFormModal';
 import { DraggableReorderList } from '../../components/DraggableReorderList';
+import { ConfirmModal } from '../../components/ConfirmModal';
 
 type ManageTab = 'category' | 'note';
 
@@ -40,6 +40,13 @@ export default function CategoriesManageScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editingNote, setEditingNote] = useState<SavedNote | null>(null);
+
+  // Confirm delete modal state
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<{
+    type: 'category' | 'note';
+    id: string;
+    name: string;
+  } | null>(null);
 
   const filteredCategories = useMemo(
     () => categories.filter((c) => c.type === filterType),
@@ -126,31 +133,31 @@ export default function CategoriesManageScreen() {
   };
 
   const handleDeleteCategory = (cat: Category) => {
-    Alert.alert('Xóa phân loại', `Bạn có chắc muốn xóa phân loại "${cat.name}"?`, [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteCategory(cat.id);
-          showToast(`Đã xóa phân loại "${cat.name}"!`, 'info');
-        },
-      },
-    ]);
+    setDeleteConfirmTarget({
+      type: 'category',
+      id: cat.id,
+      name: cat.name,
+    });
   };
 
   const handleDeleteNote = (note: SavedNote) => {
-    Alert.alert('Xóa ghi chú', `Bạn có chắc muốn xóa "${note.text}"?`, [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteNote(note.id);
-          showToast(`Đã xóa ghi chú "${note.text}"!`, 'info');
-        },
-      },
-    ]);
+    setDeleteConfirmTarget({
+      type: 'note',
+      id: note.id,
+      name: note.text,
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmTarget) return;
+    if (deleteConfirmTarget.type === 'category') {
+      await deleteCategory(deleteConfirmTarget.id);
+      showToast(`Đã xóa phân loại "${deleteConfirmTarget.name}"!`, 'info');
+    } else {
+      await deleteNote(deleteConfirmTarget.id);
+      showToast(`Đã xóa ghi chú "${deleteConfirmTarget.name}"!`, 'info');
+    }
+    setDeleteConfirmTarget(null);
   };
 
   return (
@@ -276,7 +283,7 @@ export default function CategoriesManageScreen() {
                       >
                         <Ionicons name={cat.icon as any} size={18} color={cat.color} />
                       </View>
-                      <Text style={styles.itemTitle} numberOfLines={1}>
+                      <Text style={styles.catName} numberOfLines={1}>
                         {cat.name}
                       </Text>
                       <View style={styles.rowActions}>
@@ -315,7 +322,7 @@ export default function CategoriesManageScreen() {
             ) : (
               <DraggableReorderList
                 items={notes}
-                itemHeight={64}
+                itemHeight={60}
                 itemGap={8}
                 onScrollLockChange={setIsDragging}
                 onReorder={(ordered) => {
@@ -326,7 +333,7 @@ export default function CategoriesManageScreen() {
                   return (
                     <View style={styles.itemInner}>
                       <View style={styles.noteTexts}>
-                        <Text style={styles.itemTitle} numberOfLines={1}>
+                        <Text style={styles.noteTitle} numberOfLines={1}>
                           {n.text}
                         </Text>
                         <Text style={styles.noteCategory} numberOfLines={1}>
@@ -400,6 +407,26 @@ export default function CategoriesManageScreen() {
         onClose={() => setModalVisible(false)}
         onSaveCategory={handleSaveCategory}
         onSaveNote={handleSaveNote}
+      />
+
+      {/* Styled App Confirm Modal for Deletion */}
+      <ConfirmModal
+        visible={!!deleteConfirmTarget}
+        title={
+          deleteConfirmTarget?.type === 'category'
+            ? 'Xác nhận xóa phân loại'
+            : 'Xác nhận xóa ghi chú'
+        }
+        message={
+          deleteConfirmTarget
+            ? `Bạn có chắc muốn xóa "${deleteConfirmTarget.name}" không? Dữ liệu đã xóa không thể khôi phục.`
+            : ''
+        }
+        confirmText="Xóa vĩnh viễn"
+        cancelText="Hủy"
+        type="danger"
+        onCancel={() => setDeleteConfirmTarget(null)}
+        onConfirm={handleConfirmDelete}
       />
     </SafeAreaView>
   );
@@ -541,7 +568,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 10,
   },
-  itemTitle: {
+  catName: {
     flex: 1,
     color: '#F8FAFC',
     fontSize: 14,
@@ -550,11 +577,17 @@ const styles = StyleSheet.create({
   noteTexts: {
     flex: 1,
     justifyContent: 'center',
+    paddingVertical: 2,
+  },
+  noteTitle: {
+    color: '#F8FAFC',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 3,
   },
   noteCategory: {
     color: '#94A3B8',
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 12,
   },
   rowActions: {
     flexDirection: 'row',

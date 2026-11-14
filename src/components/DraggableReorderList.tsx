@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   SharedValue,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -125,18 +126,20 @@ export function DraggableReorderList<T extends { id: string }>({
   const activeIndex = useSharedValue(-1);
   const targetIndex = useSharedValue(-1);
   const dragY = useSharedValue(0);
+  const isAnimatingDrop = useSharedValue(false);
 
   const slotHeight = itemHeight + itemGap;
   const totalHeight = items.length > 0 ? items.length * slotHeight - itemGap : 0;
 
   const handleDragStart = useCallback(
     (index: number) => {
+      if (isAnimatingDrop.get()) return;
       activeIndex.set(index);
       targetIndex.set(index);
       dragY.set(0);
       onScrollLockChange?.(true);
     },
-    [activeIndex, targetIndex, dragY, onScrollLockChange]
+    [activeIndex, targetIndex, dragY, isAnimatingDrop, onScrollLockChange]
   );
 
   const handleDragUpdate = useCallback(
@@ -149,14 +152,12 @@ export function DraggableReorderList<T extends { id: string }>({
     [activeIndex, targetIndex, dragY, slotHeight, items.length]
   );
 
-  const handleDragEnd = useCallback(
-    (index: number) => {
-      if (activeIndex.get() !== index) return;
-      const from = activeIndex.get();
-      const to = targetIndex.get();
+  const finalizeDrop = useCallback(
+    (from: number, to: number) => {
       activeIndex.set(-1);
       targetIndex.set(-1);
       dragY.set(0);
+      isAnimatingDrop.set(false);
       onScrollLockChange?.(false);
 
       if (
@@ -172,7 +173,29 @@ export function DraggableReorderList<T extends { id: string }>({
         onReorder(next);
       }
     },
-    [activeIndex, targetIndex, dragY, items, onReorder, onScrollLockChange]
+    [activeIndex, targetIndex, dragY, isAnimatingDrop, items, onReorder, onScrollLockChange]
+  );
+
+  const handleDragEnd = useCallback(
+    (index: number) => {
+      if (activeIndex.get() !== index) return;
+      const from = activeIndex.get();
+      const to = targetIndex.get();
+      if (from === -1) return;
+
+      const finalTo = to === -1 ? from : to;
+      const targetOffset = (finalTo - from) * slotHeight;
+
+      isAnimatingDrop.set(true);
+
+      dragY.set(
+        withTiming(targetOffset, { duration: 180 }, () => {
+          'worklet';
+          runOnJS(finalizeDrop)(from, finalTo);
+        })
+      );
+    },
+    [activeIndex, targetIndex, dragY, isAnimatingDrop, slotHeight, finalizeDrop]
   );
 
   if (items.length === 0) {

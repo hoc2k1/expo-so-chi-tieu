@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +12,7 @@ import { useApp } from '../../contexts/AppContext';
 import { SavedNote } from '../../models/types';
 import { CategoryNoteFormModal } from '../../components/CategoryNoteFormModal';
 import { DraggableReorderList } from '../../components/DraggableReorderList';
+import { ConfirmModal } from '../../components/ConfirmModal';
 
 export default function NoteEditModal() {
   const {
@@ -28,6 +28,7 @@ export default function NoteEditModal() {
   const [isDragging, setIsDragging] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingNote, setEditingNote] = useState<SavedNote | null>(null);
+  const [noteToDelete, setNoteToDelete] = useState<SavedNote | null>(null);
 
   const handleOpenAdd = () => {
     setEditingNote(null);
@@ -68,17 +69,14 @@ export default function NoteEditModal() {
   };
 
   const handleDelete = (n: SavedNote) => {
-    Alert.alert('Xóa ghi chú', `Bạn có chắc muốn xóa "${n.text}"?`, [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteNote(n.id);
-          showToast(`Đã xóa ghi chú "${n.text}"!`, 'info');
-        },
-      },
-    ]);
+    setNoteToDelete(n);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!noteToDelete) return;
+    await deleteNote(noteToDelete.id);
+    showToast(`Đã xóa ghi chú "${noteToDelete.text}"!`, 'info');
+    setNoteToDelete(null);
   };
 
   return (
@@ -104,7 +102,7 @@ export default function NoteEditModal() {
 
           <DraggableReorderList
             items={notes}
-            itemHeight={64}
+            itemHeight={60}
             itemGap={8}
             onScrollLockChange={setIsDragging}
             onReorder={(ordered) => reorderNotes(ordered)}
@@ -151,6 +149,21 @@ export default function NoteEditModal() {
         onClose={() => setModalVisible(false)}
         onSaveCategory={async () => false}
         onSaveNote={handleSaveNote}
+      />
+
+      <ConfirmModal
+        visible={!!noteToDelete}
+        title="Xác nhận xóa ghi chú"
+        message={
+          noteToDelete
+            ? `Bạn có chắc muốn xóa ghi chú "${noteToDelete.text}" không? Dữ liệu đã xóa không thể khôi phục.`
+            : ''
+        }
+        confirmText="Xóa vĩnh viễn"
+        cancelText="Hủy"
+        type="danger"
+        onCancel={() => setNoteToDelete(null)}
+        onConfirm={handleConfirmDelete}
       />
     </SafeAreaView>
   );

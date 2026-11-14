@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +12,7 @@ import { useApp } from '../../contexts/AppContext';
 import { Category, TransactionType } from '../../models/types';
 import { CategoryNoteFormModal } from '../../components/CategoryNoteFormModal';
 import { DraggableReorderList } from '../../components/DraggableReorderList';
+import { ConfirmModal } from '../../components/ConfirmModal';
 
 export default function CategoryEditModal() {
   const {
@@ -28,6 +28,7 @@ export default function CategoryEditModal() {
   const [isDragging, setIsDragging] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingCat, setEditingCat] = useState<Category | null>(null);
+  const [catToDelete, setCatToDelete] = useState<Category | null>(null);
 
   const list = useMemo(
     () => categories.filter((c) => c.type === filterType),
@@ -78,17 +79,14 @@ export default function CategoryEditModal() {
   };
 
   const handleDelete = (cat: Category) => {
-    Alert.alert('Xóa danh mục', `Bạn có chắc muốn xóa danh mục "${cat.name}"?`, [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteCategory(cat.id);
-          showToast(`Đã xóa danh mục "${cat.name}"!`, 'info');
-        },
-      },
-    ]);
+    setCatToDelete(cat);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!catToDelete) return;
+    await deleteCategory(catToDelete.id);
+    showToast(`Đã xóa danh mục "${catToDelete.name}"!`, 'info');
+    setCatToDelete(null);
   };
 
   return (
@@ -192,6 +190,21 @@ export default function CategoryEditModal() {
         onClose={() => setModalVisible(false)}
         onSaveCategory={handleSaveCategory}
         onSaveNote={async () => false}
+      />
+
+      <ConfirmModal
+        visible={!!catToDelete}
+        title="Xác nhận xóa phân loại"
+        message={
+          catToDelete
+            ? `Bạn có chắc chắn muốn xóa phân loại "${catToDelete.name}" không? Dữ liệu đã xóa không thể khôi phục.`
+            : ''
+        }
+        confirmText="Xóa vĩnh viễn"
+        cancelText="Hủy"
+        type="danger"
+        onCancel={() => setCatToDelete(null)}
+        onConfirm={handleConfirmDelete}
       />
     </SafeAreaView>
   );

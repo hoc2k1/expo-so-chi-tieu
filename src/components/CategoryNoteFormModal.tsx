@@ -44,7 +44,7 @@ export const CATEGORY_ICON_LIST = [
   'paw',
 ];
 
-interface CategoryNoteFormModalProps {
+export interface CategoryNoteFormModalProps {
   visible: boolean;
   mode: 'category' | 'note';
   categoryType?: TransactionType;
@@ -69,8 +69,8 @@ interface CategoryNoteFormModalProps {
 const CategoryNoteFormContent: React.FC<
   Omit<CategoryNoteFormModalProps, 'visible'>
 > = ({
-  mode,
-  categoryType = 'expense',
+  mode: initialMode,
+  categoryType: initialCategoryType = 'expense',
   editingCategory = null,
   editingNote = null,
   categories,
@@ -78,50 +78,60 @@ const CategoryNoteFormContent: React.FC<
   onSaveCategory,
   onSaveNote,
 }) => {
-  const [textValue, setTextValue] = useState(() =>
-    mode === 'category'
-      ? editingCategory?.name || ''
-      : editingNote?.text || ''
-  );
+  const isEditing = Boolean(editingCategory || editingNote);
+
+  const [activeTab, setActiveTab] = useState<'category' | 'note'>(() => {
+    if (editingCategory) return 'category';
+    if (editingNote) return 'note';
+    return initialMode;
+  });
+
+  const [currentCatType, setCurrentCatType] = useState<TransactionType>(() => {
+    return editingCategory ? editingCategory.type : initialCategoryType;
+  });
+
+  // State for category form
+  const [catName, setCatName] = useState(() => editingCategory?.name || '');
   const [selectedColor, setSelectedColor] = useState(
     () => editingCategory?.color || CATEGORY_COLOR_PALETTE[0]
   );
   const [selectedIcon, setSelectedIcon] = useState(
     () => editingCategory?.icon || CATEGORY_ICON_LIST[0]
   );
+
+  // State for note form
+  const [noteText, setNoteText] = useState(() => editingNote?.text || '');
   const [selectedCatId, setSelectedCatId] = useState<string>(
     () => editingNote?.categoryId || ''
   );
+
   const [isSaving, setIsSaving] = useState(false);
 
-  const isEditing =
-    mode === 'category' ? Boolean(editingCategory) : Boolean(editingNote);
-
   const title =
-    mode === 'category'
+    activeTab === 'category'
       ? editingCategory
         ? 'Chỉnh sửa phân loại'
-        : `Thêm phân loại ${categoryType === 'expense' ? 'Chi tiêu' : 'Thu nhập'}`
+        : 'Thêm phân loại mới'
       : editingNote
       ? 'Chỉnh sửa ghi chú mẫu'
-      : 'Thêm ghi chú mẫu';
+      : 'Thêm ghi chú mẫu mới';
 
   const handleSubmit = async () => {
     if (isSaving) return;
     setIsSaving(true);
     try {
       let ok = false;
-      if (mode === 'category') {
+      if (activeTab === 'category') {
         ok = await onSaveCategory({
-          name: textValue,
+          name: catName,
           color: selectedColor,
           icon: selectedIcon,
-          type: editingCategory ? editingCategory.type : categoryType,
+          type: editingCategory ? editingCategory.type : currentCatType,
           editing: editingCategory,
         });
       } else {
         ok = await onSaveNote({
-          text: textValue,
+          text: noteText,
           categoryId: selectedCatId || undefined,
           editing: editingNote,
         });
@@ -136,7 +146,7 @@ const CategoryNoteFormContent: React.FC<
 
   return (
     <View style={styles.card}>
-      {/* Header */}
+      {/* Header with Title & Close button */}
       <View style={styles.header}>
         <Text style={styles.title}>{title}</Text>
         <TouchableOpacity
@@ -147,32 +157,108 @@ const CategoryNoteFormContent: React.FC<
         </TouchableOpacity>
       </View>
 
+      {/* Segmented Top Tab (Phân loại / Ghi chú mẫu) */}
+      {!isEditing && (
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'category' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('category')}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="pricetags"
+              size={14}
+              color={activeTab === 'category' ? '#0F172A' : '#94A3B8'}
+            />
+            <Text
+              style={[
+                styles.tabBtnText,
+                activeTab === 'category' && styles.tabBtnTextActive,
+              ]}
+            >
+              Phân loại
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'note' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('note')}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="document-text"
+              size={14}
+              color={activeTab === 'note' ? '#0F172A' : '#94A3B8'}
+            />
+            <Text
+              style={[
+                styles.tabBtnText,
+                activeTab === 'note' && styles.tabBtnTextActive,
+              ]}
+            >
+              Ghi chú mẫu
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <ScrollView
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         style={styles.bodyScroll}
       >
-        {/* Shared Text Input */}
-        <Text style={styles.label}>
-          {mode === 'category' ? 'Tên phân loại' : 'Nội dung ghi chú'}
-        </Text>
-        <TextInput
-          autoFocus
-          style={styles.textInput}
-          placeholder={
-            mode === 'category'
-              ? 'VD: Cà phê, Du lịch...'
-              : 'VD: Ăn sáng, Đổ xăng...'
-          }
-          placeholderTextColor="#64748B"
-          value={textValue}
-          onChangeText={setTextValue}
-          returnKeyType="done"
-          onSubmitEditing={mode === 'note' ? handleSubmit : undefined}
-        />
-
-        {mode === 'category' ? (
+        {activeTab === 'category' ? (
           <>
+            {/* Category Type Switcher (Chi tiêu / Thu nhập) */}
+            {!editingCategory && (
+              <View style={styles.typeSwitcher}>
+                <TouchableOpacity
+                  style={[
+                    styles.typeBtn,
+                    currentCatType === 'expense' && styles.typeBtnActiveExpense,
+                  ]}
+                  onPress={() => setCurrentCatType('expense')}
+                >
+                  <Text
+                    style={[
+                      styles.typeText,
+                      currentCatType === 'expense' && styles.typeTextActive,
+                    ]}
+                  >
+                    Chi tiêu
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.typeBtn,
+                    currentCatType === 'income' && styles.typeBtnActiveIncome,
+                  ]}
+                  onPress={() => setCurrentCatType('income')}
+                >
+                  <Text
+                    style={[
+                      styles.typeText,
+                      currentCatType === 'income' && styles.typeTextActive,
+                    ]}
+                  >
+                    Thu nhập
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <Text style={styles.label}>Tên phân loại</Text>
+            <TextInput
+              autoFocus
+              style={styles.textInput}
+              placeholder="VD: Cà phê, Du lịch, Mua sắm..."
+              placeholderTextColor="#64748B"
+              value={catName}
+              onChangeText={setCatName}
+              returnKeyType="done"
+            />
+
             <Text style={styles.label}>Màu sắc nhận diện</Text>
             <View style={styles.paletteRow}>
               {CATEGORY_COLOR_PALETTE.map((c) => (
@@ -213,13 +299,20 @@ const CategoryNoteFormContent: React.FC<
           </>
         ) : (
           <>
+            <Text style={styles.label}>Nội dung ghi chú</Text>
+            <TextInput
+              autoFocus
+              style={styles.textInput}
+              placeholder="VD: Ăn sáng, Đổ xăng, Cà phê..."
+              placeholderTextColor="#64748B"
+              value={noteText}
+              onChangeText={setNoteText}
+              returnKeyType="done"
+              onSubmitEditing={handleSubmit}
+            />
+
             <Text style={styles.label}>Gắn với Phân loại cụ thể</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              style={styles.catScroll}
-            >
+            <View style={styles.catWrap}>
               <TouchableOpacity
                 style={[styles.catPill, !selectedCatId && styles.catPillActive]}
                 onPress={() => setSelectedCatId('')}
@@ -253,7 +346,7 @@ const CategoryNoteFormContent: React.FC<
                   </Text>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+            </View>
           </>
         )}
       </ScrollView>
@@ -361,11 +454,73 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   title: {
     color: '#F8FAFC',
     fontSize: 16,
+    fontWeight: '700',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#0F172A',
+    borderRadius: 10,
+    padding: 3,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#334155',
+    gap: 4,
+  },
+  tabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  tabBtnActive: {
+    backgroundColor: '#10B981',
+  },
+  tabBtnText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  tabBtnTextActive: {
+    color: '#0F172A',
+    fontWeight: '700',
+  },
+  typeSwitcher: {
+    flexDirection: 'row',
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+    padding: 3,
+    marginBottom: 12,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  typeBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  typeBtnActiveExpense: {
+    backgroundColor: '#EF4444',
+  },
+  typeBtnActiveIncome: {
+    backgroundColor: '#10B981',
+  },
+  typeText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  typeTextActive: {
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   bodyScroll: {
@@ -381,7 +536,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F172A',
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 11,
+    paddingVertical: 10,
     color: '#F8FAFC',
     fontSize: 14,
     borderWidth: 1,
@@ -421,16 +576,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
   },
-  catScroll: {
+  catWrap: {
     flexDirection: 'row',
-    marginBottom: 8,
+    flexWrap: 'wrap',
+    gap: 7,
+    marginBottom: 10,
   },
   catPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
     backgroundColor: '#0F172A',
     borderRadius: 16,
-    marginRight: 8,
     borderWidth: 1,
     borderColor: '#334155',
   },

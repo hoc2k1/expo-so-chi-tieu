@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
-  Alert,
   Platform,
   Modal,
   ActivityIndicator,
@@ -21,6 +20,7 @@ import { useApp } from '../../contexts/AppContext';
 import { StorageService } from '../../services/storage';
 import { exportTransactionsToCsv } from '../../services/csvExporter';
 import { formatDateTime } from '../../utils/formatters';
+import { ConfirmModal } from '../../components/ConfirmModal';
 
 export default function SettingsScreen() {
   const {
@@ -39,19 +39,18 @@ export default function SettingsScreen() {
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateStatusText, setUpdateStatusText] = useState<string>('');
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [confirmOtaReload, setConfirmOtaReload] = useState(false);
+  const [confirmRestoreContent, setConfirmRestoreContent] = useState<string | null>(null);
 
   // Check & Apply OTA Update from Expo EAS Update
   const handleCheckAndApplyUpdate = async () => {
     if (Platform.OS === 'web') {
-      Alert.alert('Thông báo', 'Cập nhật OTA (EAS Update) chỉ áp dụng trên ứng dụng Android/iOS.');
+      showToast('Cập nhật OTA chỉ áp dụng trên ứng dụng Android/iOS', 'info');
       return;
     }
 
     if (__DEV__ || !Updates.isEnabled) {
-      Alert.alert(
-        'Chế độ Development',
-        'Bạn đang chạy ở chế độ phát triển (__DEV__) hoặc bản build chưa bật expo-updates. Trên bản APK chính thức (build qua EAS), nút này sẽ tải bản cập nhật OTA mới nhất từ EAS Update mà không cần cài lại APK.'
-      );
+      showToast('Đang ở chế độ Development (chưa bật OTA)', 'info');
       return;
     }
 
@@ -63,10 +62,7 @@ export default function SettingsScreen() {
 
       if (!update.isAvailable) {
         setUpdateStatusText('Bạn đang sử dụng phiên bản mới nhất!');
-        Alert.alert(
-          'Đã là bản mới nhất',
-          `Không có bản cập nhật mới nào trên kênh "${Updates.channel || 'preview'}".`
-        );
+        showToast('Bạn đang sử dụng phiên bản mới nhất!', 'info');
         return;
       }
 
@@ -90,28 +86,13 @@ export default function SettingsScreen() {
         });
 
         setUpdateStatusText('Đã tải xong bản cập nhật mới!');
-        Alert.alert(
-          'Cập nhật thành công!',
-          'Bản cập nhật mới đã được tải về hoàn tất. Khởi động lại ứng dụng ngay để áp dụng thay đổi?',
-          [
-            { text: 'Để sau', style: 'cancel' },
-            {
-              text: 'Khởi động lại ngay',
-              onPress: async () => {
-                await Updates.reloadAsync();
-              },
-            },
-          ]
-        );
+        setConfirmOtaReload(true);
       } else {
         setUpdateStatusText('Không có thay đổi mới.');
       }
     } catch (e: any) {
       setUpdateStatusText('');
-      Alert.alert(
-        'Lỗi kiểm tra cập nhật',
-        e.message || 'Không thể kết nối tới máy chủ EAS Update.'
-      );
+      showToast(e.message || 'Không thể kết nối tới máy chủ EAS Update.', 'error');
     } finally {
       setIsCheckingUpdate(false);
     }
@@ -149,8 +130,7 @@ export default function SettingsScreen() {
         showToast(`Đã lưu file sao lưu tại: ${fileUri}`, 'info');
       }
     } catch (e: any) {
-      showToast('Không thể tạo file sao lưu', 'error');
-      Alert.alert('Lỗi sao lưu', e.message || 'Không thể tạo file sao lưu.');
+      showToast(e.message || 'Không thể tạo file sao lưu', 'error');
     } finally {
       setIsExporting(false);
     }
@@ -170,31 +150,22 @@ export default function SettingsScreen() {
 
       const fileAsset = result.assets[0];
       const content = await FileSystem.readAsStringAsync(fileAsset.uri);
-
-      Alert.alert(
-        'Xác nhận khôi phục',
-        'Khôi phục sẽ ghi đè dữ liệu hiện tại bằng dữ liệu từ file sao lưu. Bạn có muốn tiếp tục?',
-        [
-          { text: 'Hủy', style: 'cancel' },
-          {
-            text: 'Khôi phục ngay',
-            style: 'destructive',
-            onPress: async () => {
-              const success = await StorageService.importAllData(content);
-              if (success) {
-                await refreshAllData();
-                showToast('Đã khôi phục toàn bộ dữ liệu thành công!', 'success');
-              } else {
-                showToast('File JSON không đúng định dạng sao lưu', 'error');
-                Alert.alert('Thất bại', 'File JSON không đúng định dạng sao lưu của ứng dụng.');
-              }
-            },
-          },
-        ]
-      );
+      setConfirmRestoreContent(content);
     } catch (e: any) {
-      showToast('Không thể đọc file sao lưu', 'error');
-      Alert.alert('Lỗi khôi phục', e.message || 'Không thể đọc file sao lưu.');
+      showToast(e.message || 'Không thể đọc file sao lưu', 'error');
+    }
+  };
+
+  const handleExecuteRestore = async () => {
+    if (!confirmRestoreContent) return;
+    const content = confirmRestoreContent;
+    setConfirmRestoreContent(null);
+    const success = await StorageService.importAllData(content);
+    if (success) {
+      await refreshAllData();
+      showToast('Đã khôi phục toàn bộ dữ liệu thành công!', 'success');
+    } else {
+      showToast('File JSON không đúng định dạng sao lưu của ứng dụng', 'error');
     }
   };
 
@@ -208,8 +179,7 @@ export default function SettingsScreen() {
       await exportTransactionsToCsv(transactions);
       showToast('Đã xuất bảng tính Excel (CSV) thành công!', 'success');
     } catch (e: any) {
-      showToast('Không thể xuất file Excel', 'error');
-      Alert.alert('Lỗi xuất Excel', e.message || 'Không thể xuất file.');
+      showToast(e.message || 'Không thể xuất file Excel', 'error');
     }
   };
 
@@ -505,6 +475,33 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Confirm OTA Reload Modal */}
+      <ConfirmModal
+        visible={confirmOtaReload}
+        title="Cập nhật thành công!"
+        message="Bản cập nhật mới đã được tải về máy hoàn tất. Khởi động lại ứng dụng ngay để áp dụng thay đổi?"
+        confirmText="Khởi động lại ngay"
+        cancelText="Để sau"
+        type="info"
+        onCancel={() => setConfirmOtaReload(false)}
+        onConfirm={async () => {
+          setConfirmOtaReload(false);
+          await Updates.reloadAsync();
+        }}
+      />
+
+      {/* Confirm Restore JSON Modal */}
+      <ConfirmModal
+        visible={!!confirmRestoreContent}
+        title="Xác nhận khôi phục dữ liệu"
+        message="Khôi phục sẽ ghi đè toàn bộ dữ liệu hiện tại bằng dữ liệu từ file sao lưu. Bạn có chắc muốn tiếp tục không?"
+        confirmText="Khôi phục ngay"
+        cancelText="Hủy"
+        type="danger"
+        onCancel={() => setConfirmRestoreContent(null)}
+        onConfirm={handleExecuteRestore}
+      />
     </SafeAreaView>
   );
 }
