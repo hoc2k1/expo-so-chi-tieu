@@ -5,56 +5,66 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../contexts/AppContext';
 import { SavedNote } from '../../models/types';
-import { KeyboardAwareScrollView } from '../../components/KeyboardAwareScrollView';
+import { CategoryNoteFormModal } from '../../components/CategoryNoteFormModal';
+import { DraggableReorderList } from '../../components/DraggableReorderList';
 
 export default function NoteEditModal() {
-  const { notes, categories, addNote, updateNote, deleteNote, showToast } = useApp();
+  const {
+    notes,
+    categories,
+    addNote,
+    updateNote,
+    deleteNote,
+    reorderNotes,
+    showToast,
+  } = useApp();
 
-  const [newNoteText, setNewNoteText] = useState('');
-  const [selectedCatId, setSelectedCatId] = useState<string>(''); // empty = shared
+  const [isDragging, setIsDragging] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
   const [editingNote, setEditingNote] = useState<SavedNote | null>(null);
+
+  const handleOpenAdd = () => {
+    setEditingNote(null);
+    setModalVisible(true);
+  };
 
   const handleStartEdit = (n: SavedNote) => {
     setEditingNote(n);
-    setNewNoteText(n.text);
-    setSelectedCatId(n.categoryId || '');
+    setModalVisible(true);
   };
 
-  const handleCancelEdit = () => {
-    setEditingNote(null);
-    setNewNoteText('');
-    setSelectedCatId('');
-  };
-
-  const handleSave = async () => {
-    if (!newNoteText.trim()) {
+  const handleSaveNote = async (data: {
+    text: string;
+    categoryId?: string;
+    editing?: SavedNote | null;
+  }) => {
+    const trimmed = data.text.trim();
+    if (!trimmed) {
       showToast('Vui lòng nhập nội dung ghi chú', 'error');
-      return;
+      return false;
     }
 
-    if (editingNote) {
+    if (data.editing) {
       await updateNote({
-        ...editingNote,
-        text: newNoteText.trim(),
-        categoryId: selectedCatId || undefined,
+        ...data.editing,
+        text: trimmed,
+        categoryId: data.categoryId || undefined,
       });
-      showToast(`Đã cập nhật ghi chú "${newNoteText.trim()}"!`, 'success');
-      handleCancelEdit();
+      showToast(`Đã cập nhật ghi chú "${trimmed}"!`, 'success');
     } else {
       await addNote({
-        text: newNoteText.trim(),
-        categoryId: selectedCatId || undefined,
+        text: trimmed,
+        categoryId: data.categoryId || undefined,
       });
-      showToast(`Đã thêm ghi chú "${newNoteText.trim()}"!`, 'success');
-      setNewNoteText('');
+      showToast(`Đã thêm ghi chú "${trimmed}"!`, 'success');
     }
+    return true;
   };
 
   const handleDelete = (n: SavedNote) => {
@@ -64,9 +74,6 @@ export default function NoteEditModal() {
         text: 'Xóa',
         style: 'destructive',
         onPress: async () => {
-          if (editingNote?.id === n.id) {
-            handleCancelEdit();
-          }
           await deleteNote(n.id);
           showToast(`Đã xóa ghi chú "${n.text}"!`, 'info');
         },
@@ -76,102 +83,75 @@ export default function NoteEditModal() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
-      <KeyboardAwareScrollView style={styles.container} contentContainerStyle={styles.content}>
-        {/* Add / Edit note section */}
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        scrollEnabled={!isDragging}
+      >
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>
-              {editingNote ? `✏️ Chỉnh sửa: ${editingNote.text}` : '+ Thêm Ghi chú mẫu mới'}
-            </Text>
-            {editingNote && (
-              <TouchableOpacity onPress={handleCancelEdit} style={styles.cancelEditBtn}>
-                <Text style={styles.cancelEditText}>Hủy sửa</Text>
-              </TouchableOpacity>
-            )}
+            <View>
+              <Text style={styles.sectionTitle}>
+                Danh sách Ghi chú hiện có ({notes.length})
+              </Text>
+              <Text style={styles.dragHint}>Kéo ☰ để đổi vị trí</Text>
+            </View>
+            <TouchableOpacity style={styles.addBtn} onPress={handleOpenAdd}>
+              <Ionicons name="add" size={18} color="#0F172A" />
+              <Text style={styles.addBtnText}>Thêm</Text>
+            </TouchableOpacity>
           </View>
 
-          <TextInput
-            style={styles.textInput}
-            placeholder="Nội dung ghi chú (VD: Ăn sáng, Đổ xăng...)"
-            placeholderTextColor="#64748B"
-            value={newNoteText}
-            onChangeText={setNewNoteText}
+          <DraggableReorderList
+            items={notes}
+            itemHeight={64}
+            itemGap={8}
+            onScrollLockChange={setIsDragging}
+            onReorder={(ordered) => reorderNotes(ordered)}
+            renderContent={(n) => {
+              const linkedCat = categories.find((c) => c.id === n.categoryId);
+              return (
+                <View style={styles.noteInner}>
+                  <View style={styles.noteTexts}>
+                    <Text style={styles.noteText} numberOfLines={1}>
+                      {n.text}
+                    </Text>
+                    <Text style={styles.noteCategory} numberOfLines={1}>
+                      {linkedCat ? `Phân loại: ${linkedCat.name}` : 'Dùng chung'}
+                    </Text>
+                  </View>
+                  <View style={styles.rowActions}>
+                    <TouchableOpacity
+                      onPress={() => handleStartEdit(n)}
+                      style={styles.actionIconBtn}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="create-outline" size={18} color="#38BDF8" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDelete(n)}
+                      style={styles.actionIconBtn}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            }}
           />
-
-          <Text style={styles.label}>Gắn với Phân loại cụ thể:</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
-            <TouchableOpacity
-              style={[styles.catPill, !selectedCatId && styles.catPillActive]}
-              onPress={() => setSelectedCatId('')}
-            >
-              <Text style={[styles.catPillText, !selectedCatId && styles.catPillTextActive]}>
-                Dùng chung cho mọi loại
-              </Text>
-            </TouchableOpacity>
-
-            {categories.map((c) => (
-              <TouchableOpacity
-                key={c.id}
-                style={[styles.catPill, selectedCatId === c.id && styles.catPillActive]}
-                onPress={() => setSelectedCatId(c.id)}
-              >
-                <Text
-                  style={[
-                    styles.catPillText,
-                    selectedCatId === c.id && styles.catPillTextActive,
-                  ]}
-                >
-                  {c.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          <TouchableOpacity
-            style={[styles.addBtn, editingNote && styles.editSaveBtn]}
-            onPress={handleSave}
-          >
-            <Ionicons name={editingNote ? 'checkmark' : 'add'} size={18} color="#FFFFFF" />
-            <Text style={styles.addBtnText}>
-              {editingNote ? 'Lưu thay đổi ghi chú' : 'Thêm vào danh sách mẫu'}
-            </Text>
-          </TouchableOpacity>
         </View>
+      </ScrollView>
 
-        {/* Notes list */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Danh sách Ghi chú hiện có ({notes.length})</Text>
-          {notes.map((n) => {
-            const linkedCat = categories.find((c) => c.id === n.categoryId);
-            return (
-              <View key={n.id} style={styles.noteRow}>
-                <View style={styles.noteTexts}>
-                  <Text style={styles.noteText}>{n.text}</Text>
-                  <Text style={styles.noteCategory}>
-                    {linkedCat ? `Phân loại: ${linkedCat.name}` : 'Dùng chung'}
-                  </Text>
-                </View>
-                <View style={styles.rowActions}>
-                  <TouchableOpacity
-                    onPress={() => handleStartEdit(n)}
-                    style={styles.actionIconBtn}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name="create-outline" size={18} color="#38BDF8" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleDelete(n)}
-                    style={styles.actionIconBtn}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      </KeyboardAwareScrollView>
+      <CategoryNoteFormModal
+        visible={modalVisible}
+        mode="note"
+        editingNote={editingNote}
+        categories={categories}
+        onClose={() => setModalVisible(false)}
+        onSaveCategory={async () => false}
+        onSaveNote={handleSaveNote}
+      />
     </SafeAreaView>
   );
 }
@@ -189,7 +169,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     borderRadius: 12,
     padding: 14,
-    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#334155',
   },
@@ -197,107 +176,55 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   sectionTitle: {
     color: '#F8FAFC',
     fontSize: 14,
     fontWeight: '700',
   },
-  cancelEditBtn: {
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    backgroundColor: '#334155',
-    borderRadius: 6,
-  },
-  cancelEditText: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  textInput: {
-    backgroundColor: '#0F172A',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: '#F8FAFC',
-    fontSize: 13,
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginBottom: 10,
-  },
-  label: {
-    color: '#94A3B8',
+  dragHint: {
+    color: '#64748B',
     fontSize: 11,
-    marginBottom: 6,
-  },
-  catScroll: {
-    flexDirection: 'row',
-    marginBottom: 14,
-  },
-  catPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#0F172A',
-    borderRadius: 16,
-    marginRight: 6,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  catPillActive: {
-    backgroundColor: '#10B981',
-    borderColor: '#10B981',
-  },
-  catPillText: {
-    color: '#94A3B8',
-    fontSize: 11,
-  },
-  catPillTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    marginTop: 2,
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: '#10B981',
-    borderRadius: 8,
-    paddingVertical: 10,
-    gap: 6,
-  },
-  editSaveBtn: {
-    backgroundColor: '#3B82F6',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 4,
   },
   addBtnText: {
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 13,
     fontWeight: '700',
   },
-  noteRow: {
+  noteInner: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
   },
   noteTexts: {
     flex: 1,
+    justifyContent: 'center',
   },
   noteText: {
     color: '#F8FAFC',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
   noteCategory: {
-    color: '#64748B',
+    color: '#94A3B8',
     fontSize: 11,
     marginTop: 2,
   },
   rowActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   actionIconBtn: {
     padding: 4,

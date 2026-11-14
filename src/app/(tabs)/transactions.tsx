@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useApp } from '../../contexts/AppContext';
-import { Transaction, TimeRangePreset } from '../../models/types';
+import { Transaction } from '../../models/types';
 import {
   formatCurrency,
   formatDate,
@@ -218,7 +218,7 @@ export default function TransactionsScreen() {
     selectedType !== 'all' ||
     activeCategoryIds.length > 0 ||
     activeSources.length > 0 ||
-    selectedTimeRange !== 'all' ||
+    selectedTimeRange !== 'month' ||
     searchQuery.trim().length > 0;
 
   return (
@@ -259,13 +259,8 @@ export default function TransactionsScreen() {
 
       {/* Filter Controls */}
       <View style={styles.filterGroup}>
-        {/* Row 1: Thu / Chi & DateRange Presets */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterRowContent}
-        >
-          {/* Thu / Chi */}
+        {/* Row 1: Thu / Chi */}
+        <View style={styles.typeFilterRow}>
           <TouchableOpacity
             style={[
               styles.filterChip,
@@ -328,64 +323,56 @@ export default function TransactionsScreen() {
               + Thu nhập
             </Text>
           </TouchableOpacity>
+        </View>
 
-          <View style={styles.divider} />
-
-          {/* Quick Date presets */}
-          {(['all', 'today', 'week', 'month', 'year'] as TimeRangePreset[]).map(
-            (t) => {
-              const labels: Record<string, string> = {
-                all: 'Mọi lúc',
-                today: 'Hôm nay',
-                week: 'Tuần này',
-                month: 'Tháng này',
-                year: 'Năm nay',
-              };
-              const isSelected = selectedTimeRange === t;
-              return (
-                <TouchableOpacity
-                  key={t}
-                  style={[styles.filterChip, isSelected && styles.filterChipActive]}
-                  onPress={() =>
-                    setTransactionFilter((prev) => ({ ...prev, timeRange: t }))
+        {/* Row 2: Time Range Selector (giống màn Thống kê, mặc định là Tháng, không có Mọi lúc) */}
+        <View style={styles.timeRangeBar}>
+          {(['today', 'week', 'month', 'year', 'custom'] as const).map((t) => {
+            const labels: Record<string, string> = {
+              today: 'Hôm nay',
+              week: 'Tuần',
+              month: 'Tháng',
+              year: 'Năm',
+              custom: 'Tùy chọn',
+            };
+            const isSelected = selectedTimeRange === t;
+            return (
+              <TouchableOpacity
+                key={t}
+                style={[styles.timeBtn, isSelected && styles.timeBtnActive]}
+                onPress={() => {
+                  setTransactionFilter((prev) => ({ ...prev, timeRange: t }));
+                  if (t === 'custom') {
+                    setShowDateModal(true);
                   }
+                }}
+              >
+                <Text
+                  style={[
+                    styles.timeBtnText,
+                    isSelected && styles.timeBtnTextActive,
+                  ]}
                 >
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      isSelected && styles.filterChipTextActive,
-                    ]}
-                  >
-                    {labels[t]}
-                  </Text>
-                </TouchableOpacity>
-              );
-            }
-          )}
+                  {labels[t]}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
-          {/* DateRange picker trigger */}
+        {/* Custom DateTime Range Banner */}
+        {selectedTimeRange === 'custom' && (
           <TouchableOpacity
-            style={[
-              styles.filterChip,
-              selectedTimeRange === 'custom' && styles.filterChipActive,
-            ]}
+            style={styles.customRangeBanner}
             onPress={() => setShowDateModal(true)}
           >
-            <Ionicons
-              name="calendar"
-              size={13}
-              color={selectedTimeRange === 'custom' ? '#0F172A' : '#38BDF8'}
-            />
-            <Text
-              style={[
-                styles.filterChipText,
-                selectedTimeRange === 'custom' && styles.filterChipTextActive,
-              ]}
-            >
-              Chọn DateRange 📅
+            <Ionicons name="calendar-outline" size={15} color="#38BDF8" />
+            <Text style={styles.customRangeText}>
+              {customStartDate}  →  {customEndDate}
             </Text>
+            <Text style={styles.customRangeEdit}>Đổi</Text>
           </TouchableOpacity>
-        </ScrollView>
+        )}
 
         {/* Row 2: Ngân hàng / Ví Multi-Select & Phân loại Multi-Select */}
         <View style={styles.dropdownRow}>
@@ -940,19 +927,62 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   filterGroup: {
-    gap: 6,
-    marginBottom: 6,
+    gap: 8,
+    marginBottom: 8,
   },
-  filterRowContent: {
+  typeFilterRow: {
+    flexDirection: 'row',
     paddingHorizontal: 16,
     gap: 6,
     alignItems: 'center',
   },
-  divider: {
-    width: 1,
-    height: 18,
-    backgroundColor: '#334155',
-    marginHorizontal: 2,
+  timeRangeBar: {
+    flexDirection: 'row',
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    padding: 4,
+    marginHorizontal: 16,
+  },
+  timeBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  timeBtnActive: {
+    backgroundColor: '#3B82F6',
+  },
+  timeBtnText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  timeBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  customRangeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#38BDF860',
+    gap: 8,
+  },
+  customRangeText: {
+    color: '#E2E8F0',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  customRangeEdit: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '700',
   },
   filterChip: {
     flexDirection: 'row',

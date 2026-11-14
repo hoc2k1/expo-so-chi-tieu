@@ -88,9 +88,23 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="categories"
+        options={{
+          title: "Quản lý dữ liệu phân loại",
+          tabBarLabel: "Phân loại",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons
+              name="pricetags"
+              size={size}
+              color={typeof color === "string" ? color : undefined}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
-          title: "Cài đặt & Danh mục",
+          title: "Cài đặt",
           tabBarLabel: "Cài đặt",
           tabBarIcon: ({ color, size }) => (
             <Ionicons

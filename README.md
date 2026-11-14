@@ -16,7 +16,7 @@
 3. **Phân loại Thông minh & Hàng loạt (Nhấn giữ để chọn nhiều)**:
    - Tự động nhận diện Thu nhập (`+`) / Chi tiêu (`-`) từ thông báo và gợi ý Phân loại & Ghi chú dựa trên từ khóa trong nội dung (VD: `GRAB`, `SHOPEE`, `HIGHLANDS`, `TIEN DIEN`, `LUONG`...).
    - Nhấn giữ (`Long Press`) vào bất kỳ khoản nào trong Hàng chờ để bật chế độ chọn nhiều và phân loại/xóa hàng loạt.
-   - Tự do nhập tay Phân loại / Ghi chú mới kèm tùy chọn *"Lưu vào danh sách mẫu"*.
+   - Tự do nhập tay Phân loại / Ghi chú mới kèm tùy chọn _"Lưu vào danh sách mẫu"_.
 4. **Màn hình Thống kê Biểu đồ Tròn (`%`) & Drill-down Đồng bộ Bộ lọc**:
    - Thẻ tổng kết: Tổng Thu, Tổng Chi, Số dư chênh lệch ròng.
    - Bộ lọc nâng cao theo **Khoảng thời gian tùy chỉnh (Từ ngày giờ - Đến ngày giờ)** và **Ngân hàng / Ví điện tử**.
@@ -32,6 +32,7 @@
 ## 🛠️ Yêu Cầu & Cài Đặt Môi Trường
 
 ### 1. Công cụ cần thiết
+
 - **Node.js**: Phiên bản LTS (Khuyến nghị Node >= 20.x hoặc 22.x).
 - **Git**: Đã cài đặt trên máy.
 - **Java Development Kit (JDK)**: JDK 17 (Cần thiết nếu muốn build/chạy Android local).
@@ -39,6 +40,7 @@
 - **EAS CLI**: Công cụ build đám mây và cập nhật OTA của Expo.
 
 Cài đặt EAS CLI toàn cục:
+
 ```bash
 npm install -g eas-cli
 ```
@@ -50,12 +52,14 @@ npm install -g eas-cli
 Nếu bạn muốn nắm các bước đã thực hiện để tạo và liên kết dự án với tài khoản EAS `--account hockt`:
 
 ### Bước 1: Khởi tạo dự án
+
 ```bash
 npx create-expo-app@latest so-chi-tieu --template default
 cd so-chi-tieu
 ```
 
 ### Bước 2: Đăng nhập tài khoản Expo & Liên kết EAS
+
 ```bash
 # 1. Đăng nhập tài khoản Expo
 eas login
@@ -68,6 +72,7 @@ eas build:configure -p android
 ```
 
 ### Bước 3: Cấu hình `eas.json` xuất file APK trực tiếp
+
 Mở file `eas.json`, cấu hình profile `preview` để build ra file `.apk` cài đặt trực tiếp lên điện thoại và gán kênh `channel: "preview"` cho cập nhật OTA:
 
 ```json
@@ -112,6 +117,7 @@ eas build -p android --profile preview
 ```
 
 Sau khi build xong (khoảng 5-10 phút), EAS sẽ cung cấp:
+
 1. Đường dẫn tải trực tiếp file `.apk`.
 2. Mã QR để quét bằng camera điện thoại Android để tải và cài đặt ngay.
 
@@ -120,12 +126,13 @@ Sau khi build xong (khoảng 5-10 phút), EAS sẽ cung cấp:
 ## ⚡ Các Bước Cập Nhật Ứng Dụng KHÔNG CẦN Build Lại APK (EAS Update)
 
 Từ lần build APK đầu tiên trở đi, mọi thay đổi về:
+
 - Giao diện màn hình (UI/UX)
 - Logic bóc tách thông báo (Regex)
 - Thêm quy tắc từ khóa gợi ý
 - Tính năng mới trên JavaScript / TypeScript
 
-👉 **BẠN KHÔNG CẦN PHẢI BUILD LẠI FILE APK!** 
+👉 **BẠN KHÔNG CẦN PHẢI BUILD LẠI FILE APK!**
 
 Chỉ cần chạy lệnh **`eas update`**, toàn bộ người dùng đang mở app sẽ nhận ngay bản cập nhật mới qua mạng (OTA Update).
 
@@ -146,12 +153,13 @@ git commit -m "feat: cập nhật logic bóc tách thông báo và giao diện t
 git push origin main
 
 # Bước 4: Phát hành bản cập nhật OTA tức thì qua EAS Update
-npx eas-cli@latest update --branch preview --message "Cập nhật tính năng mới"
+npx eas-cli update --branch preview --message "Cập nhật tính năng mới"
 
 # (Hoặc nếu bạn đã cài đặt eas-cli global: eas update --branch preview --message "Cập nhật tính năng mới")
 ```
 
 ### Cách kiểm tra & áp dụng bản cập nhật ngay trên điện thoại:
+
 1. Mở ứng dụng **Sổ Chi Tiêu** -> Vào tab **Cài đặt**.
 2. Tại mục **Cập nhật ứng dụng (EAS Update OTA)**:
    - Bấm **"Kiểm tra & Cập nhật ngay"**: Ứng dụng sẽ gọi `expo-updates` kiểm tra bản cập nhật mới nhất trên nhánh `preview`, tải về và hỏi bạn khởi động lại app để áp dụng ngay lập tức.
@@ -207,6 +215,7 @@ so-chi-tieu/
 ## 🔒 Quản Lý Git Repository
 
 Dự án đã được khởi tạo Git và liên kết với kho lưu trữ riêng tư:
+
 - **Private Repo URL**: `https://github.com/hoc2k1/expo/so-chi-tieu`
 - **Initial Commit**: `init app`
 

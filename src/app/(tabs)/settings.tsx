@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -331,55 +330,6 @@ export default function SettingsScreen() {
               <Text style={styles.historyUpdateBtnText}>Xem các bản cập nhật</Text>
             </TouchableOpacity>
           </View>
-        </View>
-
-        {/* Quản lý danh mục & quy tắc */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeader}>Quản lý dữ liệu phân loại</Text>
-
-          <TouchableOpacity
-            style={styles.navRow}
-            onPress={() => router.push('/modal/category-edit')}
-          >
-            <View style={styles.rowLeft}>
-              <Ionicons name="pricetags" size={20} color="#3B82F6" />
-              <Text style={styles.rowTitle}>Danh mục Phân loại (Thu / Chi)</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#64748B" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navRow}
-            onPress={() => router.push('/modal/note-edit')}
-          >
-            <View style={styles.rowLeft}>
-              <Ionicons name="document-text" size={20} color="#10B981" />
-              <Text style={styles.rowTitle}>Danh sách Ghi chú mẫu</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#64748B" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navRow}
-            onPress={() => router.push('/modal/rule-edit')}
-          >
-            <View style={styles.rowLeft}>
-              <Ionicons name="flash" size={20} color="#F59E0B" />
-              <Text style={styles.rowTitle}>Quy tắc từ khóa gợi ý tự động</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#64748B" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navRow}
-            onPress={() => router.push('/modal/apps-manager')}
-          >
-            <View style={styles.rowLeft}>
-              <Ionicons name="apps" size={20} color="#8B5CF6" />
-              <Text style={styles.rowTitle}>Danh sách App Ngân hàng & Ví</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#64748B" />
-          </TouchableOpacity>
         </View>
 
         {/* Cấu hình chống trùng & thông minh */}

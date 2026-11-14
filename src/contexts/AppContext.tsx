@@ -89,9 +89,11 @@ interface AppContextValue {
   addCategory: (cat: Omit<Category, 'id'>) => Promise<Category>;
   updateCategory: (cat: Category) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
+  reorderCategories: (type: TransactionType, orderedList: Category[]) => Promise<void>;
   addNote: (note: Omit<SavedNote, 'id'>) => Promise<SavedNote>;
   updateNote: (note: SavedNote) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
+  reorderNotes: (orderedList: SavedNote[]) => Promise<void>;
   addRule: (rule: Omit<AutoRule, 'id'>) => Promise<AutoRule>;
   updateRule: (rule: AutoRule) => Promise<void>;
   deleteRule: (id: string) => Promise<void>;
@@ -106,7 +108,7 @@ const DEFAULT_FILTER: TransactionFilterState = {
   sources: [],
   categoryId: 'all',
   source: 'all',
-  timeRange: 'all',
+  timeRange: 'month',
   customStartDate: getDefaultMonthStartDisplay(),
   customEndDate: getDefaultTodayEndDisplay(),
   searchQuery: '',
@@ -777,6 +779,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await StorageService.saveCategories(updated);
   };
 
+  const reorderCategories = async (type: TransactionType, orderedList: Category[]) => {
+    const others = categories.filter((c) => c.type !== type);
+    const updated =
+      type === 'expense' ? [...orderedList, ...others] : [...others, ...orderedList];
+    setCategories(updated);
+    await StorageService.saveCategories(updated);
+  };
+
   // Notes CRUD
   const addNote = async (note: Omit<SavedNote, 'id'>) => {
     const newNote: SavedNote = { ...note, id: `note_${Date.now()}` };
@@ -796,6 +806,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updated = notes.filter((n) => n.id !== id);
     setNotes(updated);
     await StorageService.saveNotes(updated);
+  };
+
+  const reorderNotes = async (orderedList: SavedNote[]) => {
+    setNotes(orderedList);
+    await StorageService.saveNotes(orderedList);
   };
 
   // Rules CRUD
@@ -865,9 +880,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addCategory,
         updateCategory,
         deleteCategory,
+        reorderCategories,
         addNote,
         updateNote,
         deleteNote,
+        reorderNotes,
         addRule,
         updateRule,
         deleteRule,
