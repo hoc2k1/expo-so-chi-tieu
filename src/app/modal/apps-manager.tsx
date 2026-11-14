@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   TextInput,
   Switch,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,7 +18,7 @@ import {
 } from '../../components/KeyboardAwareScrollView';
 
 export default function AppsManagerModal() {
-  const { settings, updateSettings } = useApp();
+  const { settings, updateSettings, showToast } = useApp();
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
 
   const [customPackage, setCustomPackage] = useState('');
@@ -31,7 +30,8 @@ export default function AppsManagerModal() {
   const toggleApp = (app: SupportedApp) => {
     const targetPkgs = [app.packageName, ...(app.aliases || [])].map((x) => x.toLowerCase());
     let updated: string[];
-    if (isEnabled(app.packageName)) {
+    const willEnable = !isEnabled(app.packageName);
+    if (!willEnable) {
       updated = settings.enabledPackages.filter(
         (p) => !targetPkgs.includes(p.toLowerCase())
       );
@@ -41,6 +41,10 @@ export default function AppsManagerModal() {
       );
     }
     updateSettings({ enabledPackages: updated });
+    showToast(
+      willEnable ? `Đã bật theo dõi ${app.name}` : `Đã tắt theo dõi ${app.name}`,
+      'info'
+    );
   };
 
   const enableAll = () => {
@@ -51,15 +55,17 @@ export default function AppsManagerModal() {
       ])
     );
     updateSettings({ enabledPackages: all });
+    showToast('Đã bật theo dõi tất cả ứng dụng', 'success');
   };
 
   const disableAll = () => {
     updateSettings({ enabledPackages: [] });
+    showToast('Đã tắt theo dõi tất cả ứng dụng', 'info');
   };
 
   const handleAddCustom = () => {
     if (!customPackage.trim()) {
-      Alert.alert('Chưa nhập package name', 'Vui lòng nhập package name (VD: com.mybank.app)');
+      showToast('Vui lòng nhập package name (VD: com.mybank.app)', 'error');
       return;
     }
     const clean = customPackage.trim();
@@ -67,7 +73,7 @@ export default function AppsManagerModal() {
       updateSettings({ enabledPackages: [...settings.enabledPackages, clean] });
     }
     setCustomPackage('');
-    Alert.alert('Thành công', `Đã thêm package ${clean} vào danh sách lắng nghe.`);
+    showToast(`Đã thêm package ${clean} vào danh sách theo dõi`, 'success');
   };
 
   const banks = SUPPORTED_APPS.filter((a) => a.category === 'bank');

@@ -33,6 +33,7 @@ export default function SettingsScreen() {
     isBatteryOptimizationIgnored,
     requestPermission,
     requestIgnoreBatteryOptimization,
+    showToast,
   } = useApp();
 
   const [isExporting, setIsExporting] = useState(false);
@@ -131,7 +132,7 @@ export default function SettingsScreen() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        Alert.alert('Thành công', 'Đã tải xuống file sao lưu JSON');
+        showToast('Đã tải xuống file sao lưu JSON', 'success');
         return;
       }
 
@@ -144,10 +145,12 @@ export default function SettingsScreen() {
           mimeType: 'application/json',
           dialogTitle: 'Sao lưu dữ liệu Sổ Chi Tiêu (JSON)',
         });
+        showToast('Đã xuất file sao lưu JSON thành công!', 'success');
       } else {
-        Alert.alert('Thông báo', `Đã lưu file sao lưu tại: ${fileUri}`);
+        showToast(`Đã lưu file sao lưu tại: ${fileUri}`, 'info');
       }
     } catch (e: any) {
+      showToast('Không thể tạo file sao lưu', 'error');
       Alert.alert('Lỗi sao lưu', e.message || 'Không thể tạo file sao lưu.');
     } finally {
       setIsExporting(false);
@@ -181,8 +184,9 @@ export default function SettingsScreen() {
               const success = await StorageService.importAllData(content);
               if (success) {
                 await refreshAllData();
-                Alert.alert('Thành công', 'Đã khôi phục toàn bộ dữ liệu từ file sao lưu!');
+                showToast('Đã khôi phục toàn bộ dữ liệu thành công!', 'success');
               } else {
+                showToast('File JSON không đúng định dạng sao lưu', 'error');
                 Alert.alert('Thất bại', 'File JSON không đúng định dạng sao lưu của ứng dụng.');
               }
             },
@@ -190,6 +194,7 @@ export default function SettingsScreen() {
         ]
       );
     } catch (e: any) {
+      showToast('Không thể đọc file sao lưu', 'error');
       Alert.alert('Lỗi khôi phục', e.message || 'Không thể đọc file sao lưu.');
     }
   };
@@ -198,11 +203,13 @@ export default function SettingsScreen() {
   const handleExportCsv = async () => {
     try {
       if (transactions.length === 0) {
-        Alert.alert('Thông báo', 'Chưa có giao dịch nào để xuất file Excel.');
+        showToast('Chưa có giao dịch nào để xuất file', 'info');
         return;
       }
       await exportTransactionsToCsv(transactions);
+      showToast('Đã xuất bảng tính Excel (CSV) thành công!', 'success');
     } catch (e: any) {
+      showToast('Không thể xuất file Excel', 'error');
       Alert.alert('Lỗi xuất Excel', e.message || 'Không thể xuất file.');
     }
   };
@@ -388,7 +395,10 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={settings.autoCategorizeEnabled}
-              onValueChange={(val) => updateSettings({ autoCategorizeEnabled: val })}
+              onValueChange={(val) => {
+                updateSettings({ autoCategorizeEnabled: val });
+                showToast(val ? 'Đã bật tự động gợi ý theo từ khóa' : 'Đã tắt tự động gợi ý', 'info');
+              }}
               trackColor={{ false: '#334155', true: '#10B981' }}
               thumbColor="#FFFFFF"
             />
@@ -408,7 +418,10 @@ export default function SettingsScreen() {
                   <TouchableOpacity
                     key={mins}
                     style={[styles.windowPill, active && styles.windowPillActive]}
-                    onPress={() => updateSettings({ duplicateWindowMinutes: mins })}
+                    onPress={() => {
+                      updateSettings({ duplicateWindowMinutes: mins });
+                      showToast(`Đã đổi thời gian cảnh báo trùng thành ${mins} phút`, 'info');
+                    }}
                   >
                     <Text style={[styles.windowPillText, active && styles.windowPillTextActive]}>
                       {mins}p

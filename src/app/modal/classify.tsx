@@ -30,6 +30,7 @@ export default function ClassifyModal() {
     notes,
     classifyTransaction,
     batchClassify,
+    showToast,
   } = useApp();
 
   const isBatch = Boolean(params.batchIds);
@@ -100,16 +101,19 @@ export default function ClassifyModal() {
     }
 
     if (!finalCatName) {
+      showToast('Vui lòng chọn hoặc nhập tên Phân loại.', 'error');
       Alert.alert('Chưa chọn phân loại', 'Vui lòng chọn hoặc nhập tên Phân loại.');
       return;
     }
 
     if (isBatch) {
+      const count = batchIdList.length;
       await batchClassify(batchIdList, {
         categoryId: finalCatId,
         categoryName: finalCatName,
         note: noteText.trim() || 'Phân loại hàng loạt',
       });
+      showToast(`Đã phân loại thành công ${count} giao dịch!`, 'success');
       router.back();
       return;
     }
@@ -131,6 +135,7 @@ export default function ClassifyModal() {
       saveNewNote: noteText.trim().length > 0 && saveCustomNote,
     });
 
+    showToast(`Đã phân loại "${finalCatName}" thành công!`, 'success');
     router.back();
   };
 

@@ -30,6 +30,7 @@ export default function TransactionsScreen() {
     transactions,
     categories,
     deleteTransaction,
+    updateTransaction,
     transactionFilter,
     setTransactionFilter,
     resetTransactionFilter,
@@ -37,7 +38,43 @@ export default function TransactionsScreen() {
   } = useApp();
 
   const [detailModalTx, setDetailModalTx] = useState<Transaction | null>(null);
+  const [isEditingTx, setIsEditingTx] = useState(false);
+  const [editTxAmount, setEditTxAmount] = useState('');
+  const [editTxNote, setEditTxNote] = useState('');
+  const [editTxCatId, setEditTxCatId] = useState('');
   const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
+
+  const handleStartEditTx = (tx: Transaction) => {
+    setIsEditingTx(true);
+    setEditTxAmount(tx.amount.toString());
+    setEditTxNote(tx.note || '');
+    setEditTxCatId(tx.categoryId || '');
+  };
+
+  const handleCancelEditTx = () => {
+    setIsEditingTx(false);
+  };
+
+  const handleSaveEditTx = async () => {
+    if (!detailModalTx) return;
+    const cleanAmt = parseInt(editTxAmount.replace(/[^0-9]/g, ''), 10);
+    if (!cleanAmt || cleanAmt <= 0) {
+      showToast('Vui lòng nhập số tiền hợp lệ', 'error');
+      return;
+    }
+    const chosenCat = categories.find((c) => c.id === editTxCatId);
+    const updatedTx: Transaction = {
+      ...detailModalTx,
+      amount: cleanAmt,
+      note: editTxNote.trim() || (chosenCat ? chosenCat.name : detailModalTx.note),
+      categoryId: chosenCat ? chosenCat.id : detailModalTx.categoryId,
+      categoryName: chosenCat ? chosenCat.name : detailModalTx.categoryName,
+    };
+    await updateTransaction(updatedTx);
+    setDetailModalTx(updatedTx);
+    setIsEditingTx(false);
+    showToast('Đã cập nhật giao dịch thành công!', 'success');
+  };
   const [showDateModal, setShowDateModal] = useState(false);
   const [showBankModal, setShowBankModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -642,90 +679,189 @@ export default function TransactionsScreen() {
           visible={true}
           transparent={true}
           animationType="fade"
-          onRequestClose={() => setDetailModalTx(null)}
+          onRequestClose={() => {
+            setIsEditingTx(false);
+            setDetailModalTx(null);
+          }}
         >
           <View style={styles.modalOverlay}>
             <View style={styles.detailCard}>
               <View style={styles.detailHeader}>
-                <Text style={styles.detailTitle}>Chi tiết giao dịch</Text>
-                <TouchableOpacity onPress={() => setDetailModalTx(null)}>
+                <Text style={styles.detailTitle}>
+                  {isEditingTx ? 'Chỉnh sửa giao dịch' : 'Chi tiết giao dịch'}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setIsEditingTx(false);
+                    setDetailModalTx(null);
+                  }}
+                >
                   <Ionicons name="close" size={24} color="#94A3B8" />
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.detailAmountBox}>
-                <Text
-                  style={[
-                    styles.detailAmount,
-                    detailModalTx.type === 'income'
-                      ? styles.txAmountIncome
-                      : styles.txAmountExpense,
-                  ]}
-                >
-                  {detailModalTx.type === 'income' ? '+' : '-'}{' '}
-                  {formatCurrency(detailModalTx.amount)}
-                </Text>
-                <Text style={styles.detailCategory}>{detailModalTx.categoryName}</Text>
-              </View>
+              {isEditingTx ? (
+                <View style={styles.editTxContainer}>
+                  <Text style={styles.editTxLabel}>Số tiền (đ):</Text>
+                  <TextInput
+                    style={styles.editTxInput}
+                    keyboardType="numeric"
+                    value={editTxAmount}
+                    onChangeText={setEditTxAmount}
+                    placeholder="Nhập số tiền..."
+                    placeholderTextColor="#64748B"
+                  />
 
-              <View style={styles.detailInfoList}>
-                {/* Ghi chú nổi bật */}
-                <View style={styles.detailNoteCard}>
-                  <View style={styles.detailNoteHeader}>
-                    <Ionicons name="document-text" size={15} color="#38BDF8" />
-                    <Text style={styles.detailNoteLabel}>Ghi chú giao dịch:</Text>
+                  <Text style={styles.editTxLabel}>Danh mục phân loại:</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.editCatScroll}
+                  >
+                    {categories
+                      .filter((c) => c.type === detailModalTx.type)
+                      .map((c) => {
+                        const isSelected = editTxCatId === c.id;
+                        return (
+                          <TouchableOpacity
+                            key={c.id}
+                            style={[
+                              styles.editCatChip,
+                              isSelected && {
+                                backgroundColor: c.color,
+                                borderColor: c.color,
+                              },
+                            ]}
+                            onPress={() => setEditTxCatId(c.id)}
+                          >
+                            <Ionicons
+                              name={c.icon as any}
+                              size={14}
+                              color={isSelected ? '#FFFFFF' : c.color}
+                              style={{ marginRight: 4 }}
+                            />
+                            <Text
+                              style={[
+                                styles.editCatChipText,
+                                isSelected && styles.editCatChipTextActive,
+                              ]}
+                            >
+                              {c.name}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                  </ScrollView>
+
+                  <Text style={styles.editTxLabel}>Ghi chú:</Text>
+                  <TextInput
+                    style={styles.editTxInput}
+                    value={editTxNote}
+                    onChangeText={setEditTxNote}
+                    placeholder="Nhập ghi chú..."
+                    placeholderTextColor="#64748B"
+                  />
+
+                  <View style={styles.editTxBtnRow}>
+                    <TouchableOpacity
+                      style={styles.editTxCancelBtn}
+                      onPress={handleCancelEditTx}
+                    >
+                      <Text style={styles.editTxCancelText}>Hủy</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.editTxSaveBtn}
+                      onPress={handleSaveEditTx}
+                    >
+                      <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                      <Text style={styles.editTxSaveText}>Lưu thay đổi</Text>
+                    </TouchableOpacity>
                   </View>
-                  <Text style={styles.detailNoteText}>
-                    {detailModalTx.note || '(Chưa có ghi chú)'}
-                  </Text>
                 </View>
-
-                <View style={styles.detailInfoRow}>
-                  <Text style={styles.detailLabel}>Thời gian:</Text>
-                  <Text style={styles.detailValue}>
-                    {formatDate(detailModalTx.timestamp)} lúc{' '}
-                    {formatTime(detailModalTx.timestamp)}
-                  </Text>
-                </View>
-
-                <View style={styles.detailInfoRow}>
-                  <Text style={styles.detailLabel}>Nguồn tiền:</Text>
-                  <Text style={styles.detailValue}>{detailModalTx.source}</Text>
-                </View>
-
-                {detailModalTx.referenceCode ? (
-                  <View style={styles.detailInfoRow}>
-                    <Text style={styles.detailLabel}>Mã GD:</Text>
-                    <Text style={styles.detailValue}>{detailModalTx.referenceCode}</Text>
-                  </View>
-                ) : null}
-
-                {detailModalTx.balanceAfter ? (
-                  <View style={styles.detailInfoRow}>
-                    <Text style={styles.detailLabel}>Số dư sau GD:</Text>
-                    <Text style={styles.detailValue}>
-                      {formatCurrency(detailModalTx.balanceAfter)}
+              ) : (
+                <>
+                  <View style={styles.detailAmountBox}>
+                    <Text
+                      style={[
+                        styles.detailAmount,
+                        detailModalTx.type === 'income'
+                          ? styles.txAmountIncome
+                          : styles.txAmountExpense,
+                      ]}
+                    >
+                      {detailModalTx.type === 'income' ? '+' : '-'}{' '}
+                      {formatCurrency(detailModalTx.amount)}
                     </Text>
+                    <Text style={styles.detailCategory}>{detailModalTx.categoryName}</Text>
                   </View>
-                ) : null}
 
-                {detailModalTx.rawContent ? (
-                  <View style={styles.rawBoxDetail}>
-                    <Text style={styles.rawBoxLabel}>Thông báo gốc:</Text>
-                    <Text style={styles.rawBoxContent}>{detailModalTx.rawContent}</Text>
+                  <View style={styles.detailInfoList}>
+                    {/* Ghi chú nổi bật */}
+                    <View style={styles.detailNoteCard}>
+                      <View style={styles.detailNoteHeader}>
+                        <Ionicons name="document-text" size={15} color="#38BDF8" />
+                        <Text style={styles.detailNoteLabel}>Ghi chú giao dịch:</Text>
+                      </View>
+                      <Text style={styles.detailNoteText}>
+                        {detailModalTx.note || '(Chưa có ghi chú)'}
+                      </Text>
+                    </View>
+
+                    <View style={styles.detailInfoRow}>
+                      <Text style={styles.detailLabel}>Thời gian:</Text>
+                      <Text style={styles.detailValue}>
+                        {formatDate(detailModalTx.timestamp)} lúc{' '}
+                        {formatTime(detailModalTx.timestamp)}
+                      </Text>
+                    </View>
+
+                    <View style={styles.detailInfoRow}>
+                      <Text style={styles.detailLabel}>Nguồn tiền:</Text>
+                      <Text style={styles.detailValue}>{detailModalTx.source}</Text>
+                    </View>
+
+                    {detailModalTx.referenceCode ? (
+                      <View style={styles.detailInfoRow}>
+                        <Text style={styles.detailLabel}>Mã GD:</Text>
+                        <Text style={styles.detailValue}>{detailModalTx.referenceCode}</Text>
+                      </View>
+                    ) : null}
+
+                    {detailModalTx.balanceAfter ? (
+                      <View style={styles.detailInfoRow}>
+                        <Text style={styles.detailLabel}>Số dư sau GD:</Text>
+                        <Text style={styles.detailValue}>
+                          {formatCurrency(detailModalTx.balanceAfter)}
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    {detailModalTx.rawContent ? (
+                      <View style={styles.rawBoxDetail}>
+                        <Text style={styles.rawBoxLabel}>Thông báo gốc:</Text>
+                        <Text style={styles.rawBoxContent}>{detailModalTx.rawContent}</Text>
+                      </View>
+                    ) : null}
                   </View>
-                ) : null}
-              </View>
 
-              <View style={styles.detailActions}>
-                <TouchableOpacity
-                  style={styles.detailDeleteBtn}
-                  onPress={() => handleDelete(detailModalTx)}
-                >
-                  <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                  <Text style={styles.detailDeleteText}>Xóa giao dịch</Text>
-                </TouchableOpacity>
-              </View>
+                  <View style={styles.detailActionsRow}>
+                    <TouchableOpacity
+                      style={styles.detailEditBtn}
+                      onPress={() => handleStartEditTx(detailModalTx)}
+                    >
+                      <Ionicons name="create-outline" size={18} color="#38BDF8" />
+                      <Text style={styles.detailEditText}>Sửa</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.detailDeleteBtn}
+                      onPress={() => handleDelete(detailModalTx)}
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                      <Text style={styles.detailDeleteText}>Xóa</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
             </View>
           </View>
         </Modal>
@@ -1159,21 +1295,121 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
   },
-  detailActions: {
+  detailActionsRow: {
+    flexDirection: 'row',
     marginTop: 18,
+    gap: 10,
+    justifyContent: 'center',
+  },
+  detailEditBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#38BDF820',
+    borderWidth: 1,
+    borderColor: '#38BDF840',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  detailEditText: {
+    color: '#38BDF8',
+    fontSize: 13,
+    fontWeight: '700',
   },
   detailDeleteBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#EF444420',
+    borderWidth: 1,
+    borderColor: '#EF444440',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
     gap: 6,
+    flex: 1,
+    justifyContent: 'center',
   },
   detailDeleteText: {
     color: '#EF4444',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  editTxContainer: {
+    paddingVertical: 4,
+  },
+  editTxLabel: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 6,
+    marginTop: 8,
+  },
+  editTxInput: {
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    color: '#F8FAFC',
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  editCatScroll: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  editCatChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  editCatChipText: {
+    color: '#94A3B8',
+    fontSize: 11,
+  },
+  editCatChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  editTxBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 18,
+  },
+  editTxCancelBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#334155',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editTxCancelText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  editTxSaveBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  editTxSaveText: {
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
   },

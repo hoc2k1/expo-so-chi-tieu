@@ -15,33 +15,62 @@ import { AutoRule } from '../../models/types';
 import { KeyboardAwareScrollView } from '../../components/KeyboardAwareScrollView';
 
 export default function RuleEditModal() {
-  const { rules, categories, addRule, deleteRule } = useApp();
+  const { rules, categories, addRule, updateRule, deleteRule, showToast } = useApp();
 
   const [keyword, setKeyword] = useState('');
   const [selectedCatId, setSelectedCatId] = useState(categories[0]?.id || '');
   const [note, setNote] = useState('');
+  const [editingRule, setEditingRule] = useState<AutoRule | null>(null);
 
-  const handleAdd = async () => {
+  const handleStartEdit = (r: AutoRule) => {
+    setEditingRule(r);
+    setKeyword(r.keyword);
+    setSelectedCatId(r.categoryId);
+    setNote(r.note || '');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRule(null);
+    setKeyword('');
+    setSelectedCatId(categories[0]?.id || '');
+    setNote('');
+  };
+
+  const handleSave = async () => {
     if (!keyword.trim()) {
-      Alert.alert('Chưa nhập từ khóa', 'Vui lòng nhập từ khóa nhận diện trong thông báo.');
+      showToast('Vui lòng nhập từ khóa nhận diện trong thông báo', 'error');
       return;
     }
 
     const cat = categories.find((c) => c.id === selectedCatId);
     if (!cat) {
-      Alert.alert('Chưa chọn phân loại', 'Vui lòng chọn 1 danh mục phân loại.');
+      showToast('Vui lòng chọn 1 danh mục phân loại', 'error');
       return;
     }
 
-    await addRule({
-      keyword: keyword.trim().toUpperCase(),
-      categoryId: cat.id,
-      categoryName: cat.name,
-      note: note.trim() || cat.name,
-    });
+    const cleanKeyword = keyword.trim().toUpperCase();
 
-    setKeyword('');
-    setNote('');
+    if (editingRule) {
+      await updateRule({
+        ...editingRule,
+        keyword: cleanKeyword,
+        categoryId: cat.id,
+        categoryName: cat.name,
+        note: note.trim() || cat.name,
+      });
+      showToast(`Đã cập nhật quy tắc "${cleanKeyword}"!`, 'success');
+      handleCancelEdit();
+    } else {
+      await addRule({
+        keyword: cleanKeyword,
+        categoryId: cat.id,
+        categoryName: cat.name,
+        note: note.trim() || cat.name,
+      });
+      showToast(`Đã thêm quy tắc "${cleanKeyword}"!`, 'success');
+      setKeyword('');
+      setNote('');
+    }
   };
 
   const handleDelete = (r: AutoRule) => {
@@ -50,7 +79,13 @@ export default function RuleEditModal() {
       {
         text: 'Xóa',
         style: 'destructive',
-        onPress: () => deleteRule(r.id),
+        onPress: async () => {
+          if (editingRule?.id === r.id) {
+            handleCancelEdit();
+          }
+          await deleteRule(r.id);
+          showToast(`Đã xóa quy tắc "${r.keyword}"!`, 'info');
+        },
       },
     ]);
   };
@@ -59,76 +94,108 @@ export default function RuleEditModal() {
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
       <KeyboardAwareScrollView style={styles.container} contentContainerStyle={styles.content}>
         {/* Intro */}
-      <View style={styles.introBox}>
-        <Ionicons name="sparkles" size={18} color="#F59E0B" />
-        <Text style={styles.introText}>
-          Khi thông báo ngân hàng chứa từ khóa khớp, hệ thống sẽ tự động gợi ý sẵn Phân loại và Ghi chú trong Hàng chờ.
-        </Text>
-      </View>
+        <View style={styles.introBox}>
+          <Ionicons name="sparkles" size={18} color="#F59E0B" />
+          <Text style={styles.introText}>
+            Khi thông báo ngân hàng chứa từ khóa khớp, hệ thống sẽ tự động gợi ý sẵn Phân loại và Ghi chú trong Hàng chờ.
+          </Text>
+        </View>
 
-      {/* Add rule */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>+ Thêm Quy tắc từ khóa mới</Text>
-
-        <Text style={styles.label}>Từ khóa nhận diện (VD: GRAB, SHOPEE, HIGHLANDS...):</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Nhập từ khóa không dấu hoặc có dấu..."
-          placeholderTextColor="#64748B"
-          value={keyword}
-          onChangeText={setKeyword}
-          autoCapitalize="characters"
-        />
-
-        <Text style={styles.label}>Ánh xạ vào Phân loại:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
-          {categories.map((c) => (
-            <TouchableOpacity
-              key={c.id}
-              style={[styles.catPill, selectedCatId === c.id && styles.catPillActive]}
-              onPress={() => setSelectedCatId(c.id)}
-            >
-              <Text style={[styles.catPillText, selectedCatId === c.id && styles.catPillTextActive]}>
-                {c.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        <Text style={styles.label}>Ghi chú gợi ý mặc định:</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="VD: Cà phê Highland, Grab Food..."
-          placeholderTextColor="#64748B"
-          value={note}
-          onChangeText={setNote}
-        />
-
-        <TouchableOpacity style={styles.addBtn} onPress={handleAdd}>
-          <Ionicons name="add" size={18} color="#FFFFFF" />
-          <Text style={styles.addBtnText}>Lưu quy tắc gợi ý</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Rules list */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quy tắc đang hoạt động ({rules.length})</Text>
-        {rules.map((r) => (
-          <View key={r.id} style={styles.ruleRow}>
-            <View style={styles.ruleTexts}>
-              <View style={styles.keywordBadge}>
-                <Text style={styles.keywordText}>{r.keyword}</Text>
-              </View>
-              <Text style={styles.ruleMapping}>
-                👉 {r.categoryName} {r.note ? `• ${r.note}` : ''}
-              </Text>
-            </View>
-            <TouchableOpacity onPress={() => handleDelete(r)}>
-              <Ionicons name="trash-outline" size={18} color="#EF4444" />
-            </TouchableOpacity>
+        {/* Add / Edit rule */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>
+              {editingRule ? `✏️ Chỉnh sửa: ${editingRule.keyword}` : '+ Thêm Quy tắc từ khóa mới'}
+            </Text>
+            {editingRule && (
+              <TouchableOpacity onPress={handleCancelEdit} style={styles.cancelEditBtn}>
+                <Text style={styles.cancelEditText}>Hủy sửa</Text>
+              </TouchableOpacity>
+            )}
           </View>
-        ))}
-      </View>
+
+          <Text style={styles.label}>Từ khóa nhận diện (VD: GRAB, SHOPEE, HIGHLANDS...):</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Nhập từ khóa không dấu hoặc có dấu..."
+            placeholderTextColor="#64748B"
+            value={keyword}
+            onChangeText={setKeyword}
+            autoCapitalize="characters"
+          />
+
+          <Text style={styles.label}>Ánh xạ vào Phân loại:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
+            {categories.map((c) => (
+              <TouchableOpacity
+                key={c.id}
+                style={[styles.catPill, selectedCatId === c.id && styles.catPillActive]}
+                onPress={() => setSelectedCatId(c.id)}
+              >
+                <Text
+                  style={[
+                    styles.catPillText,
+                    selectedCatId === c.id && styles.catPillTextActive,
+                  ]}
+                >
+                  {c.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <Text style={styles.label}>Ghi chú gợi ý mặc định:</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="VD: Cà phê Highland, Grab Food..."
+            placeholderTextColor="#64748B"
+            value={note}
+            onChangeText={setNote}
+          />
+
+          <TouchableOpacity
+            style={[styles.addBtn, editingRule && styles.editSaveBtn]}
+            onPress={handleSave}
+          >
+            <Ionicons name={editingRule ? 'checkmark' : 'add'} size={18} color="#FFFFFF" />
+            <Text style={[styles.addBtnText, editingRule && { color: '#FFFFFF' }]}>
+              {editingRule ? 'Lưu thay đổi quy tắc' : 'Lưu quy tắc gợi ý'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Rules list */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Quy tắc đang hoạt động ({rules.length})</Text>
+          {rules.map((r) => (
+            <View key={r.id} style={styles.ruleRow}>
+              <View style={styles.ruleTexts}>
+                <View style={styles.keywordBadge}>
+                  <Text style={styles.keywordText}>{r.keyword}</Text>
+                </View>
+                <Text style={styles.ruleMapping}>
+                  👉 {r.categoryName} {r.note ? `• ${r.note}` : ''}
+                </Text>
+              </View>
+              <View style={styles.rowActions}>
+                <TouchableOpacity
+                  onPress={() => handleStartEdit(r)}
+                  style={styles.actionIconBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="create-outline" size={18} color="#38BDF8" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleDelete(r)}
+                  style={styles.actionIconBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
       </KeyboardAwareScrollView>
     </SafeAreaView>
   );
@@ -167,11 +234,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
   sectionTitle: {
     color: '#F8FAFC',
     fontSize: 14,
     fontWeight: '700',
-    marginBottom: 10,
+  },
+  cancelEditBtn: {
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    backgroundColor: '#334155',
+    borderRadius: 6,
+  },
+  cancelEditText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600',
   },
   label: {
     color: '#94A3B8',
@@ -223,6 +306,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 6,
   },
+  editSaveBtn: {
+    backgroundColor: '#10B981',
+  },
   addBtnText: {
     color: '#0F172A',
     fontSize: 13,
@@ -258,5 +344,12 @@ const styles = StyleSheet.create({
     color: '#CBD5E1',
     fontSize: 12,
   },
+  rowActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  actionIconBtn: {
+    padding: 4,
+  },
 });
-

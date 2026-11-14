@@ -46,7 +46,7 @@ export const Toast: React.FC<ToastProps> = ({ toast, onHide, duration = 2500 }) 
 
     Animated.parallel([
       Animated.spring(translateY, {
-        toValue: insets.top + 10,
+        toValue: Math.max(insets.top + 10, 24),
         useNativeDriver: true,
         tension: 70,
         friction: 9,
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
     shadowRadius: 10,
-    elevation: 10,
+    elevation: 99999,
   },
   innerContent: {
     flexDirection: 'row',
