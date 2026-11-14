@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { Text, StyleSheet, Animated, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme, ThemeColors, Radius, Spacing, TouchTarget } from '../constants/theme';
 
 export interface ToastData {
   id: number;
@@ -17,6 +18,9 @@ interface ToastProps {
 
 export const Toast: React.FC<ToastProps> = ({ toast, onHide, duration = 2500 }) => {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [translateY] = useState(() => new Animated.Value(-80));
   const [opacity] = useState(() => new Animated.Value(0));
 
@@ -75,9 +79,13 @@ export const Toast: React.FC<ToastProps> = ({ toast, onHide, duration = 2500 }) 
       ? 'alert-circle'
       : 'information-circle';
   const iconColor =
-    type === 'success' ? '#10B981' : type === 'error' ? '#EF4444' : '#38BDF8';
+    type === 'success' ? colors.income : type === 'error' ? colors.expense : colors.info;
   const borderColor =
-    type === 'success' ? '#10B98160' : type === 'error' ? '#EF444460' : '#38BDF860';
+    type === 'success'
+      ? colors.incomeBorder
+      : type === 'error'
+      ? colors.expenseBorder
+      : colors.infoBorder;
 
   return (
     <Animated.View
@@ -91,56 +99,63 @@ export const Toast: React.FC<ToastProps> = ({ toast, onHide, duration = 2500 }) 
       ]}
       pointerEvents="box-none"
     >
-      <TouchableOpacity
-        style={styles.innerContent}
-        activeOpacity={0.9}
+      <Pressable
+        style={({ pressed }) => [styles.innerContent, pressed && { opacity: 0.85 }]}
         onPress={handleDismiss}
+        accessibilityRole="alert"
       >
         <Ionicons name={iconName} size={22} color={iconColor} style={styles.icon} />
         <Text style={styles.message} numberOfLines={2}>
           {toast.message}
         </Text>
-        <TouchableOpacity
+        <Pressable
           onPress={handleDismiss}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          hitSlop={TouchTarget.hitSlop}
+          accessibilityLabel="Đóng thông báo"
+          style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.6 }]}
         >
-          <Ionicons name="close" size={16} color="#94A3B8" />
-        </TouchableOpacity>
-      </TouchableOpacity>
+          <Ionicons name="close" size={16} color={colors.textSecondary} />
+        </Pressable>
+      </Pressable>
     </Animated.View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    top: 0,
-    left: 16,
-    right: 16,
-    zIndex: 99999,
-    backgroundColor: '#1E293B',
-    borderRadius: 14,
-    borderWidth: 1.5,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 99999,
-  },
-  innerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  icon: {
-    marginRight: 10,
-  },
-  message: {
-    flex: 1,
-    color: '#F8FAFC',
-    fontSize: 14,
-    fontWeight: '600',
-    lineHeight: 19,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      position: 'absolute',
+      top: 0,
+      left: Spacing.base,
+      right: Spacing.base,
+      zIndex: 99999,
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: Radius.lg,
+      borderWidth: 1.5,
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.22,
+      shadowRadius: 12,
+      elevation: 99999,
+    },
+    innerContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: Spacing.md,
+      paddingHorizontal: Spacing.base,
+      minHeight: TouchTarget.minSize,
+    },
+    icon: {
+      marginRight: Spacing.sm,
+    },
+    message: {
+      flex: 1,
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '600',
+      lineHeight: 19,
+    },
+    closeBtn: {
+      padding: Spacing.xs,
+    },
+  });

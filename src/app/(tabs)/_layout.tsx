@@ -1,74 +1,77 @@
-import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useApp } from "../../contexts/AppContext";
+import { Ionicons } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useApp } from '../../contexts/AppContext';
+import { useTheme } from '../../constants/theme';
 
 export default function TabLayout() {
   const { pendingTransactions } = useApp();
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const pendingCount = pendingTransactions.length;
 
   return (
     <Tabs
       screenOptions={{
         headerStyle: {
-          backgroundColor: "#0F172A",
+          backgroundColor: colors.background,
           borderBottomWidth: 1,
-          borderBottomColor: "#1E293B",
+          borderBottomColor: colors.border,
         },
+        headerShadowVisible: false,
         headerTitleStyle: {
-          fontWeight: "700",
+          fontWeight: '700',
           fontSize: 18,
-          color: "#F8FAFC",
+          color: colors.text,
         },
-        headerTintColor: "#F8FAFC",
+        headerTintColor: colors.text,
         tabBarStyle: {
-          backgroundColor: "#0F172A",
+          backgroundColor: colors.tabBarBg,
           borderTopWidth: 1,
-          borderTopColor: "#1E293B",
-          height: 58 + insets.bottom,
+          borderTopColor: colors.border,
+          height: 60 + insets.bottom,
           paddingBottom: Math.max(insets.bottom, 8),
           paddingTop: 6,
         },
-        tabBarActiveTintColor: "#10B981",
-        tabBarInactiveTintColor: "#64748B",
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.tabBarInactive,
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: "600",
+          fontWeight: '600',
         },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: "Hàng chờ",
-          tabBarLabel: "Hàng chờ",
-          tabBarIcon: ({ color, size }) => (
+          title: 'Tổng quan',
+          tabBarLabel: 'Tổng quan',
+          tabBarIcon: ({ color, focused, size }) => (
             <Ionicons
-              name="time"
+              name={focused ? 'wallet' : 'wallet-outline'}
               size={size}
-              color={typeof color === "string" ? color : undefined}
+              color={typeof color === 'string' ? color : undefined}
             />
           ),
           tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
           tabBarBadgeStyle: {
-            backgroundColor: "#EF4444",
-            color: "#FFFFFF",
+            backgroundColor: colors.expense,
+            color: '#FFFFFF',
             fontSize: 10,
-            fontWeight: "bold",
+            fontWeight: '700',
           },
         }}
       />
       <Tabs.Screen
         name="transactions"
         options={{
-          title: "Sổ giao dịch",
-          tabBarLabel: "Giao dịch",
-          tabBarIcon: ({ color, size }) => (
+          title: 'Sổ giao dịch',
+          tabBarLabel: 'Giao dịch',
+          tabBarIcon: ({ color, focused, size }) => (
             <Ionicons
-              name="receipt"
+              name={focused ? 'receipt' : 'receipt-outline'}
               size={size}
-              color={typeof color === "string" ? color : undefined}
+              color={typeof color === 'string' ? color : undefined}
             />
           ),
         }}
@@ -76,13 +79,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="statistics"
         options={{
-          title: "Thống kê",
-          tabBarLabel: "Thống kê",
-          tabBarIcon: ({ color, size }) => (
+          title: 'Thống kê',
+          tabBarLabel: 'Thống kê',
+          tabBarIcon: ({ color, focused, size }) => (
             <Ionicons
-              name="pie-chart"
+              name={focused ? 'pie-chart' : 'pie-chart-outline'}
               size={size}
-              color={typeof color === "string" ? color : undefined}
+              color={typeof color === 'string' ? color : undefined}
             />
           ),
         }}
@@ -90,13 +93,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="categories"
         options={{
-          title: "Quản lý dữ liệu phân loại",
-          tabBarLabel: "Phân loại",
-          tabBarIcon: ({ color, size }) => (
+          title: 'Phân loại & Ghi chú',
+          tabBarLabel: 'Phân loại',
+          tabBarIcon: ({ color, focused, size }) => (
             <Ionicons
-              name="pricetags"
+              name={focused ? 'pricetags' : 'pricetags-outline'}
               size={size}
-              color={typeof color === "string" ? color : undefined}
+              color={typeof color === 'string' ? color : undefined}
             />
           ),
         }}
@@ -104,13 +107,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: "Cài đặt",
-          tabBarLabel: "Cài đặt",
-          tabBarIcon: ({ color, size }) => (
+          title: 'Cài đặt',
+          tabBarLabel: 'Cài đặt',
+          tabBarIcon: ({ color, focused, size }) => (
             <Ionicons
-              name="settings-sharp"
+              name={focused ? 'settings' : 'settings-outline'}
               size={size}
-              color={typeof color === "string" ? color : undefined}
+              color={typeof color === 'string' ? color : undefined}
             />
           ),
         }}

@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme, ThemeColors, Radius, Spacing, Typography, TouchTarget } from '../constants/theme';
 
 export interface ConfirmModalProps {
   visible: boolean;
@@ -32,6 +33,9 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onConfirm,
   onCancel,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   if (!visible) return null;
 
   const handleClose = () => {
@@ -50,17 +54,17 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
       : 'information-circle-outline';
 
   const iconColor =
-    type === 'danger' ? '#EF4444' : type === 'warning' ? '#F59E0B' : '#38BDF8';
+    type === 'danger' ? colors.expense : type === 'warning' ? colors.warning : colors.info;
 
   const badgeBg =
     type === 'danger'
-      ? 'rgba(239, 68, 68, 0.15)'
+      ? colors.expenseSoft
       : type === 'warning'
-      ? 'rgba(245, 158, 11, 0.15)'
-      : 'rgba(56, 189, 248, 0.15)';
+      ? colors.warningSoft
+      : colors.infoSoft;
 
   const confirmBtnBg =
-    type === 'danger' ? '#EF4444' : type === 'warning' ? '#F59E0B' : '#0284C7';
+    type === 'danger' ? colors.expense : type === 'warning' ? colors.warning : colors.primary;
 
   return (
     <Modal
@@ -73,38 +77,36 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         <View style={styles.overlay}>
           <TouchableWithoutFeedback>
             <View style={styles.card}>
-              {/* Icon Badge */}
               <View style={[styles.iconBadge, { backgroundColor: badgeBg }]}>
-                <Ionicons name={iconName} size={30} color={iconColor} />
+                <Ionicons name={iconName} size={28} color={iconColor} />
               </View>
 
-              {/* Title & Message */}
               <Text style={styles.title}>{title}</Text>
               <Text style={styles.message}>{message}</Text>
 
-              {/* Action Buttons */}
               <View style={styles.buttonRow}>
                 {!singleButton && onCancel && (
-                  <TouchableOpacity
-                    style={styles.cancelBtn}
-                    activeOpacity={0.7}
+                  <Pressable
+                    style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.75 }]}
                     onPress={onCancel}
+                    accessibilityRole="button"
                   >
                     <Text style={styles.cancelBtnText}>{cancelText}</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
 
-                <TouchableOpacity
-                  style={[
+                <Pressable
+                  style={({ pressed }) => [
                     styles.confirmBtn,
                     { backgroundColor: confirmBtnBg },
                     singleButton && { flex: 1 },
+                    pressed && { opacity: 0.85 },
                   ]}
-                  activeOpacity={0.7}
                   onPress={onConfirm}
+                  accessibilityRole="button"
                 >
                   <Text style={styles.confirmBtnText}>{confirmText}</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
             </View>
           </TouchableWithoutFeedback>
@@ -114,80 +116,81 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 360,
-    backgroundColor: '#1E293B',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#334155',
-    padding: 24,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 18,
-    elevation: 12,
-  },
-  iconBadge: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  title: {
-    color: '#F8FAFC',
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  message: {
-    color: '#94A3B8',
-    fontSize: 14,
-    lineHeight: 21,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  cancelBtn: {
-    flex: 1,
-    backgroundColor: '#334155',
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelBtnText: {
-    color: '#CBD5E1',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  confirmBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  confirmBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-});
-
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: colors.scrim,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: Spacing.xl,
+    },
+    card: {
+      width: '100%',
+      maxWidth: 360,
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: Radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: Spacing.xl,
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.28,
+      shadowRadius: 18,
+      elevation: 12,
+    },
+    iconBadge: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: Spacing.base,
+    },
+    title: {
+      ...Typography.title,
+      color: colors.text,
+      textAlign: 'center',
+      marginBottom: Spacing.sm,
+    },
+    message: {
+      ...Typography.body,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: Spacing.xl,
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      gap: Spacing.md,
+      width: '100%',
+    },
+    cancelBtn: {
+      flex: 1,
+      minHeight: TouchTarget.minSize,
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: Radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: Spacing.md,
+    },
+    cancelBtnText: {
+      ...Typography.subtitle,
+      color: colors.textSecondary,
+    },
+    confirmBtn: {
+      flex: 1,
+      minHeight: TouchTarget.minSize,
+      borderRadius: Radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: Spacing.md,
+    },
+    confirmBtnText: {
+      ...Typography.subtitle,
+      color: colors.onPrimary,
+      fontWeight: '700',
+    },
+  });

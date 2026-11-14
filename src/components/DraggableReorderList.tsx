@@ -9,6 +9,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme, Radius } from '../constants/theme';
 
 interface DraggableReorderListProps<T extends { id: string }> {
   items: T[];
@@ -46,6 +47,12 @@ function DraggableRow<T extends { id: string }>({
   onDragEnd,
   renderContent,
 }: DraggableRowProps<T>) {
+  const { colors } = useTheme();
+  const activeBorder = colors.primary;
+  const activeBg = colors.surfaceElevated;
+  const idleBorder = colors.border;
+  const idleBg = colors.surfaceSecondary;
+
   const panGesture = Gesture.Pan()
     .runOnJS(true)
     .minDistance(2)
@@ -68,8 +75,8 @@ function DraggableRow<T extends { id: string }>({
         transform: [{ translateY: dragY.value }, { scale: 1.02 }],
         zIndex: 100,
         elevation: 8,
-        borderColor: '#38BDF8',
-        backgroundColor: '#1E293B',
+        borderColor: activeBorder,
+        backgroundColor: activeBg,
       };
     }
 
@@ -89,8 +96,8 @@ function DraggableRow<T extends { id: string }>({
       ],
       zIndex: 1,
       elevation: 0,
-      borderColor: '#334155',
-      backgroundColor: '#0F172A',
+      borderColor: idleBorder,
+      backgroundColor: idleBg,
     };
   });
 
@@ -235,7 +242,7 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: Radius.md,
     borderWidth: 1,
     paddingRight: 10,
   },

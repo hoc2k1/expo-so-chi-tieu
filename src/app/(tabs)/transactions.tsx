@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   SectionList,
-  TouchableOpacity,
+  Pressable,
   TextInput,
   Modal,
   ScrollView,
@@ -24,6 +24,15 @@ import { MultiSelectGridModal, MultiSelectOption } from '../../components/MultiS
 import { DateRangePickerModal } from '../../components/DateRangePickerModal';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { SUPPORTED_APPS } from '../../constants/defaultData';
+import {
+  useTheme,
+  ThemeColors,
+  Spacing,
+  Radius,
+  Typography,
+  TouchTarget,
+  Shadows,
+} from '../../constants/theme';
 
 export default function TransactionsScreen() {
   const {
@@ -37,12 +46,26 @@ export default function TransactionsScreen() {
     showToast,
   } = useApp();
 
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [detailModalTx, setDetailModalTx] = useState<Transaction | null>(null);
   const [isEditingTx, setIsEditingTx] = useState(false);
   const [editTxAmount, setEditTxAmount] = useState('');
   const [editTxNote, setEditTxNote] = useState('');
   const [editTxCatId, setEditTxCatId] = useState('');
   const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+
+  const categoryMap = useMemo(() => {
+    const map: Record<string, { icon: string; color: string }> = {};
+    for (const c of categories) {
+      map[c.id] = { icon: c.icon, color: c.color };
+    }
+    return map;
+  }, [categories]);
 
   const handleStartEditTx = (tx: Transaction) => {
     setIsEditingTx(true);
@@ -75,9 +98,6 @@ export default function TransactionsScreen() {
     setIsEditingTx(false);
     showToast('Đã cập nhật giao dịch thành công!', 'success');
   };
-  const [showDateModal, setShowDateModal] = useState(false);
-  const [showBankModal, setShowBankModal] = useState(false);
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   const {
     type: selectedType,
@@ -91,21 +111,18 @@ export default function TransactionsScreen() {
     searchQuery = '',
   } = transactionFilter;
 
-  // Active multi-select category IDs (with fallback to legacy categoryId)
   const activeCategoryIds = useMemo(() => {
     if (rawCategoryIds && rawCategoryIds.length > 0) return rawCategoryIds;
     if (legacyCategoryId && legacyCategoryId !== 'all') return [legacyCategoryId];
     return [];
   }, [rawCategoryIds, legacyCategoryId]);
 
-  // Active multi-select bank/wallet sources (with fallback to legacy source)
   const activeSources = useMemo(() => {
     if (rawSources && rawSources.length > 0) return rawSources;
     if (legacySource && legacySource !== 'all') return [legacySource];
     return [];
   }, [rawSources, legacySource]);
 
-  // Options for Category MultiSelectGridModal
   const categoryOptions = useMemo<MultiSelectOption[]>(() => {
     return categories.map((c) => ({
       id: c.id,
@@ -116,7 +133,6 @@ export default function TransactionsScreen() {
     }));
   }, [categories]);
 
-  // Options for Bank/Wallet MultiSelectGridModal
   const bankOptions = useMemo<MultiSelectOption[]>(() => {
     const set = new Set<string>();
     transactions.forEach((t) => {
@@ -135,23 +151,15 @@ export default function TransactionsScreen() {
     }));
   }, [transactions]);
 
-  // Filter transactions
   const filteredTransactions = useMemo(() => {
     return transactions.filter((tx) => {
-      // 1. Type filter (Chi / Thu)
       if (selectedType !== 'all' && tx.type !== selectedType) return false;
-
-      // 2. Category multi-select filter
       if (activeCategoryIds.length > 0 && !activeCategoryIds.includes(tx.categoryId)) {
         return false;
       }
-
-      // 3. Bank / Wallet multi-select filter
       if (activeSources.length > 0 && !activeSources.includes(tx.source)) {
         return false;
       }
-
-      // 4. Time range / DateRange filter
       if (
         !isTransactionInTimeRange(
           tx.timestamp,
@@ -163,8 +171,6 @@ export default function TransactionsScreen() {
       ) {
         return false;
       }
-
-      // 5. Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const noteMatch = tx.note.toLowerCase().includes(q);
@@ -173,7 +179,6 @@ export default function TransactionsScreen() {
         const rawMatch = tx.rawContent ? tx.rawContent.toLowerCase().includes(q) : false;
         if (!noteMatch && !catMatch && !sourceMatch && !rawMatch) return false;
       }
-
       return true;
     });
   }, [
@@ -187,7 +192,6 @@ export default function TransactionsScreen() {
     searchQuery,
   ]);
 
-  // Group by date for SectionList
   const sections = useMemo(() => {
     const map: Record<
       string,
@@ -223,45 +227,46 @@ export default function TransactionsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      {/* Top Bar: Search Input & Add Transaction Button */}
+      {/* Search + Add Row */}
       <View style={styles.topSearchBarRow}>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color="#94A3B8" />
+          <Ionicons name="search" size={18} color={colors.textMuted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Tìm theo ghi chú, phân loại, ngân hàng..."
-            placeholderTextColor="#64748B"
+            placeholder="Tìm ghi chú, danh mục, ngân hàng..."
+            placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={(val) =>
               setTransactionFilter((prev) => ({ ...prev, searchQuery: val }))
             }
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity
+            <Pressable
               onPress={() =>
                 setTransactionFilter((prev) => ({ ...prev, searchQuery: '' }))
               }
+              hitSlop={TouchTarget.hitSlop}
             >
-              <Ionicons name="close-circle" size={18} color="#94A3B8" />
-            </TouchableOpacity>
+              <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+            </Pressable>
           )}
         </View>
 
-        <TouchableOpacity
-          style={styles.addBtn}
+        <Pressable
+          style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.85 }]}
           onPress={() => router.push('/modal/manual-transaction')}
-          activeOpacity={0.8}
+          accessibilityRole="button"
         >
-          <Ionicons name="add" size={18} color="#0F172A" />
+          <Ionicons name="add" size={20} color={colors.onPrimary} />
           <Text style={styles.addBtnText}>Thêm</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       {/* Filter Controls */}
       <View style={styles.filterGroup}>
-        {/* Row 1: Thu / Chi */}
+        {/* Row 1: Type Segmented Filter */}
         <View style={styles.typeFilterRow}>
-          <TouchableOpacity
+          <Pressable
             style={[
               styles.filterChip,
               selectedType === 'all' && styles.filterChipActive,
@@ -276,11 +281,11 @@ export default function TransactionsScreen() {
                 selectedType === 'all' && styles.filterChipTextActive,
               ]}
             >
-              Tất cả Thu/Chi
+              Tất cả
             </Text>
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
+          <Pressable
             style={[
               styles.filterChip,
               selectedType === 'expense' && styles.filterChipExpense,
@@ -295,14 +300,14 @@ export default function TransactionsScreen() {
             <Text
               style={[
                 styles.filterChipText,
-                selectedType === 'expense' && styles.filterChipTextActive,
+                selectedType === 'expense' && styles.filterChipTextExpense,
               ]}
             >
-              - Chi tiêu
+              Chi tiêu
             </Text>
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
+          <Pressable
             style={[
               styles.filterChip,
               selectedType === 'income' && styles.filterChipIncome,
@@ -317,15 +322,15 @@ export default function TransactionsScreen() {
             <Text
               style={[
                 styles.filterChipText,
-                selectedType === 'income' && styles.filterChipTextActive,
+                selectedType === 'income' && styles.filterChipTextIncome,
               ]}
             >
-              + Thu nhập
+              Thu nhập
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
-        {/* Row 2: Time Range Selector (giống màn Thống kê, mặc định là Tháng, không có Mọi lúc) */}
+        {/* Row 2: Time Range Selector */}
         <View style={styles.timeRangeBar}>
           {(['today', 'week', 'month', 'year', 'custom'] as const).map((t) => {
             const labels: Record<string, string> = {
@@ -337,7 +342,7 @@ export default function TransactionsScreen() {
             };
             const isSelected = selectedTimeRange === t;
             return (
-              <TouchableOpacity
+              <Pressable
                 key={t}
                 style={[styles.timeBtn, isSelected && styles.timeBtnActive]}
                 onPress={() => {
@@ -355,45 +360,30 @@ export default function TransactionsScreen() {
                 >
                   {labels[t]}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </View>
 
-        {/* Custom DateTime Range Banner */}
-        {selectedTimeRange === 'custom' && (
-          <TouchableOpacity
-            style={styles.customRangeBanner}
-            onPress={() => setShowDateModal(true)}
-          >
-            <Ionicons name="calendar-outline" size={15} color="#38BDF8" />
-            <Text style={styles.customRangeText}>
-              {customStartDate}  →  {customEndDate}
-            </Text>
-            <Text style={styles.customRangeEdit}>Đổi</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Row 2: Ngân hàng / Ví Multi-Select & Phân loại Multi-Select */}
+        {/* Row 3: Bank / Category Multi-Select & Reset */}
         <View style={styles.dropdownRow}>
-          {/* Ngân hàng / Ví Dropdown Button */}
-          <TouchableOpacity
-            style={[
+          <Pressable
+            style={({ pressed }) => [
               styles.dropdownBtn,
               activeSources.length > 0 && styles.dropdownBtnActiveBank,
+              pressed && { opacity: 0.8 },
             ]}
             onPress={() => setShowBankModal(true)}
-            activeOpacity={0.7}
           >
             <Ionicons
               name="business-outline"
               size={14}
-              color={activeSources.length > 0 ? '#38BDF8' : '#94A3B8'}
+              color={activeSources.length > 0 ? colors.info : colors.textSecondary}
             />
             <Text
               style={[
                 styles.dropdownBtnText,
-                activeSources.length > 0 && styles.dropdownBtnTextActive,
+                activeSources.length > 0 && { color: colors.info, fontWeight: '700' },
               ]}
               numberOfLines={1}
             >
@@ -404,28 +394,27 @@ export default function TransactionsScreen() {
             <Ionicons
               name="chevron-down"
               size={13}
-              color={activeSources.length > 0 ? '#38BDF8' : '#64748B'}
+              color={activeSources.length > 0 ? colors.info : colors.textMuted}
             />
-          </TouchableOpacity>
+          </Pressable>
 
-          {/* Phân loại Dropdown Button */}
-          <TouchableOpacity
-            style={[
+          <Pressable
+            style={({ pressed }) => [
               styles.dropdownBtn,
               activeCategoryIds.length > 0 && styles.dropdownBtnActiveCategory,
+              pressed && { opacity: 0.8 },
             ]}
             onPress={() => setShowCategoryModal(true)}
-            activeOpacity={0.7}
           >
             <Ionicons
               name="pricetag-outline"
               size={14}
-              color={activeCategoryIds.length > 0 ? '#10B981' : '#94A3B8'}
+              color={activeCategoryIds.length > 0 ? colors.income : colors.textSecondary}
             />
             <Text
               style={[
                 styles.dropdownBtnText,
-                activeCategoryIds.length > 0 && styles.dropdownBtnTextActive,
+                activeCategoryIds.length > 0 && { color: colors.income, fontWeight: '700' },
               ]}
               numberOfLines={1}
             >
@@ -436,53 +425,59 @@ export default function TransactionsScreen() {
             <Ionicons
               name="chevron-down"
               size={13}
-              color={activeCategoryIds.length > 0 ? '#10B981' : '#64748B'}
+              color={activeCategoryIds.length > 0 ? colors.income : colors.textMuted}
             />
-          </TouchableOpacity>
+          </Pressable>
 
-          {/* Reset Filter Button */}
           {hasActiveFilter && (
-            <TouchableOpacity
-              style={styles.resetFilterChip}
+            <Pressable
+              style={({ pressed }) => [
+                styles.resetFilterChip,
+                pressed && { opacity: 0.75 },
+              ]}
               onPress={resetTransactionFilter}
+              hitSlop={TouchTarget.hitSlop}
             >
-              <Ionicons name="refresh" size={13} color="#EF4444" />
+              <Ionicons name="refresh" size={14} color={colors.expense} />
               <Text style={styles.resetFilterText}>Xóa lọc</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
         </View>
       </View>
 
-      {/* Active Custom DateRange Banner */}
+      {/* Active Filter Banners */}
       {selectedTimeRange === 'custom' && (
-        <TouchableOpacity
+        <Pressable
           style={styles.appliedFilterBanner}
           onPress={() => setShowDateModal(true)}
         >
           <View style={styles.appliedBannerLeft}>
-            <Ionicons name="calendar" size={14} color="#38BDF8" />
+            <Ionicons name="calendar" size={14} color={colors.info} />
             <Text style={styles.appliedFilterText}>
-              Khoảng ngày: <Text style={styles.appliedFilterBold}>{customStartDate} → {customEndDate}</Text>
+              Khoảng ngày:{' '}
+              <Text style={styles.appliedFilterBold}>
+                {customStartDate} → {customEndDate}
+              </Text>
             </Text>
           </View>
           <Text style={styles.editDateLink}>Đổi</Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
 
-      {/* Active Categories Tags Banner */}
       {activeCategoryIds.length > 0 && (
         <View style={styles.appliedFilterBanner}>
           <View style={styles.appliedBannerLeft}>
-            <Ionicons name="pricetag" size={14} color="#10B981" />
+            <Ionicons name="pricetag" size={14} color={colors.income} />
             <Text style={styles.appliedFilterText} numberOfLines={1}>
-              Phân loại: <Text style={styles.appliedFilterBold}>
+              Phân loại:{' '}
+              <Text style={styles.appliedFilterBold}>
                 {activeCategoryIds
                   .map((id) => categories.find((c) => c.id === id)?.name || id)
                   .join(', ')}
               </Text>
             </Text>
           </View>
-          <TouchableOpacity
+          <Pressable
             onPress={() =>
               setTransactionFilter((prev) => ({
                 ...prev,
@@ -490,22 +485,23 @@ export default function TransactionsScreen() {
                 categoryId: 'all',
               }))
             }
+            hitSlop={TouchTarget.hitSlop}
           >
-            <Ionicons name="close-circle" size={18} color="#38BDF8" />
-          </TouchableOpacity>
+            <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+          </Pressable>
         </View>
       )}
 
-      {/* Active Bank Tags Banner */}
       {activeSources.length > 0 && (
         <View style={styles.appliedFilterBanner}>
           <View style={styles.appliedBannerLeft}>
-            <Ionicons name="business" size={14} color="#38BDF8" />
+            <Ionicons name="business" size={14} color={colors.info} />
             <Text style={styles.appliedFilterText} numberOfLines={1}>
-              Nguồn tiền: <Text style={styles.appliedFilterBold}>{activeSources.join(', ')}</Text>
+              Nguồn tiền:{' '}
+              <Text style={styles.appliedFilterBold}>{activeSources.join(', ')}</Text>
             </Text>
           </View>
-          <TouchableOpacity
+          <Pressable
             onPress={() =>
               setTransactionFilter((prev) => ({
                 ...prev,
@@ -513,9 +509,10 @@ export default function TransactionsScreen() {
                 source: 'all',
               }))
             }
+            hitSlop={TouchTarget.hitSlop}
           >
-            <Ionicons name="close-circle" size={18} color="#38BDF8" />
-          </TouchableOpacity>
+            <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+          </Pressable>
         </View>
       )}
 
@@ -524,86 +521,133 @@ export default function TransactionsScreen() {
         sections={sections}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
+        stickySectionHeadersEnabled={false}
+        showsVerticalScrollIndicator={false}
         renderSectionHeader={({ section }) => (
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionDateText}>{formatDate(section.date)}</Text>
             <View style={styles.sectionTotals}>
-              {section.totalExpense > 0 && (
-                <Text style={styles.sectionExpense}>
-                  -{formatCurrency(section.totalExpense)}
-                </Text>
-              )}
               {section.totalIncome > 0 && (
-                <Text style={styles.sectionIncome}>
-                  +{formatCurrency(section.totalIncome)}
-                </Text>
+                <View style={styles.sectionBadgeIncome}>
+                  <Text style={styles.sectionIncome}>
+                    +{formatCurrency(section.totalIncome)}
+                  </Text>
+                </View>
+              )}
+              {section.totalExpense > 0 && (
+                <View style={styles.sectionBadgeExpense}>
+                  <Text style={styles.sectionExpense}>
+                    -{formatCurrency(section.totalExpense)}
+                  </Text>
+                </View>
               )}
             </View>
           </View>
         )}
         renderItem={({ item }) => {
           const isIncome = item.type === 'income';
+          const cat = categoryMap[item.categoryId];
+          const catColor = cat?.color || (isIncome ? colors.income : colors.expense);
+          const catIcon = (cat?.icon || (isIncome ? 'arrow-down' : 'pricetag')) as any;
+
           return (
-            <View style={styles.txRow}>
-              <TouchableOpacity
-                style={styles.txRowMain}
-                activeOpacity={0.7}
+            <View style={styles.txCard}>
+              <Pressable
+                style={({ pressed }) => [styles.txRowMain, pressed && { opacity: 0.78 }]}
                 onPress={() => setDetailModalTx(item)}
               >
-                <View style={styles.txIconBox}>
-                  <Ionicons
-                    name={isIncome ? 'arrow-down-circle' : 'arrow-up-circle'}
-                    size={24}
-                    color={isIncome ? '#10B981' : '#EF4444'}
-                  />
+                <View style={[styles.txIconBox, { backgroundColor: `${catColor}1F` }]}>
+                  <Ionicons name={catIcon} size={20} color={catColor} />
                 </View>
 
                 <View style={styles.txDetails}>
-                  <Text style={styles.txCategoryName}>{item.categoryName}</Text>
-                  {item.note ? (
-                    <View style={styles.txNoteRow}>
-                      <Ionicons name="document-text-outline" size={12} color="#38BDF8" />
-                      <Text style={styles.txNote} numberOfLines={2}>
-                        {item.note}
-                      </Text>
-                    </View>
-                  ) : null}
-                  <View style={styles.txSourceBadge}>
-                    <Text style={styles.txSourceText}>{item.source}</Text>
-                    <Text style={styles.txTimeText}>• {formatTime(item.timestamp)}</Text>
+                  <Text style={styles.txCategoryName} numberOfLines={1}>
+                    {item.note || item.categoryName}
+                  </Text>
+                  <View style={styles.txMetaRow}>
+                    <Text style={styles.txCategoryTag} numberOfLines={1}>
+                      {item.categoryName}
+                    </Text>
+                    <Text style={styles.txTimeText}>
+                      • {item.source} • {formatTime(item.timestamp)}
+                    </Text>
                   </View>
                 </View>
 
-                <Text
-                  style={[
-                    styles.txAmount,
-                    isIncome ? styles.txAmountIncome : styles.txAmountExpense,
-                  ]}
-                >
-                  {isIncome ? '+' : '-'} {formatCurrency(item.amount)}
-                </Text>
-              </TouchableOpacity>
+                <View style={styles.txRightCol}>
+                  <Text
+                    style={[
+                      styles.txAmount,
+                      { color: isIncome ? colors.income : colors.expense },
+                    ]}
+                  >
+                    {isIncome ? '+' : '-'}
+                    {formatCurrency(item.amount)}
+                  </Text>
+                  <View
+                    style={[
+                      styles.txTypePill,
+                      {
+                        backgroundColor: isIncome
+                          ? colors.incomeSoft
+                          : colors.expenseSoft,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.txTypePillText,
+                        { color: isIncome ? colors.income : colors.expense },
+                      ]}
+                    >
+                      {isIncome ? 'Thu' : 'Chi'}
+                    </Text>
+                  </View>
+                </View>
+              </Pressable>
 
-              {/* Direct Delete Button right on list item with confirmation popup */}
-              <TouchableOpacity
-                style={styles.rowDeleteBtn}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.rowDeleteBtn,
+                  pressed && { opacity: 0.65 },
+                ]}
                 onPress={() => handleDelete(item)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={TouchTarget.hitSlop}
+                accessibilityLabel="Xóa giao dịch"
               >
-                <Ionicons name="trash-outline" size={18} color="#EF4444" />
-              </TouchableOpacity>
+                <Ionicons name="trash-outline" size={18} color={colors.textMuted} />
+              </Pressable>
             </View>
           );
         }}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="receipt-outline" size={54} color="#64748B" />
+            <View style={styles.emptyIconBox}>
+              <Ionicons name="receipt-outline" size={44} color={colors.primary} />
+            </View>
             <Text style={styles.emptyTitle}>Chưa có giao dịch phù hợp</Text>
             <Text style={styles.emptySubtitle}>
               {hasActiveFilter
-                ? 'Thử thay đổi hoặc xóa bớt bộ lọc để tìm kiếm'
-                : 'Các giao dịch đã phân loại sẽ hiển thị ở đây'}
+                ? 'Thử thay đổi hoặc xóa bớt bộ lọc để xem thêm giao dịch'
+                : 'Các giao dịch đã phân loại hoặc ghi chép thủ công sẽ hiển thị tại đây'}
             </Text>
+            <Pressable
+              style={({ pressed }) => [styles.emptyCtaBtn, pressed && { opacity: 0.85 }]}
+              onPress={() =>
+                hasActiveFilter
+                  ? resetTransactionFilter()
+                  : router.push('/modal/manual-transaction')
+              }
+            >
+              <Ionicons
+                name={hasActiveFilter ? 'refresh' : 'add'}
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={styles.emptyCtaText}>
+                {hasActiveFilter ? 'Đặt lại bộ lọc' : 'Thêm giao dịch mới'}
+              </Text>
+            </Pressable>
           </View>
         }
       />
@@ -624,7 +668,7 @@ export default function TransactionsScreen() {
         }}
       />
 
-      {/* Bank & Wallet Multi-Select Grid Modal (2 columns) */}
+      {/* Bank & Wallet Multi-Select Grid Modal */}
       <MultiSelectGridModal
         visible={showBankModal}
         title="Lọc theo Ngân hàng & Ví điện tử"
@@ -642,7 +686,7 @@ export default function TransactionsScreen() {
         }}
       />
 
-      {/* Category Multi-Select Grid Modal (2 columns) */}
+      {/* Category Multi-Select Grid Modal */}
       <MultiSelectGridModal
         visible={showCategoryModal}
         title="Lọc theo Phân loại"
@@ -660,7 +704,7 @@ export default function TransactionsScreen() {
         }}
       />
 
-      {/* Transaction Detail Modal */}
+      {/* Transaction Detail & Edit Modal */}
       {detailModalTx && (
         <Modal
           visible={true}
@@ -677,14 +721,16 @@ export default function TransactionsScreen() {
                 <Text style={styles.detailTitle}>
                   {isEditingTx ? 'Chỉnh sửa giao dịch' : 'Chi tiết giao dịch'}
                 </Text>
-                <TouchableOpacity
+                <Pressable
+                  style={styles.modalCloseBtn}
                   onPress={() => {
                     setIsEditingTx(false);
                     setDetailModalTx(null);
                   }}
+                  hitSlop={TouchTarget.hitSlop}
                 >
-                  <Ionicons name="close" size={24} color="#94A3B8" />
-                </TouchableOpacity>
+                  <Ionicons name="close" size={22} color={colors.textSecondary} />
+                </Pressable>
               </View>
 
               {isEditingTx ? (
@@ -696,7 +742,7 @@ export default function TransactionsScreen() {
                     value={editTxAmount}
                     onChangeText={setEditTxAmount}
                     placeholder="Nhập số tiền..."
-                    placeholderTextColor="#64748B"
+                    placeholderTextColor={colors.textMuted}
                   />
 
                   <Text style={styles.editTxLabel}>Danh mục phân loại:</Text>
@@ -710,7 +756,7 @@ export default function TransactionsScreen() {
                       .map((c) => {
                         const isSelected = editTxCatId === c.id;
                         return (
-                          <TouchableOpacity
+                          <Pressable
                             key={c.id}
                             style={[
                               styles.editCatChip,
@@ -730,12 +776,12 @@ export default function TransactionsScreen() {
                             <Text
                               style={[
                                 styles.editCatChipText,
-                                isSelected && styles.editCatChipTextActive,
+                                isSelected && { color: '#FFFFFF', fontWeight: '700' },
                               ]}
                             >
                               {c.name}
                             </Text>
-                          </TouchableOpacity>
+                          </Pressable>
                         );
                       })}
                   </ScrollView>
@@ -746,23 +792,29 @@ export default function TransactionsScreen() {
                     value={editTxNote}
                     onChangeText={setEditTxNote}
                     placeholder="Nhập ghi chú..."
-                    placeholderTextColor="#64748B"
+                    placeholderTextColor={colors.textMuted}
                   />
 
                   <View style={styles.editTxBtnRow}>
-                    <TouchableOpacity
-                      style={styles.editTxCancelBtn}
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.editTxCancelBtn,
+                        pressed && { opacity: 0.75 },
+                      ]}
                       onPress={handleCancelEditTx}
                     >
                       <Text style={styles.editTxCancelText}>Hủy</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.editTxSaveBtn}
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.editTxSaveBtn,
+                        pressed && { opacity: 0.85 },
+                      ]}
                       onPress={handleSaveEditTx}
                     >
                       <Ionicons name="checkmark" size={16} color="#FFFFFF" />
                       <Text style={styles.editTxSaveText}>Lưu thay đổi</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 </View>
               ) : (
@@ -771,9 +823,12 @@ export default function TransactionsScreen() {
                     <Text
                       style={[
                         styles.detailAmount,
-                        detailModalTx.type === 'income'
-                          ? styles.txAmountIncome
-                          : styles.txAmountExpense,
+                        {
+                          color:
+                            detailModalTx.type === 'income'
+                              ? colors.income
+                              : colors.expense,
+                        },
                       ]}
                     >
                       {detailModalTx.type === 'income' ? '+' : '-'}{' '}
@@ -783,11 +838,10 @@ export default function TransactionsScreen() {
                   </View>
 
                   <View style={styles.detailInfoList}>
-                    {/* Ghi chú nổi bật */}
                     <View style={styles.detailNoteCard}>
                       <View style={styles.detailNoteHeader}>
-                        <Ionicons name="document-text" size={15} color="#38BDF8" />
-                        <Text style={styles.detailNoteLabel}>Ghi chú giao dịch:</Text>
+                        <Ionicons name="document-text" size={15} color={colors.primary} />
+                        <Text style={styles.detailNoteLabel}>Ghi chú giao dịch</Text>
                       </View>
                       <Text style={styles.detailNoteText}>
                         {detailModalTx.note || '(Chưa có ghi chú)'}
@@ -795,7 +849,7 @@ export default function TransactionsScreen() {
                     </View>
 
                     <View style={styles.detailInfoRow}>
-                      <Text style={styles.detailLabel}>Thời gian:</Text>
+                      <Text style={styles.detailLabel}>Thời gian</Text>
                       <Text style={styles.detailValue}>
                         {formatDate(detailModalTx.timestamp)} lúc{' '}
                         {formatTime(detailModalTx.timestamp)}
@@ -803,20 +857,20 @@ export default function TransactionsScreen() {
                     </View>
 
                     <View style={styles.detailInfoRow}>
-                      <Text style={styles.detailLabel}>Nguồn tiền:</Text>
+                      <Text style={styles.detailLabel}>Nguồn tiền</Text>
                       <Text style={styles.detailValue}>{detailModalTx.source}</Text>
                     </View>
 
                     {detailModalTx.referenceCode ? (
                       <View style={styles.detailInfoRow}>
-                        <Text style={styles.detailLabel}>Mã GD:</Text>
+                        <Text style={styles.detailLabel}>Mã GD</Text>
                         <Text style={styles.detailValue}>{detailModalTx.referenceCode}</Text>
                       </View>
                     ) : null}
 
                     {detailModalTx.balanceAfter ? (
                       <View style={styles.detailInfoRow}>
-                        <Text style={styles.detailLabel}>Số dư sau GD:</Text>
+                        <Text style={styles.detailLabel}>Số dư sau GD</Text>
                         <Text style={styles.detailValue}>
                           {formatCurrency(detailModalTx.balanceAfter)}
                         </Text>
@@ -825,27 +879,33 @@ export default function TransactionsScreen() {
 
                     {detailModalTx.rawContent ? (
                       <View style={styles.rawBoxDetail}>
-                        <Text style={styles.rawBoxLabel}>Thông báo gốc:</Text>
+                        <Text style={styles.rawBoxLabel}>Thông báo gốc</Text>
                         <Text style={styles.rawBoxContent}>{detailModalTx.rawContent}</Text>
                       </View>
                     ) : null}
                   </View>
 
                   <View style={styles.detailActionsRow}>
-                    <TouchableOpacity
-                      style={styles.detailEditBtn}
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.detailEditBtn,
+                        pressed && { opacity: 0.78 },
+                      ]}
                       onPress={() => handleStartEditTx(detailModalTx)}
                     >
-                      <Ionicons name="create-outline" size={18} color="#38BDF8" />
-                      <Text style={styles.detailEditText}>Sửa</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.detailDeleteBtn}
+                      <Ionicons name="create-outline" size={18} color={colors.primary} />
+                      <Text style={styles.detailEditText}>Chỉnh sửa</Text>
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.detailDeleteBtn,
+                        pressed && { opacity: 0.78 },
+                      ]}
                       onPress={() => handleDelete(detailModalTx)}
                     >
-                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                      <Ionicons name="trash-outline" size={18} color={colors.expense} />
                       <Text style={styles.detailDeleteText}>Xóa</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 </>
               )}
@@ -854,7 +914,7 @@ export default function TransactionsScreen() {
         </Modal>
       )}
 
-      {/* Custom Confirm Delete Modal */}
+      {/* Confirm Delete Modal */}
       <ConfirmModal
         visible={!!txToDelete}
         title="Xác nhận xóa giao dịch"
@@ -882,568 +942,593 @@ export default function TransactionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-  },
-  topSearchBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 10,
-    marginBottom: 8,
-    gap: 8,
-  },
-  searchBar: {
-    flex: 1,
-    height: 40,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  addBtn: {
-    height: 40,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#38BDF8',
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    gap: 4,
-  },
-  addBtnText: {
-    color: '#0F172A',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  searchInput: {
-    flex: 1,
-    height: '100%',
-    paddingVertical: 0,
-    color: '#F8FAFC',
-    fontSize: 13,
-    marginLeft: 8,
-  },
-  filterGroup: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  typeFilterRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 6,
-    alignItems: 'center',
-  },
-  timeRangeBar: {
-    flexDirection: 'row',
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
-    padding: 4,
-    marginHorizontal: 16,
-  },
-  timeBtn: {
-    flex: 1,
-    paddingVertical: 7,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  timeBtnActive: {
-    backgroundColor: '#3B82F6',
-  },
-  timeBtnText: {
-    color: '#94A3B8',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  timeBtnTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  customRangeBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E293B',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    marginHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#38BDF860',
-    gap: 8,
-  },
-  customRangeText: {
-    color: '#E2E8F0',
-    fontSize: 12,
-    fontWeight: '600',
-    flex: 1,
-  },
-  customRangeEdit: {
-    color: '#38BDF8',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  filterChipActive: {
-    backgroundColor: '#3B82F6',
-    borderColor: '#3B82F6',
-  },
-  filterChipBank: {
-    backgroundColor: '#8B5CF6',
-    borderColor: '#8B5CF6',
-  },
-  filterChipExpense: {
-    backgroundColor: '#EF4444',
-    borderColor: '#EF4444',
-  },
-  filterChipIncome: {
-    backgroundColor: '#10B981',
-    borderColor: '#10B981',
-  },
-  filterChipText: {
-    color: '#94A3B8',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  filterChipTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  resetFilterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#EF444420',
-    gap: 4,
-  },
-  resetFilterText: {
-    color: '#EF4444',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  dropdownRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    gap: 8,
-    marginTop: 4,
-    flexWrap: 'wrap',
-  },
-  dropdownBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: '#334155',
-    gap: 4,
-  },
-  dropdownBtnActiveBank: {
-    borderColor: '#38BDF8',
-    backgroundColor: '#0284C725',
-  },
-  dropdownBtnActiveCategory: {
-    borderColor: '#10B981',
-    backgroundColor: '#05966925',
-  },
-  dropdownBtnText: {
-    color: '#94A3B8',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  dropdownBtnTextActive: {
-    color: '#F8FAFC',
-    fontWeight: '700',
-  },
-  editDateLink: {
-    color: '#38BDF8',
-    fontSize: 11,
-    fontWeight: '700',
-    paddingHorizontal: 4,
-  },
-  appliedFilterBanner: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#0284C720',
-    borderWidth: 1,
-    borderColor: '#0284C740',
-    marginHorizontal: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginBottom: 6,
-  },
-  appliedBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flex: 1,
-  },
-  appliedFilterText: {
-    color: '#E2E8F0',
-    fontSize: 11,
-  },
-  appliedFilterBold: {
-    fontWeight: '700',
-    color: '#38BDF8',
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 40,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#0F172A',
-    paddingVertical: 8,
-    marginTop: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
-  },
-  sectionDateText: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  sectionTotals: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  sectionExpense: {
-    color: '#EF4444',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  sectionIncome: {
-    color: '#10B981',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  txRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E293B',
-    paddingLeft: 12,
-    paddingRight: 8,
-    paddingVertical: 10,
-    borderRadius: 10,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  txRowMain: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  txIconBox: {
-    marginRight: 10,
-  },
-  txDetails: {
-    flex: 1,
-  },
-  txCategoryName: {
-    color: '#F8FAFC',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  txNoteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
-  },
-  txNote: {
-    color: '#CBD5E1',
-    fontSize: 12,
-    fontWeight: '500',
-    flex: 1,
-  },
-  txSourceBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 3,
-  },
-  txSourceText: {
-    color: '#38BDF8',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  txTimeText: {
-    color: '#64748B',
-    fontSize: 10,
-    marginLeft: 4,
-  },
-  txAmount: {
-    fontSize: 14,
-    fontWeight: '800',
-    marginLeft: 8,
-    marginRight: 6,
-  },
-  txAmountExpense: {
-    color: '#EF4444',
-  },
-  txAmountIncome: {
-    color: '#10B981',
-  },
-  rowDeleteBtn: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#EF444418',
-    marginLeft: 4,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyTitle: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '700',
-    marginTop: 12,
-  },
-  emptySubtitle: {
-    color: '#94A3B8',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  detailCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    padding: 20,
-    width: '100%',
-    maxWidth: 400,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  detailHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  detailTitle: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  detailAmountBox: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
-    marginBottom: 12,
-  },
-  detailAmount: {
-    fontSize: 26,
-    fontWeight: '800',
-  },
-  detailCategory: {
-    color: '#94A3B8',
-    fontSize: 14,
-    marginTop: 4,
-  },
-  detailInfoList: {
-    gap: 8,
-  },
-  detailNoteCard: {
-    backgroundColor: '#0F172A',
-    borderRadius: 10,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#38BDF840',
-    marginBottom: 4,
-  },
-  detailNoteHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  detailNoteLabel: {
-    color: '#38BDF8',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  detailNoteText: {
-    color: '#F8FAFC',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '500',
-  },
-  detailInfoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  detailLabel: {
-    color: '#64748B',
-    fontSize: 12,
-  },
-  detailValue: {
-    color: '#E2E8F0',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  rawBoxDetail: {
-    backgroundColor: '#0F172A',
-    borderRadius: 8,
-    padding: 8,
-    marginTop: 8,
-  },
-  rawBoxLabel: {
-    color: '#64748B',
-    fontSize: 10,
-    marginBottom: 4,
-  },
-  rawBoxContent: {
-    color: '#94A3B8',
-    fontSize: 11,
-    lineHeight: 16,
-  },
-  detailActionsRow: {
-    flexDirection: 'row',
-    marginTop: 18,
-    gap: 10,
-    justifyContent: 'center',
-  },
-  detailEditBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#38BDF820',
-    borderWidth: 1,
-    borderColor: '#38BDF840',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 6,
-    flex: 1,
-    justifyContent: 'center',
-  },
-  detailEditText: {
-    color: '#38BDF8',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  detailDeleteBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EF444420',
-    borderWidth: 1,
-    borderColor: '#EF444440',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 6,
-    flex: 1,
-    justifyContent: 'center',
-  },
-  detailDeleteText: {
-    color: '#EF4444',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  editTxContainer: {
-    paddingVertical: 4,
-  },
-  editTxLabel: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 6,
-    marginTop: 8,
-  },
-  editTxInput: {
-    backgroundColor: '#0F172A',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    color: '#F8FAFC',
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  editCatScroll: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  editCatChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: '#0F172A',
-    borderRadius: 14,
-    marginRight: 6,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  editCatChipText: {
-    color: '#94A3B8',
-    fontSize: 11,
-  },
-  editCatChipTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  editTxBtnRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 18,
-  },
-  editTxCancelBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#334155',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  editTxCancelText: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  editTxSaveBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#10B981',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  editTxSaveText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    topSearchBarRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginHorizontal: Spacing.base,
+      marginTop: Spacing.md,
+      marginBottom: Spacing.sm,
+      gap: Spacing.sm,
+    },
+    searchBar: {
+      flex: 1,
+      minHeight: TouchTarget.minSize,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      paddingHorizontal: Spacing.md,
+      borderRadius: Radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: Spacing.sm,
+    },
+    searchInput: {
+      flex: 1,
+      color: colors.text,
+      fontSize: 14,
+      paddingVertical: 8,
+    },
+    addBtn: {
+      minHeight: TouchTarget.minSize,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primary,
+      paddingHorizontal: Spacing.base,
+      borderRadius: Radius.md,
+      gap: 4,
+    },
+    addBtnText: {
+      color: colors.onPrimary,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    filterGroup: {
+      paddingHorizontal: Spacing.base,
+      paddingBottom: Spacing.sm,
+      gap: Spacing.sm,
+    },
+    typeFilterRow: {
+      flexDirection: 'row',
+      backgroundColor: colors.surface,
+      borderRadius: Radius.md,
+      padding: 4,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 4,
+    },
+    filterChip: {
+      flex: 1,
+      minHeight: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: Radius.sm,
+    },
+    filterChipActive: {
+      backgroundColor: colors.primary,
+    },
+    filterChipExpense: {
+      backgroundColor: colors.expenseSoft,
+    },
+    filterChipIncome: {
+      backgroundColor: colors.incomeSoft,
+    },
+    filterChipText: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    filterChipTextActive: {
+      color: colors.onPrimary,
+      fontWeight: '700',
+    },
+    filterChipTextExpense: {
+      color: colors.expense,
+      fontWeight: '700',
+    },
+    filterChipTextIncome: {
+      color: colors.income,
+      fontWeight: '700',
+    },
+    timeRangeBar: {
+      flexDirection: 'row',
+      gap: Spacing.xs + 2,
+    },
+    timeBtn: {
+      flex: 1,
+      minHeight: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: Radius.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    timeBtnActive: {
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.primary,
+    },
+    timeBtnText: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    timeBtnTextActive: {
+      color: colors.primary,
+      fontWeight: '700',
+    },
+    dropdownRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+    },
+    dropdownBtn: {
+      flex: 1,
+      minHeight: 40,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: Radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: Spacing.sm,
+      gap: 4,
+    },
+    dropdownBtnActiveBank: {
+      backgroundColor: colors.infoSoft,
+      borderColor: colors.infoBorder,
+    },
+    dropdownBtnActiveCategory: {
+      backgroundColor: colors.incomeSoft,
+      borderColor: colors.incomeBorder,
+    },
+    dropdownBtnText: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+      flexShrink: 1,
+    },
+    resetFilterChip: {
+      minHeight: 40,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.expenseSoft,
+      borderRadius: Radius.md,
+      borderWidth: 1,
+      borderColor: colors.expenseBorder,
+      paddingHorizontal: Spacing.md,
+      gap: 4,
+    },
+    resetFilterText: {
+      color: colors.expense,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    appliedFilterBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.surface,
+      marginHorizontal: Spacing.base,
+      marginBottom: Spacing.sm,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
+      borderRadius: Radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    appliedBannerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+      flex: 1,
+    },
+    appliedFilterText: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      flex: 1,
+    },
+    appliedFilterBold: {
+      color: colors.text,
+      fontWeight: '700',
+    },
+    editDateLink: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: '700',
+      marginLeft: Spacing.sm,
+    },
+    listContent: {
+      padding: Spacing.base,
+      paddingTop: Spacing.xs,
+      paddingBottom: Spacing.xxxl,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: Spacing.sm,
+      marginTop: Spacing.sm,
+    },
+    sectionDateText: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    sectionTotals: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+    },
+    sectionBadgeIncome: {
+      backgroundColor: colors.incomeSoft,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: Radius.pill,
+    },
+    sectionIncome: {
+      color: colors.income,
+      fontSize: 12,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
+    sectionBadgeExpense: {
+      backgroundColor: colors.expenseSoft,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: Radius.pill,
+    },
+    sectionExpense: {
+      color: colors.expense,
+      fontSize: 12,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
+    txCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: Radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: Spacing.sm,
+      paddingLeft: Spacing.md,
+      paddingRight: Spacing.xs,
+      ...Shadows.card,
+    },
+    txRowMain: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: Spacing.md,
+      gap: Spacing.md,
+    },
+    txIconBox: {
+      width: 42,
+      height: 42,
+      borderRadius: Radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    txDetails: {
+      flex: 1,
+      gap: 3,
+    },
+    txCategoryName: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    txMetaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    txCategoryTag: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: '600',
+      flexShrink: 1,
+    },
+    txTimeText: {
+      color: colors.textMuted,
+      fontSize: 12,
+    },
+    txRightCol: {
+      alignItems: 'flex-end',
+      gap: 4,
+    },
+    txAmount: {
+      ...Typography.amountMd,
+    },
+    txTypePill: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: Radius.pill,
+    },
+    txTypePillText: {
+      fontSize: 10,
+      fontWeight: '700',
+    },
+    rowDeleteBtn: {
+      width: TouchTarget.minSize,
+      height: TouchTarget.minSize,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    emptyContainer: {
+      backgroundColor: colors.surface,
+      borderRadius: Radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: Spacing.xl,
+      alignItems: 'center',
+      marginTop: Spacing.lg,
+    },
+    emptyIconBox: {
+      width: 68,
+      height: 68,
+      borderRadius: 34,
+      backgroundColor: colors.primarySoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: Spacing.md,
+    },
+    emptyTitle: {
+      ...Typography.title,
+      color: colors.text,
+      marginBottom: Spacing.xs,
+    },
+    emptySubtitle: {
+      ...Typography.body,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: Spacing.base,
+    },
+    emptyCtaBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primarySoft,
+      borderWidth: 1,
+      borderColor: colors.primaryBorder,
+      paddingHorizontal: Spacing.base,
+      minHeight: TouchTarget.minSize,
+      borderRadius: Radius.pill,
+      gap: 6,
+    },
+    emptyCtaText: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: colors.scrim,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: Spacing.lg,
+    },
+    detailCard: {
+      width: '100%',
+      maxWidth: 420,
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: Radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: Spacing.lg,
+    },
+    detailHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: Spacing.base,
+    },
+    detailTitle: {
+      ...Typography.title,
+      color: colors.text,
+    },
+    modalCloseBtn: {
+      width: TouchTarget.minSize,
+      height: TouchTarget.minSize,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: -8,
+    },
+    detailAmountBox: {
+      alignItems: 'center',
+      paddingVertical: Spacing.base,
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: Radius.lg,
+      marginBottom: Spacing.base,
+    },
+    detailAmount: {
+      ...Typography.display,
+      fontVariant: ['tabular-nums'],
+    },
+    detailCategory: {
+      color: colors.textSecondary,
+      fontSize: 14,
+      fontWeight: '600',
+      marginTop: 4,
+    },
+    detailInfoList: {
+      gap: Spacing.sm,
+      marginBottom: Spacing.lg,
+    },
+    detailNoteCard: {
+      backgroundColor: colors.primarySoft,
+      padding: Spacing.md,
+      borderRadius: Radius.md,
+      borderWidth: 1,
+      borderColor: colors.primaryBorder,
+    },
+    detailNoteHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 4,
+    },
+    detailNoteLabel: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    detailNoteText: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '500',
+    },
+    detailInfoRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 6,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+    },
+    detailLabel: {
+      color: colors.textSecondary,
+      fontSize: 13,
+    },
+    detailValue: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    rawBoxDetail: {
+      backgroundColor: colors.surfaceSecondary,
+      padding: Spacing.md,
+      borderRadius: Radius.md,
+      marginTop: Spacing.xs,
+    },
+    rawBoxLabel: {
+      color: colors.textMuted,
+      fontSize: 11,
+      fontWeight: '700',
+      marginBottom: 4,
+    },
+    rawBoxContent: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      lineHeight: 17,
+    },
+    detailActionsRow: {
+      flexDirection: 'row',
+      gap: Spacing.md,
+    },
+    detailEditBtn: {
+      flex: 1,
+      minHeight: TouchTarget.minSize,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primarySoft,
+      borderRadius: Radius.md,
+      borderWidth: 1,
+      borderColor: colors.primaryBorder,
+      gap: 6,
+    },
+    detailEditText: {
+      color: colors.primary,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    detailDeleteBtn: {
+      flex: 1,
+      minHeight: TouchTarget.minSize,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.expenseSoft,
+      borderRadius: Radius.md,
+      borderWidth: 1,
+      borderColor: colors.expenseBorder,
+      gap: 6,
+    },
+    detailDeleteText: {
+      color: colors.expense,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    editTxContainer: {
+      gap: Spacing.sm,
+    },
+    editTxLabel: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+      marginTop: 4,
+    },
+    editTxInput: {
+      minHeight: TouchTarget.minSize,
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: Radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: Spacing.md,
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    editCatScroll: {
+      maxHeight: 48,
+    },
+    editCatChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surfaceSecondary,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
+      borderRadius: Radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginRight: Spacing.sm,
+    },
+    editCatChipText: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    editTxBtnRow: {
+      flexDirection: 'row',
+      gap: Spacing.md,
+      marginTop: Spacing.md,
+    },
+    editTxCancelBtn: {
+      flex: 1,
+      minHeight: TouchTarget.minSize,
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: Radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    editTxCancelText: {
+      color: colors.textSecondary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    editTxSaveBtn: {
+      flex: 1.5,
+      minHeight: TouchTarget.minSize,
+      flexDirection: 'row',
+      backgroundColor: colors.primary,
+      borderRadius: Radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+    },
+    editTxSaveText: {
+      color: colors.onPrimary,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+  });

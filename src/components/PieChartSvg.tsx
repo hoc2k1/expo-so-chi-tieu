@@ -1,7 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Svg, { G, Path, Circle, Text as SvgText } from 'react-native-svg';
 import { formatCurrency } from '../utils/formatters';
+import { useTheme, ThemeColors, Radius, Spacing, TouchTarget } from '../constants/theme';
 
 export interface PieSliceItem {
   categoryId: string;
@@ -35,7 +36,6 @@ function createPieSlicePath(
   startAngle: number,
   endAngle: number
 ): string {
-  // Clamp full circle slightly below 360 so SVG arc doesn't collapse
   const effectiveEnd = endAngle - startAngle >= 359.9 ? startAngle + 359.89 : endAngle;
 
   const startOuter = polarToCartesian(cx, cy, outerRadius, effectiveEnd);
@@ -78,11 +78,14 @@ export const PieChartSvg: React.FC<PieChartSvgProps> = ({
   centerLabel,
   onPressSlice,
 }) => {
-  const size = 210;
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const size = 204;
   const cx = size / 2;
   const cy = size / 2;
-  const outerRadius = 92;
-  const innerRadius = 50;
+  const outerRadius = 90;
+  const innerRadius = 52;
   const labelRadius = (outerRadius + innerRadius) / 2;
 
   const slices = data.map((item, idx) => {
@@ -112,7 +115,7 @@ export const PieChartSvg: React.FC<PieChartSvgProps> = ({
             {slices.length === 1 ? (
               <>
                 <Circle cx={cx} cy={cy} r={outerRadius} fill={slices[0].color} />
-                <Circle cx={cx} cy={cy} r={innerRadius} fill="#1E293B" />
+                <Circle cx={cx} cy={cy} r={innerRadius} fill={colors.surface} />
                 <SvgText
                   x={cx}
                   y={cy - outerRadius + 22}
@@ -130,8 +133,8 @@ export const PieChartSvg: React.FC<PieChartSvgProps> = ({
                   <Path
                     d={s.path}
                     fill={s.color}
-                    stroke="#1E293B"
-                    strokeWidth={2}
+                    stroke={colors.surface}
+                    strokeWidth={2.5}
                     onPress={() => onPressSlice?.(s.categoryId)}
                   />
                   {s.percentage >= 7 && (
@@ -155,7 +158,7 @@ export const PieChartSvg: React.FC<PieChartSvgProps> = ({
         {/* Center Donut Info */}
         <View style={styles.centerBox} pointerEvents="none">
           <Text style={styles.centerTitle}>{centerLabel}</Text>
-          <Text style={styles.centerAmount} numberOfLines={1}>
+          <Text style={styles.centerAmount} numberOfLines={1} adjustsFontSizeToFit>
             {formatCurrency(totalAmount)}
           </Text>
         </View>
@@ -164,85 +167,90 @@ export const PieChartSvg: React.FC<PieChartSvgProps> = ({
       {/* Legend with % */}
       <View style={styles.legendContainer}>
         {data.map((item) => (
-          <TouchableOpacity
+          <Pressable
             key={item.categoryId}
-            style={styles.legendItem}
+            style={({ pressed }) => [styles.legendItem, pressed && { opacity: 0.75 }]}
             onPress={() => onPressSlice?.(item.categoryId)}
+            accessibilityRole="button"
           >
             <View style={[styles.legendDot, { backgroundColor: item.color }]} />
             <Text style={styles.legendName} numberOfLines={1}>
               {item.categoryName}
             </Text>
             <Text style={styles.legendPercent}>{item.percentage.toFixed(1)}%</Text>
-          </TouchableOpacity>
+          </Pressable>
         ))}
       </View>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  chartWrapper: {
-    width: 210,
-    height: 210,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    marginLeft: 'auto',
-    marginRight: 'auto',
-  },
-  centerBox: {
-    position: 'absolute',
-    width: 92,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  centerTitle: {
-    color: '#94A3B8',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  centerAmount: {
-    color: '#F8FAFC',
-    fontSize: 11,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  legendContainer: {
-    flex: 1,
-    minWidth: 140,
-    gap: 6,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 6,
-  },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  legendName: {
-    color: '#E2E8F0',
-    fontSize: 12,
-    fontWeight: '600',
-    flex: 1,
-  },
-  legendPercent: {
-    color: '#38BDF8',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      flexWrap: 'wrap',
+      gap: Spacing.md,
+    },
+    chartWrapper: {
+      width: 204,
+      height: 204,
+      alignItems: 'center',
+      justifyContent: 'center',
+      alignSelf: 'center',
+      marginLeft: 'auto',
+      marginRight: 'auto',
+    },
+    centerBox: {
+      position: 'absolute',
+      width: 92,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    centerTitle: {
+      color: colors.textSecondary,
+      fontSize: 10,
+      fontWeight: '600',
+    },
+    centerAmount: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: '800',
+      marginTop: 2,
+      fontVariant: ['tabular-nums'],
+    },
+    legendContainer: {
+      flex: 1,
+      minWidth: 140,
+      gap: Spacing.xs,
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surfaceSecondary,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: Spacing.xs + 2,
+      minHeight: TouchTarget.minSize - 8,
+      borderRadius: Radius.sm,
+      gap: Spacing.xs + 2,
+    },
+    legendDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+    },
+    legendName: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: '600',
+      flex: 1,
+    },
+    legendPercent: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
+  });

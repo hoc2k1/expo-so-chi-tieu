@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Switch,
   Platform,
   Modal,
@@ -21,6 +21,15 @@ import { StorageService } from '../../services/storage';
 import { exportTransactionsToCsv } from '../../services/csvExporter';
 import { formatDateTime } from '../../utils/formatters';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import {
+  useTheme,
+  ThemeColors,
+  Spacing,
+  Radius,
+  Typography,
+  TouchTarget,
+  Shadows,
+} from '../../constants/theme';
 
 export default function SettingsScreen() {
   const {
@@ -35,6 +44,9 @@ export default function SettingsScreen() {
     showToast,
   } = useApp();
 
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [isExporting, setIsExporting] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateStatusText, setUpdateStatusText] = useState<string>('');
@@ -42,7 +54,6 @@ export default function SettingsScreen() {
   const [confirmOtaReload, setConfirmOtaReload] = useState(false);
   const [confirmRestoreContent, setConfirmRestoreContent] = useState<string | null>(null);
 
-  // Check & Apply OTA Update from Expo EAS Update
   const handleCheckAndApplyUpdate = async () => {
     if (Platform.OS === 'web') {
       showToast('Cập nhật OTA chỉ áp dụng trên ứng dụng Android/iOS', 'info');
@@ -98,7 +109,6 @@ export default function SettingsScreen() {
     }
   };
 
-  // Export JSON Backup
   const handleExportJson = async () => {
     try {
       setIsExporting(true);
@@ -136,7 +146,6 @@ export default function SettingsScreen() {
     }
   };
 
-  // Import JSON Backup
   const handleImportJson = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -169,7 +178,6 @@ export default function SettingsScreen() {
     }
   };
 
-  // Export CSV for Excel
   const handleExportCsv = async () => {
     try {
       if (transactions.length === 0) {
@@ -187,18 +195,33 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        {/* Notification Access Android Check */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Android Notification & Background Permissions */}
         {Platform.OS === 'android' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Quyền truy cập thông báo & Chạy ngầm</Text>
-            <View style={styles.row}>
-              <View style={styles.rowLeft}>
-                <Ionicons
-                  name={isPermissionGranted ? 'checkmark-circle' : 'alert-circle'}
-                  size={22}
-                  color={isPermissionGranted ? '#10B981' : '#F59E0B'}
-                />
+          <View style={styles.groupWrapper}>
+            <Text style={styles.groupOverline}>QUYỀN HỆ THỐNG & CHẠY NGẦM</Text>
+            <View style={styles.groupedCard}>
+              <View style={styles.row}>
+                <View
+                  style={[
+                    styles.rowIconBox,
+                    {
+                      backgroundColor: isPermissionGranted
+                        ? colors.incomeSoft
+                        : colors.warningSoft,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={isPermissionGranted ? 'checkmark-circle' : 'alert-circle'}
+                    size={20}
+                    color={isPermissionGranted ? colors.income : colors.warning}
+                  />
+                </View>
                 <View style={styles.rowTexts}>
                   <Text style={styles.rowTitle}>Trạng thái lắng nghe ngầm</Text>
                   <Text style={styles.rowSubtitle}>
@@ -207,201 +230,272 @@ export default function SettingsScreen() {
                       : 'Chưa cấp quyền đọc thông báo'}
                   </Text>
                 </View>
+                {!isPermissionGranted && (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.grantBtn,
+                      pressed && { opacity: 0.85 },
+                    ]}
+                    onPress={() => requestPermission()}
+                  >
+                    <Text style={styles.grantBtnText}>Cấp quyền</Text>
+                  </Pressable>
+                )}
               </View>
-              {!isPermissionGranted && (
-                <TouchableOpacity style={styles.grantBtn} onPress={() => requestPermission()}>
-                  <Text style={styles.grantBtnText}>Cấp quyền</Text>
-                </TouchableOpacity>
-              )}
-            </View>
 
-            <View style={[styles.row, { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#334155' }]}>
-              <View style={styles.rowLeft}>
-                <Ionicons
-                  name={isBatteryOptimizationIgnored ? 'battery-charging' : 'battery-half'}
-                  size={22}
-                  color={isBatteryOptimizationIgnored ? '#10B981' : '#F59E0B'}
-                />
+              <View style={[styles.row, styles.rowLast]}>
+                <View
+                  style={[
+                    styles.rowIconBox,
+                    {
+                      backgroundColor: isBatteryOptimizationIgnored
+                        ? colors.incomeSoft
+                        : colors.warningSoft,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={isBatteryOptimizationIgnored ? 'battery-charging' : 'battery-half'}
+                    size={20}
+                    color={isBatteryOptimizationIgnored ? colors.income : colors.warning}
+                  />
+                </View>
                 <View style={styles.rowTexts}>
                   <Text style={styles.rowTitle}>Chạy ngầm không giới hạn pin</Text>
                   <Text style={styles.rowSubtitle}>
                     {isBatteryOptimizationIgnored
-                      ? 'Đã tắt tiết kiệm pin (không bị hệ điều hành đóng băng khi tắt app)'
-                      : 'Nên bật để tránh máy tự tắt dịch vụ khi khóa màn hình hoặc vuốt app'}
+                      ? 'Đã tắt tiết kiệm pin (không bị đóng băng khi tắt app)'
+                      : 'Nên bật để tránh máy tự tắt dịch vụ khi khóa màn hình'}
                   </Text>
                 </View>
+                {!isBatteryOptimizationIgnored && (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.grantBtn,
+                      pressed && { opacity: 0.85 },
+                    ]}
+                    onPress={() => requestIgnoreBatteryOptimization()}
+                  >
+                    <Text style={styles.grantBtnText}>Cho phép</Text>
+                  </Pressable>
+                )}
               </View>
-              {!isBatteryOptimizationIgnored && (
-                <TouchableOpacity
-                  style={styles.grantBtn}
-                  onPress={() => requestIgnoreBatteryOptimization()}
-                >
-                  <Text style={styles.grantBtnText}>Cho phép</Text>
-                </TouchableOpacity>
-              )}
             </View>
           </View>
         )}
 
-        {/* Cập nhật ứng dụng OTA (EAS Update) */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeader}>Cập nhật ứng dụng (Expo EAS Update)</Text>
-
-          <View style={styles.updateInfoBox}>
-            <View style={styles.updateInfoRow}>
-              <Text style={styles.updateInfoLabel}>Phiên bản Runtime:</Text>
-              <Text style={styles.updateInfoValue}>
-                {Updates.runtimeVersion || '1.0.0'} (Kênh: {Updates.channel || 'preview'})
-              </Text>
-            </View>
-            <View style={styles.updateInfoRow}>
-              <Text style={styles.updateInfoLabel}>Mã bản chạy hiện tại:</Text>
-              <Text style={styles.updateInfoValue} numberOfLines={1}>
-                {Updates.updateId
-                  ? Updates.updateId.slice(0, 18) + '...'
-                  : 'Bản gốc tích hợp (Embedded APK)'}
-              </Text>
-            </View>
-            {Updates.createdAt && (
-              <View style={styles.updateInfoRow}>
-                <Text style={styles.updateInfoLabel}>Thời điểm phát hành:</Text>
-                <Text style={styles.updateInfoValue}>
-                  {formatDateTime(Updates.createdAt.getTime())}
+        {/* Smart Categorization & Anti-Duplicate */}
+        <View style={styles.groupWrapper}>
+          <Text style={styles.groupOverline}>CHỐNG TRÙNG & GỢI Ý THÔNG MINH</Text>
+          <View style={styles.groupedCard}>
+            <View style={styles.row}>
+              <View style={[styles.rowIconBox, { backgroundColor: colors.primarySoft }]}>
+                <Ionicons name="sparkles" size={18} color={colors.primary} />
+              </View>
+              <View style={styles.rowTexts}>
+                <Text style={styles.rowTitle}>Tự động gợi ý theo từ khóa</Text>
+                <Text style={styles.rowSubtitle}>
+                  Khớp từ khóa trong tin nhắn để tự điền Loại & Ghi chú
                 </Text>
               </View>
-            )}
+              <Switch
+                value={settings.autoCategorizeEnabled}
+                onValueChange={(val) => {
+                  updateSettings({ autoCategorizeEnabled: val });
+                  showToast(
+                    val
+                      ? 'Đã bật tự động gợi ý theo từ khóa'
+                      : 'Đã tắt tự động gợi ý',
+                    'info'
+                  );
+                }}
+                trackColor={{ false: colors.switchTrackOff, true: colors.income }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+
+            <View style={styles.windowSection}>
+              <View style={styles.windowHeader}>
+                <View style={[styles.rowIconBox, { backgroundColor: colors.warningSoft }]}>
+                  <Ionicons name="timer-outline" size={18} color={colors.warning} />
+                </View>
+                <View style={styles.rowTexts}>
+                  <Text style={styles.rowTitle}>Khoảng thời gian cảnh báo trùng</Text>
+                  <Text style={styles.rowSubtitle}>
+                    Cảnh báo nếu có giao dịch trùng Ngân hàng + Số tiền
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.windowPills}>
+                {[1, 3, 5, 10].map((mins) => {
+                  const active = settings.duplicateWindowMinutes === mins;
+                  return (
+                    <Pressable
+                      key={mins}
+                      style={[styles.windowPill, active && styles.windowPillActive]}
+                      onPress={() => {
+                        updateSettings({ duplicateWindowMinutes: mins });
+                        showToast(
+                          `Đã đổi thời gian cảnh báo trùng thành ${mins} phút`,
+                          'info'
+                        );
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.windowPillText,
+                          active && styles.windowPillTextActive,
+                        ]}
+                      >
+                        {mins} phút
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
           </View>
+        </View>
 
-          {updateStatusText ? (
-            <Text style={styles.updateStatusBanner}>{updateStatusText}</Text>
-          ) : null}
-
-          <View style={styles.updateButtonsRow}>
-            <TouchableOpacity
-              style={styles.checkUpdateBtn}
-              onPress={handleCheckAndApplyUpdate}
-              disabled={isCheckingUpdate}
+        {/* Backup, Restore & Export */}
+        <View style={styles.groupWrapper}>
+          <Text style={styles.groupOverline}>SAO LƯU & XUẤT DỮ LIỆU</Text>
+          <View style={styles.groupedCard}>
+            <Pressable
+              style={({ pressed }) => [styles.actionRow, pressed && { opacity: 0.75 }]}
+              onPress={handleExportJson}
+              disabled={isExporting}
             >
-              {isCheckingUpdate ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Ionicons name="cloud-download-outline" size={18} color="#FFFFFF" />
+              <View style={[styles.rowIconBox, { backgroundColor: colors.infoSoft }]}>
+                <Ionicons name="cloud-upload" size={18} color={colors.info} />
+              </View>
+              <View style={styles.rowTexts}>
+                <Text style={styles.rowTitle}>Sao lưu toàn bộ (JSON)</Text>
+                <Text style={styles.rowSubtitle}>
+                  Lưu trữ mọi giao dịch, danh mục, quy tắc vào file JSON
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [styles.actionRow, pressed && { opacity: 0.75 }]}
+              onPress={handleImportJson}
+            >
+              <View style={[styles.rowIconBox, { backgroundColor: colors.incomeSoft }]}>
+                <Ionicons name="cloud-download" size={18} color={colors.income} />
+              </View>
+              <View style={styles.rowTexts}>
+                <Text style={styles.rowTitle}>Khôi phục từ file JSON</Text>
+                <Text style={styles.rowSubtitle}>
+                  Nạp lại dữ liệu từ file sao lưu trên máy
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionRow,
+                styles.rowLast,
+                pressed && { opacity: 0.75 },
+              ]}
+              onPress={handleExportCsv}
+            >
+              <View style={[styles.rowIconBox, { backgroundColor: colors.warningSoft }]}>
+                <Ionicons name="document-attach" size={18} color={colors.warning} />
+              </View>
+              <View style={styles.rowTexts}>
+                <Text style={styles.rowTitle}>Xuất bảng tính Excel (CSV)</Text>
+                <Text style={styles.rowSubtitle}>
+                  Mã hóa UTF-8 BOM hiển thị chuẩn tiếng Việt trên Excel
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* OTA Update */}
+        <View style={styles.groupWrapper}>
+          <Text style={styles.groupOverline}>CẬP NHẬT ỨNG DỤNG (EXPO EAS)</Text>
+          <View style={styles.groupedCardPad}>
+            <View style={styles.updateInfoBox}>
+              <View style={styles.updateInfoRow}>
+                <Text style={styles.updateInfoLabel}>Phiên bản Runtime</Text>
+                <Text style={styles.updateInfoValue}>
+                  {Updates.runtimeVersion || '1.0.0'} ({Updates.channel || 'preview'})
+                </Text>
+              </View>
+              <View style={styles.updateInfoRow}>
+                <Text style={styles.updateInfoLabel}>Bản chạy hiện tại</Text>
+                <Text style={styles.updateInfoValue} numberOfLines={1}>
+                  {Updates.updateId
+                    ? Updates.updateId.slice(0, 18) + '...'
+                    : 'Bản gốc (Embedded)'}
+                </Text>
+              </View>
+              {Updates.createdAt && (
+                <View style={[styles.updateInfoRow, { borderBottomWidth: 0 }]}>
+                  <Text style={styles.updateInfoLabel}>Phát hành lúc</Text>
+                  <Text style={styles.updateInfoValue}>
+                    {formatDateTime(Updates.createdAt.getTime())}
+                  </Text>
+                </View>
               )}
-              <Text style={styles.checkUpdateBtnText}>
-                {isCheckingUpdate ? 'Đang kiểm tra...' : 'Kiểm tra & Cập nhật ngay'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.historyUpdateBtn}
-              onPress={() => setShowUpdateModal(true)}
-            >
-              <Ionicons name="list-outline" size={18} color="#38BDF8" />
-              <Text style={styles.historyUpdateBtnText}>Xem các bản cập nhật</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Cấu hình chống trùng & thông minh */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeader}>Cơ chế Chống trùng & Gợi ý</Text>
-
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleTexts}>
-              <Text style={styles.rowTitle}>Tự động gợi ý theo từ khóa</Text>
-              <Text style={styles.rowSubtitle}>
-                Khớp từ khóa trong tin nhắn để tự điền Loại & Ghi chú
-              </Text>
             </View>
-            <Switch
-              value={settings.autoCategorizeEnabled}
-              onValueChange={(val) => {
-                updateSettings({ autoCategorizeEnabled: val });
-                showToast(val ? 'Đã bật tự động gợi ý theo từ khóa' : 'Đã tắt tự động gợi ý', 'info');
-              }}
-              trackColor={{ false: '#334155', true: '#10B981' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
 
-          <View style={styles.windowRow}>
-            <View style={styles.toggleTexts}>
-              <Text style={styles.rowTitle}>Khoảng thời gian cảnh báo trùng</Text>
-              <Text style={styles.rowSubtitle}>
-                Cảnh báo nếu có giao dịch trùng Ngân hàng + Số tiền trong khoảng này
-              </Text>
-            </View>
-            <View style={styles.windowPills}>
-              {[1, 3, 5, 10].map((mins) => {
-                const active = settings.duplicateWindowMinutes === mins;
-                return (
-                  <TouchableOpacity
-                    key={mins}
-                    style={[styles.windowPill, active && styles.windowPillActive]}
-                    onPress={() => {
-                      updateSettings({ duplicateWindowMinutes: mins });
-                      showToast(`Đã đổi thời gian cảnh báo trùng thành ${mins} phút`, 'info');
-                    }}
-                  >
-                    <Text style={[styles.windowPillText, active && styles.windowPillTextActive]}>
-                      {mins}p
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+            {updateStatusText ? (
+              <Text style={styles.updateStatusBanner}>{updateStatusText}</Text>
+            ) : null}
+
+            <View style={styles.updateButtonsRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.checkUpdateBtn,
+                  pressed && { opacity: 0.85 },
+                ]}
+                onPress={handleCheckAndApplyUpdate}
+                disabled={isCheckingUpdate}
+              >
+                {isCheckingUpdate ? (
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
+                ) : (
+                  <Ionicons
+                    name="cloud-download-outline"
+                    size={18}
+                    color={colors.onPrimary}
+                  />
+                )}
+                <Text style={styles.checkUpdateBtnText}>
+                  {isCheckingUpdate ? 'Đang kiểm tra...' : 'Kiểm tra cập nhật'}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.historyUpdateBtn,
+                  pressed && { opacity: 0.78 },
+                ]}
+                onPress={() => setShowUpdateModal(true)}
+              >
+                <Ionicons name="list-outline" size={18} color={colors.primary} />
+                <Text style={styles.historyUpdateBtnText}>Lịch sử</Text>
+              </Pressable>
             </View>
           </View>
         </View>
 
-        {/* Sao lưu, Khôi phục & Xuất Excel */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeader}>Sao lưu & Xuất dữ liệu</Text>
-
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={handleExportJson}
-            disabled={isExporting}
-          >
-            <Ionicons name="cloud-upload" size={20} color="#38BDF8" />
-            <View style={styles.actionBtnTexts}>
-              <Text style={styles.actionBtnTitle}>Sao lưu toàn bộ (JSON)</Text>
-              <Text style={styles.actionBtnSubtitle}>
-                Lưu trữ mọi giao dịch, danh mục, quy tắc vào file JSON
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionBtn} onPress={handleImportJson}>
-            <Ionicons name="cloud-download" size={20} color="#10B981" />
-            <View style={styles.actionBtnTexts}>
-              <Text style={styles.actionBtnTitle}>Khôi phục từ file JSON</Text>
-              <Text style={styles.actionBtnSubtitle}>
-                Nạp lại dữ liệu từ file sao lưu trên máy
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionBtn} onPress={handleExportCsv}>
-            <Ionicons name="document-attach" size={20} color="#F59E0B" />
-            <View style={styles.actionBtnTexts}>
-              <Text style={styles.actionBtnTitle}>Xuất bảng tính Excel (CSV)</Text>
-              <Text style={styles.actionBtnSubtitle}>
-                Mã hóa UTF-8 BOM hiển thị chuẩn tiếng Việt trên Excel
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* App Info */}
+        {/* App Info Footer */}
         <View style={styles.appInfoSection}>
           <Text style={styles.appName}>Sổ Chi Tiêu v1.0.0</Text>
-          <Text style={styles.appDetails}>Tài khoản EAS: hockt</Text>
-          <Text style={styles.appDetails}>Hỗ trợ cập nhật OTA qua EAS Update</Text>
-          <Text style={styles.appDetails}>Lưu trữ Cục bộ: File JSON (No DB)</Text>
+          <Text style={styles.appDetails}>
+            Lưu trữ cục bộ an toàn • Hỗ trợ OTA qua Expo EAS
+          </Text>
         </View>
       </ScrollView>
 
-      {/* Modal Xem Các Bản Cập Nhật */}
+      {/* OTA History Modal */}
       <Modal
         visible={showUpdateModal}
         transparent
@@ -411,43 +505,47 @@ export default function SettingsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Danh sách các bản cập nhật OTA</Text>
-              <TouchableOpacity onPress={() => setShowUpdateModal(false)}>
-                <Ionicons name="close" size={24} color="#94A3B8" />
-              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Lịch sử cập nhật OTA</Text>
+              <Pressable
+                style={styles.modalCloseBtn}
+                onPress={() => setShowUpdateModal(false)}
+                hitSlop={TouchTarget.hitSlop}
+              >
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
+              </Pressable>
             </View>
 
             <View style={styles.currentBuildBox}>
-              <Text style={styles.currentBuildTitle}>Phiên bản đang chạy hiện tại</Text>
+              <Text style={styles.currentBuildTitle}>Phiên bản đang chạy</Text>
               <Text style={styles.currentBuildDetail}>
-                • Kênh (Channel): {Updates.channel || 'preview'}
+                • Kênh: {Updates.channel || 'preview'}
               </Text>
               <Text style={styles.currentBuildDetail}>
                 • Runtime Version: {Updates.runtimeVersion || '1.0.0'}
               </Text>
               <Text style={styles.currentBuildDetail}>
-                • Update ID: {Updates.updateId || 'Embedded (Bản APK gốc)'}
+                • Update ID: {Updates.updateId || 'Embedded (Bản gốc)'}
               </Text>
               <Text style={styles.currentBuildDetail}>
-                • Khởi chạy từ APK gốc: {Updates.isEmbeddedLaunch ? 'Có' : 'Không (Đang chạy OTA)'}
+                • Khởi chạy từ APK gốc: {Updates.isEmbeddedLaunch ? 'Có' : 'Không (OTA)'}
               </Text>
             </View>
 
             <Text style={styles.historySectionTitle}>
-              Lịch sử các bản cập nhật đã tải ({updateHistory.length})
+              Các bản cập nhật đã tải ({updateHistory.length})
             </Text>
 
             <ScrollView style={styles.historyList}>
               {updateHistory.length === 0 ? (
                 <Text style={styles.emptyHistoryText}>
-                  Chưa có lịch sử bản cập nhật OTA nào được ghi nhận trên thiết bị này.
+                  Chưa có lịch sử bản cập nhật OTA nào trên thiết bị này.
                 </Text>
               ) : (
                 updateHistory.map((item, idx) => (
                   <View key={item.id} style={styles.historyItem}>
                     <View style={styles.historyItemHeader}>
                       <Text style={styles.historyItemBadge}>
-                        #{updateHistory.length - idx} • Kênh {item.channel}
+                        #{updateHistory.length - idx} • {item.channel}
                       </Text>
                       <Text style={styles.historyItemTime}>
                         {formatDateTime(item.appliedAt)}
@@ -460,23 +558,23 @@ export default function SettingsScreen() {
               )}
             </ScrollView>
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.modalCheckBtn}
-                onPress={() => {
-                  setShowUpdateModal(false);
-                  handleCheckAndApplyUpdate();
-                }}
-              >
-                <Ionicons name="refresh" size={16} color="#FFFFFF" />
-                <Text style={styles.modalCheckBtnText}>Kiểm tra bản cập nhật mới</Text>
-              </TouchableOpacity>
-            </View>
+            <Pressable
+              style={({ pressed }) => [
+                styles.modalCheckBtn,
+                pressed && { opacity: 0.85 },
+              ]}
+              onPress={() => {
+                setShowUpdateModal(false);
+                handleCheckAndApplyUpdate();
+              }}
+            >
+              <Ionicons name="refresh" size={16} color={colors.onPrimary} />
+              <Text style={styles.modalCheckBtnText}>Kiểm tra bản cập nhật mới</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
 
-      {/* Confirm OTA Reload Modal */}
       <ConfirmModal
         visible={confirmOtaReload}
         title="Cập nhật thành công!"
@@ -491,7 +589,6 @@ export default function SettingsScreen() {
         }}
       />
 
-      {/* Confirm Restore JSON Modal */}
       <ConfirmModal
         visible={!!confirmRestoreContent}
         title="Xác nhận khôi phục dữ liệu"
@@ -506,328 +603,323 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 50,
-  },
-  section: {
-    backgroundColor: '#1E293B',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  sectionHeader: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 12,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
-  },
-  rowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  rowTexts: {
-    flex: 1,
-  },
-  rowTitle: {
-    color: '#F8FAFC',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  rowSubtitle: {
-    color: '#64748B',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  grantBtn: {
-    backgroundColor: '#F59E0B',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  grantBtnText: {
-    color: '#0F172A',
-    fontWeight: '700',
-    fontSize: 12,
-  },
-  updateInfoBox: {
-    backgroundColor: '#0F172A',
-    borderRadius: 10,
-    padding: 10,
-    gap: 6,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  updateInfoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  updateInfoLabel: {
-    color: '#64748B',
-    fontSize: 11,
-  },
-  updateInfoValue: {
-    color: '#E2E8F0',
-    fontSize: 11,
-    fontWeight: '600',
-    maxWidth: '62%',
-  },
-  updateStatusBanner: {
-    color: '#38BDF8',
-    fontSize: 11,
-    marginBottom: 10,
-    fontWeight: '600',
-  },
-  updateButtonsRow: {
-    flexDirection: 'column',
-    gap: 8,
-  },
-  checkUpdateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#10B981',
-    paddingVertical: 10,
-    borderRadius: 10,
-    gap: 8,
-  },
-  checkUpdateBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  historyUpdateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0F172A',
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#38BDF860',
-    gap: 8,
-  },
-  historyUpdateBtnText: {
-    color: '#38BDF8',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
-  },
-  toggleTexts: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  windowRow: {
-    flexDirection: 'column',
-    paddingVertical: 10,
-    gap: 8,
-  },
-  windowPills: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  windowPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    backgroundColor: '#0F172A',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  windowPillActive: {
-    backgroundColor: '#3B82F6',
-    borderColor: '#3B82F6',
-  },
-  windowPillText: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  windowPillTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
-    gap: 12,
-  },
-  actionBtnTexts: {
-    flex: 1,
-  },
-  actionBtnTitle: {
-    color: '#F8FAFC',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  actionBtnSubtitle: {
-    color: '#64748B',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  appInfoSection: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  appName: {
-    color: '#94A3B8',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  appDetails: {
-    color: '#64748B',
-    fontSize: 11,
-    marginTop: 4,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  modalCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    padding: 18,
-    width: '100%',
-    maxWidth: 420,
-    maxHeight: '80%',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  modalTitle: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  currentBuildBox: {
-    backgroundColor: '#0F172A',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#10B98150',
-    gap: 4,
-  },
-  currentBuildTitle: {
-    color: '#10B981',
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  currentBuildDetail: {
-    color: '#CBD5E1',
-    fontSize: 11,
-  },
-  historySectionTitle: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  historyList: {
-    maxHeight: 220,
-  },
-  emptyHistoryText: {
-    color: '#64748B',
-    fontSize: 12,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    paddingVertical: 20,
-  },
-  historyItem: {
-    backgroundColor: '#0F172A',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  historyItemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  historyItemBadge: {
-    color: '#38BDF8',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  historyItemTime: {
-    color: '#64748B',
-    fontSize: 10,
-  },
-  historyItemId: {
-    color: '#E2E8F0',
-    fontSize: 11,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  historyItemNote: {
-    color: '#94A3B8',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  modalActions: {
-    marginTop: 14,
-  },
-  modalCheckBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#3B82F6',
-    paddingVertical: 11,
-    borderRadius: 10,
-    gap: 6,
-  },
-  modalCheckBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    content: {
+      padding: Spacing.base,
+      paddingBottom: Spacing.xxxl,
+      gap: Spacing.lg,
+    },
+    groupWrapper: {
+      gap: Spacing.sm,
+    },
+    groupOverline: {
+      ...Typography.overline,
+      color: colors.textMuted,
+      paddingHorizontal: Spacing.xs,
+    },
+    groupedCard: {
+      backgroundColor: colors.surface,
+      borderRadius: Radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden',
+      ...Shadows.card,
+    },
+    groupedCardPad: {
+      backgroundColor: colors.surface,
+      borderRadius: Radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: Spacing.base,
+      gap: Spacing.md,
+      ...Shadows.card,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: Spacing.base,
+      paddingVertical: Spacing.md,
+      minHeight: 62,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+      gap: Spacing.md,
+    },
+    actionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: Spacing.base,
+      paddingVertical: Spacing.md,
+      minHeight: 64,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+      gap: Spacing.md,
+    },
+    rowLast: {
+      borderBottomWidth: 0,
+    },
+    rowIconBox: {
+      width: 38,
+      height: 38,
+      borderRadius: Radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    rowTexts: {
+      flex: 1,
+      gap: 2,
+    },
+    rowTitle: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    rowSubtitle: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      lineHeight: 16,
+    },
+    grantBtn: {
+      backgroundColor: colors.warning,
+      paddingHorizontal: Spacing.md,
+      minHeight: TouchTarget.minSize - 6,
+      borderRadius: Radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    grantBtnText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    windowSection: {
+      padding: Spacing.base,
+      gap: Spacing.md,
+    },
+    windowHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.md,
+    },
+    windowPills: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+    },
+    windowPill: {
+      flex: 1,
+      minHeight: TouchTarget.minSize - 4,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: Radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    windowPillActive: {
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.primary,
+    },
+    windowPillText: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    windowPillTextActive: {
+      color: colors.primary,
+      fontWeight: '700',
+    },
+    updateInfoBox: {
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: Radius.lg,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.xs,
+    },
+    updateInfoRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: Spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+    },
+    updateInfoLabel: {
+      color: colors.textSecondary,
+      fontSize: 12,
+    },
+    updateInfoValue: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: '600',
+      maxWidth: '58%',
+    },
+    updateStatusBanner: {
+      color: colors.info,
+      fontSize: 12,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    updateButtonsRow: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+    },
+    checkUpdateBtn: {
+      flex: 2,
+      minHeight: TouchTarget.minSize,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primary,
+      borderRadius: Radius.md,
+      gap: 6,
+    },
+    checkUpdateBtnText: {
+      color: colors.onPrimary,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    historyUpdateBtn: {
+      flex: 1,
+      minHeight: TouchTarget.minSize,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primarySoft,
+      borderRadius: Radius.md,
+      borderWidth: 1,
+      borderColor: colors.primaryBorder,
+      gap: 6,
+    },
+    historyUpdateBtnText: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    appInfoSection: {
+      alignItems: 'center',
+      paddingVertical: Spacing.sm,
+      gap: 4,
+    },
+    appName: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    appDetails: {
+      color: colors.textMuted,
+      fontSize: 12,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: colors.scrim,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: Spacing.lg,
+    },
+    modalCard: {
+      width: '100%',
+      maxWidth: 420,
+      maxHeight: '82%',
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: Radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: Spacing.lg,
+      gap: Spacing.md,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    modalTitle: {
+      ...Typography.title,
+      color: colors.text,
+    },
+    modalCloseBtn: {
+      width: TouchTarget.minSize,
+      height: TouchTarget.minSize,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: -8,
+    },
+    currentBuildBox: {
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: Radius.md,
+      padding: Spacing.md,
+      gap: 4,
+    },
+    currentBuildTitle: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+      marginBottom: 2,
+    },
+    currentBuildDetail: {
+      color: colors.textSecondary,
+      fontSize: 12,
+    },
+    historySectionTitle: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    historyList: {
+      maxHeight: 220,
+    },
+    emptyHistoryText: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      textAlign: 'center',
+      paddingVertical: Spacing.lg,
+    },
+    historyItem: {
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: Radius.md,
+      padding: Spacing.md,
+      marginBottom: Spacing.sm,
+      gap: 4,
+    },
+    historyItemHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    historyItemBadge: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    historyItemTime: {
+      color: colors.textMuted,
+      fontSize: 11,
+    },
+    historyItemId: {
+      color: colors.textSecondary,
+      fontSize: 11,
+    },
+    historyItemNote: {
+      color: colors.text,
+      fontSize: 12,
+    },
+    modalCheckBtn: {
+      minHeight: TouchTarget.minSize,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primary,
+      borderRadius: Radius.md,
+      gap: 6,
+    },
+    modalCheckBtnText: {
+      color: colors.onPrimary,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+  });
