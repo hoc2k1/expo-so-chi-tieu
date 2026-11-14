@@ -564,13 +564,16 @@ export default function TransactionsScreen() {
                   <Text style={styles.txCategoryName} numberOfLines={1}>
                     {item.note || item.categoryName}
                   </Text>
+                  <Text style={styles.txCategoryTag} numberOfLines={1}>
+                    {item.categoryName}
+                  </Text>
                   <View style={styles.txMetaRow}>
-                    <Text style={styles.txCategoryTag} numberOfLines={1}>
-                      {item.categoryName}
-                    </Text>
-                    <Text style={styles.txTimeText}>
-                      • {item.source} • {formatTime(item.timestamp)}
-                    </Text>
+                    <View style={styles.txSourceBadge}>
+                      <Text style={styles.txSourceBadgeText} numberOfLines={1}>
+                        {item.source}
+                      </Text>
+                    </View>
+                    <Text style={styles.txTimeText}>{formatTime(item.timestamp)}</Text>
                   </View>
                 </View>
 
@@ -1230,13 +1233,27 @@ const createStyles = (colors: ThemeColors) =>
     txMetaRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: 6,
+      marginTop: 2,
     },
     txCategoryTag: {
       color: colors.primary,
       fontSize: 12,
       fontWeight: '600',
+    },
+    txSourceBadge: {
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: Radius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 7,
+      paddingVertical: 2,
       flexShrink: 1,
+    },
+    txSourceBadgeText: {
+      color: colors.textSecondary,
+      fontSize: 11,
+      fontWeight: '600',
     },
     txTimeText: {
       color: colors.textMuted,

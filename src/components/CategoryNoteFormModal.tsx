@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -106,6 +106,21 @@ const CategoryNoteFormContent: React.FC<
   );
 
   const [isSaving, setIsSaving] = useState(false);
+
+  const catInputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
+  const noteInputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
+
+  useEffect(() => {
+    if (isEditing) return;
+    const timer = setTimeout(() => {
+      if (activeTab === 'category') {
+        catInputRef.current?.focus();
+      } else {
+        noteInputRef.current?.focus();
+      }
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [activeTab, isEditing]);
 
   const title =
     activeTab === 'category'
@@ -250,7 +265,8 @@ const CategoryNoteFormContent: React.FC<
 
             <Text style={styles.label}>Tên phân loại</Text>
             <TextInput
-              autoFocus
+              ref={catInputRef}
+              autoFocus={!isEditing}
               style={styles.textInput}
               placeholder="VD: Cà phê, Du lịch, Mua sắm..."
               placeholderTextColor="#64748B"
@@ -301,7 +317,8 @@ const CategoryNoteFormContent: React.FC<
           <>
             <Text style={styles.label}>Nội dung ghi chú</Text>
             <TextInput
-              autoFocus
+              ref={noteInputRef}
+              autoFocus={!isEditing}
               style={styles.textInput}
               placeholder="VD: Ăn sáng, Đổ xăng, Cà phê..."
               placeholderTextColor="#64748B"
@@ -546,13 +563,14 @@ const styles = StyleSheet.create({
   paletteRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
+    padding: 3,
     marginBottom: 14,
   },
   colorDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 27,
+    height: 27,
+    borderRadius: 13.5,
     borderWidth: 2,
     borderColor: 'transparent',
   },

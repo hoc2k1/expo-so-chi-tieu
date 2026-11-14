@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -23,28 +23,30 @@ interface DraggableReorderListProps<T extends { id: string }> {
 interface DraggableRowProps<T extends { id: string }> {
   item: T;
   index: number;
+  itemCount: number;
   itemHeight: number;
   slotHeight: number;
   activeIndex: SharedValue<number>;
   targetIndex: SharedValue<number>;
   dragY: SharedValue<number>;
-  onDragStart: (index: number) => void;
-  onDragUpdate: (index: number, translationY: number) => void;
-  onDragEnd: (index: number) => void;
+  isAnimatingDrop: SharedValue<boolean>;
+  onScrollLock: (locked: boolean) => void;
+  onDropComplete: (from: number, to: number) => void;
   renderContent: (item: T) => React.ReactNode;
 }
 
 function DraggableRow<T extends { id: string }>({
   item,
   index,
+  itemCount,
   itemHeight,
   slotHeight,
   activeIndex,
   targetIndex,
   dragY,
-  onDragStart,
-  onDragUpdate,
-  onDragEnd,
+  isAnimatingDrop,
+  onScrollLock,
+  onDropComplete,
   renderContent,
 }: DraggableRowProps<T>) {
   const { colors } = useTheme();
@@ -53,26 +55,87 @@ function DraggableRow<T extends { id: string }>({
   const idleBorder = colors.border;
   const idleBg = colors.surfaceSecondary;
 
-  const panGesture = Gesture.Pan()
-    .runOnJS(true)
-    .minDistance(2)
-    .onBegin(() => {
-      onDragStart(index);
-    })
-    .onUpdate((e) => {
-      onDragUpdate(index, e.translationY);
-    })
-    .onFinalize(() => {
-      onDragEnd(index);
-    });
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .minDistance(2)
+        .shouldCancelWhenOutside(false)
+        .onBegin(() => {
+          if (isAnimatingDrop.get() || activeIndex.get() !== -1) return;
+          runOnJS(onScrollLock)(true);
+        })
+        .onStart(() => {
+          if (isAnimatingDrop.get() || activeIndex.get() !== -1) return;
+          activeIndex.set(index);
+          targetIndex.set(index);
+          dragY.set(0);
+        })
+        .onUpdate((e) => {
+          if (activeIndex.get() !== index) return;
+          const minDrag = -index * slotHeight;
+          const maxDrag = (itemCount - 1 - index) * slotHeight;
+          const clampedY = Math.max(minDrag, Math.min(maxDrag, e.translationY));
+          dragY.set(clampedY);
+
+          const rawTarget = Math.round((index * slotHeight + clampedY) / slotHeight);
+          const nextTarget = Math.max(0, Math.min(itemCount - 1, rawTarget));
+          if (targetIndex.get() !== nextTarget) {
+            targetIndex.set(nextTarget);
+          }
+        })
+        .onFinalize(() => {
+          if (activeIndex.get() !== index) {
+            if (activeIndex.get() === -1 && !isAnimatingDrop.get()) {
+              runOnJS(onScrollLock)(false);
+            }
+            return;
+          }
+
+          const from = activeIndex.get();
+          const to = targetIndex.get();
+          const finalTo = to === -1 ? from : to;
+          const targetOffset = (finalTo - from) * slotHeight;
+
+          isAnimatingDrop.set(true);
+          dragY.set(
+            withTiming(targetOffset, { duration: 160 }, () => {
+              'worklet';
+              runOnJS(onDropComplete)(from, finalTo);
+            })
+          );
+        }),
+    [
+      index,
+      itemCount,
+      slotHeight,
+      activeIndex,
+      targetIndex,
+      dragY,
+      isAnimatingDrop,
+      onScrollLock,
+      onDropComplete,
+    ]
+  );
 
   const animatedStyle = useAnimatedStyle(() => {
     const active = activeIndex.value;
     const target = targetIndex.value;
+    const baseTop = index * slotHeight;
+
+    // Idle state: snap directly to baseTop without withTiming so item reorder commits cleanly
+    if (active === -1) {
+      return {
+        transform: [{ translateY: baseTop }, { scale: 1 }],
+        zIndex: 1,
+        elevation: 0,
+        borderColor: idleBorder,
+        backgroundColor: idleBg,
+      };
+    }
 
     if (active === index) {
       return {
-        transform: [{ translateY: dragY.value }, { scale: 1.02 }],
+        transform: [{ translateY: baseTop + dragY.value }, { scale: 1.02 }],
         zIndex: 100,
         elevation: 8,
         borderColor: activeBorder,
@@ -81,7 +144,7 @@ function DraggableRow<T extends { id: string }>({
     }
 
     let offset = 0;
-    if (active !== -1 && target !== -1) {
+    if (target !== -1) {
       if (active < target && index > active && index <= target) {
         offset = -slotHeight;
       } else if (active > target && index >= target && index < active) {
@@ -91,7 +154,7 @@ function DraggableRow<T extends { id: string }>({
 
     return {
       transform: [
-        { translateY: withTiming(offset, { duration: 140 }) },
+        { translateY: withTiming(baseTop + offset, { duration: 140 }) },
         { scale: 1 },
       ],
       zIndex: 1,
@@ -99,14 +162,13 @@ function DraggableRow<T extends { id: string }>({
       borderColor: idleBorder,
       backgroundColor: idleBg,
     };
-  });
+  }, [index, slotHeight, activeBorder, activeBg, idleBorder, idleBg]);
 
   return (
     <Animated.View
       style={[
         styles.rowContainer,
         {
-          top: index * slotHeight,
           height: itemHeight,
         },
         animatedStyle,
@@ -135,36 +197,47 @@ export function DraggableReorderList<T extends { id: string }>({
   const dragY = useSharedValue(0);
   const isAnimatingDrop = useSharedValue(false);
 
+  const pendingResetRef = useRef(false);
+  const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const slotHeight = itemHeight + itemGap;
   const totalHeight = items.length > 0 ? items.length * slotHeight - itemGap : 0;
 
-  const handleDragStart = useCallback(
-    (index: number) => {
-      if (isAnimatingDrop.get()) return;
-      activeIndex.set(index);
-      targetIndex.set(index);
-      dragY.set(0);
-      onScrollLockChange?.(true);
+  const resetDragState = useCallback(() => {
+    if (resetTimeoutRef.current) {
+      clearTimeout(resetTimeoutRef.current);
+      resetTimeoutRef.current = null;
+    }
+    pendingResetRef.current = false;
+    activeIndex.set(-1);
+    targetIndex.set(-1);
+    dragY.set(0);
+    isAnimatingDrop.set(false);
+  }, [activeIndex, targetIndex, dragY, isAnimatingDrop]);
+
+  useLayoutEffect(() => {
+    if (pendingResetRef.current) {
+      resetDragState();
+    }
+  }, [items, resetDragState]);
+
+  useEffect(() => {
+    return () => {
+      if (resetTimeoutRef.current) {
+        clearTimeout(resetTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleScrollLock = useCallback(
+    (locked: boolean) => {
+      onScrollLockChange?.(locked);
     },
-    [activeIndex, targetIndex, dragY, isAnimatingDrop, onScrollLockChange]
+    [onScrollLockChange]
   );
 
-  const handleDragUpdate = useCallback(
-    (index: number, translationY: number) => {
-      if (activeIndex.get() !== index) return;
-      dragY.set(translationY);
-      const rawTarget = Math.round((index * slotHeight + translationY) / slotHeight);
-      targetIndex.set(Math.max(0, Math.min(items.length - 1, rawTarget)));
-    },
-    [activeIndex, targetIndex, dragY, slotHeight, items.length]
-  );
-
-  const finalizeDrop = useCallback(
+  const handleDropComplete = useCallback(
     (from: number, to: number) => {
-      activeIndex.set(-1);
-      targetIndex.set(-1);
-      dragY.set(0);
-      isAnimatingDrop.set(false);
       onScrollLockChange?.(false);
 
       if (
@@ -174,35 +247,19 @@ export function DraggableReorderList<T extends { id: string }>({
         to < items.length &&
         from !== to
       ) {
+        // Hold activeIndex/dragY until React commits the reordered items array
+        pendingResetRef.current = true;
+        resetTimeoutRef.current = setTimeout(resetDragState, 120);
+
         const next = [...items];
         const [moved] = next.splice(from, 1);
         next.splice(to, 0, moved);
         onReorder(next);
+      } else {
+        resetDragState();
       }
     },
-    [activeIndex, targetIndex, dragY, isAnimatingDrop, items, onReorder, onScrollLockChange]
-  );
-
-  const handleDragEnd = useCallback(
-    (index: number) => {
-      if (activeIndex.get() !== index) return;
-      const from = activeIndex.get();
-      const to = targetIndex.get();
-      if (from === -1) return;
-
-      const finalTo = to === -1 ? from : to;
-      const targetOffset = (finalTo - from) * slotHeight;
-
-      isAnimatingDrop.set(true);
-
-      dragY.set(
-        withTiming(targetOffset, { duration: 180 }, () => {
-          'worklet';
-          runOnJS(finalizeDrop)(from, finalTo);
-        })
-      );
-    },
-    [activeIndex, targetIndex, dragY, isAnimatingDrop, slotHeight, finalizeDrop]
+    [items, onReorder, onScrollLockChange, resetDragState]
   );
 
   if (items.length === 0) {
@@ -216,14 +273,15 @@ export function DraggableReorderList<T extends { id: string }>({
           key={item.id}
           item={item}
           index={index}
+          itemCount={items.length}
           itemHeight={itemHeight}
           slotHeight={slotHeight}
           activeIndex={activeIndex}
           targetIndex={targetIndex}
           dragY={dragY}
-          onDragStart={handleDragStart}
-          onDragUpdate={handleDragUpdate}
-          onDragEnd={handleDragEnd}
+          isAnimatingDrop={isAnimatingDrop}
+          onScrollLock={handleScrollLock}
+          onDropComplete={handleDropComplete}
           renderContent={renderContent}
         />
       ))}
@@ -238,6 +296,7 @@ const styles = StyleSheet.create({
   },
   rowContainer: {
     position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
     flexDirection: 'row',
