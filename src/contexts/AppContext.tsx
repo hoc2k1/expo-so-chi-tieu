@@ -173,6 +173,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     txsRef.current = transactions;
     settingsRef.current = settings;
     rulesRef.current = rules;
+
+    // Update native app icon badge count for pending transactions
+    if (Platform.OS === 'android') {
+      NotificationListener.setBadgeCount(pendingTransactions.length);
+    }
   }, [pendingTransactions, transactions, settings, rules]);
 
   const resetTransactionFilter = useCallback(() => {

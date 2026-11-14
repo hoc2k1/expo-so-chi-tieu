@@ -25,6 +25,9 @@ export default {
   clearCachedNotifications(): boolean {
     return true;
   },
+  setBadgeCount(_count: number): boolean {
+    return false;
+  },
   isBatteryOptimizationIgnored(): boolean {
     return true;
   },

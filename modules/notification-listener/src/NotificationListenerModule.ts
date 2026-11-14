@@ -10,6 +10,7 @@ declare class NotificationListenerNativeModule extends NativeModule<Notification
   getCachedNotificationsJson(): string;
   removeCachedNotificationsByIds(idsJson: string): boolean;
   clearCachedNotifications(): boolean;
+  setBadgeCount(count: number): boolean;
   isBatteryOptimizationIgnored(): boolean;
   requestIgnoreBatteryOptimization(): boolean;
 }
@@ -84,6 +85,16 @@ export default {
   clearCachedNotifications(): boolean {
     try {
       return nativeModule.clearCachedNotifications();
+    } catch {
+      return false;
+    }
+  },
+  setBadgeCount(count: number): boolean {
+    try {
+      if (typeof nativeModule.setBadgeCount === 'function') {
+        return nativeModule.setBadgeCount(Math.max(0, Math.floor(count)));
+      }
+      return false;
     } catch {
       return false;
     }

@@ -88,6 +88,12 @@ class NotificationListenerModule : Module() {
       return@Function true
     }
 
+    Function("setBadgeCount") { count: Int ->
+      val context = appContext.reactContext ?: return@Function false
+      NotificationService.updateAppBadge(context, count)
+      return@Function true
+    }
+
     Function("isBatteryOptimizationIgnored") {
       val context = appContext.reactContext ?: return@Function true
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {

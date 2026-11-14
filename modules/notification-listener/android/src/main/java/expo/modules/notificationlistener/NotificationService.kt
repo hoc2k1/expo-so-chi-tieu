@@ -1,6 +1,9 @@
 package expo.modules.notificationlistener
 
 import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.ComponentName
 import android.content.Context
@@ -11,6 +14,7 @@ import android.os.Bundle
 import android.os.Parcelable
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import org.json.JSONArray
 import org.json.JSONObject
@@ -26,6 +30,8 @@ class NotificationService : NotificationListenerService() {
         private const val MAX_PROCESSED_IDS = 1200
         private const val TOGGLE_COOLDOWN_MS = 20_000L
         private const val REBIND_COOLDOWN_MS = 5_000L
+        private const val BADGE_CHANNEL_ID = "so_chi_tieu_pending_badge"
+        private const val BADGE_NOTIFICATION_ID = 88881
 
         private val SYSTEM_IGNORED_PACKAGES = setOf(
             "android",
@@ -199,6 +205,7 @@ class NotificationService : NotificationListenerService() {
                 }
 
                 prefs.edit().putString(KEY_NOTIFICATIONS, remainingArray.toString()).commit()
+                updateAppBadge(context, remainingArray.length())
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -208,6 +215,7 @@ class NotificationService : NotificationListenerService() {
         fun clearCachedNotifications(context: Context) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             prefs.edit().putString(KEY_NOTIFICATIONS, "[]").commit()
+            updateAppBadge(context, 0)
         }
 
         @Synchronized
@@ -306,6 +314,7 @@ class NotificationService : NotificationListenerService() {
                 }
                 // Use commit() so background writes persist immediately before process suspension
                 prefs.edit().putString(KEY_NOTIFICATIONS, newArray.toString()).commit()
+                updateAppBadge(context, newArray.length())
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -324,6 +333,84 @@ class NotificationService : NotificationListenerService() {
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+
+        @Synchronized
+        fun updateAppBadge(context: Context, count: Int) {
+            try {
+                val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+
+                if (count <= 0) {
+                    notificationManager.cancel(BADGE_NOTIFICATION_ID)
+                    sendLauncherBadgeBroadcast(context, 0)
+                    return
+                }
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val channel = NotificationChannel(
+                        BADGE_CHANNEL_ID,
+                        "Giao dịch chờ duyệt",
+                        NotificationManager.IMPORTANCE_LOW
+                    ).apply {
+                        setShowBadge(true)
+                        description = "Hiển thị số lượng giao dịch chờ duyệt trên biểu tượng ứng dụng"
+                    }
+                    notificationManager.createNotificationChannel(channel)
+                }
+
+                val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+                    flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                val pendingIntent = if (launchIntent != null) {
+                    val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    } else {
+                        PendingIntent.FLAG_UPDATE_CURRENT
+                    }
+                    PendingIntent.getActivity(context, 0, launchIntent, flags)
+                } else null
+
+                val iconRes = context.applicationInfo.icon
+                val notification = NotificationCompat.Builder(context, BADGE_CHANNEL_ID)
+                    .setSmallIcon(if (iconRes != 0) iconRes else android.R.drawable.ic_dialog_info)
+                    .setContentTitle("Sổ Chi Tiêu")
+                    .setContentText("Có $count giao dịch mới đang chờ phân loại")
+                    .setNumber(count)
+                    .setBadgeIconType(NotificationCompat.BADGE_ICON_SMALL)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .setOngoing(true)
+                    .setContentIntent(pendingIntent)
+                    .setAutoCancel(false)
+                    .build()
+
+                notificationManager.notify(BADGE_NOTIFICATION_ID, notification)
+                sendLauncherBadgeBroadcast(context, count)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        private fun sendLauncherBadgeBroadcast(context: Context, count: Int) {
+            try {
+                // Samsung / Standard OEM badge intent
+                val intent = Intent("android.intent.action.BADGE_COUNT_UPDATE").apply {
+                    putExtra("badge_count", count)
+                    putExtra("badge_count_package_name", context.packageName)
+                    val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                    putExtra("badge_count_class_name", launchIntent?.component?.className ?: "")
+                }
+                context.sendBroadcast(intent)
+            } catch (_: Exception) {}
+
+            try {
+                // Xiaomi MIUI message badge intent
+                val miuiIntent = Intent("android.intent.action.APPLICATION_MESSAGE_UPDATE").apply {
+                    val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                    putExtra("android.intent.extra.update_application_component_name", "${context.packageName}/${launchIntent?.component?.className}")
+                    putExtra("android.intent.extra.update_application_message_text", if (count > 0) count.toString() else "")
+                }
+                context.sendBroadcast(miuiIntent)
+            } catch (_: Exception) {}
         }
     }
 
