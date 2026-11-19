@@ -14,6 +14,7 @@ import { Category, SavedNote, TransactionType } from '../../models/types';
 import { CategoryNoteFormModal } from '../../components/CategoryNoteFormModal';
 import { DraggableReorderList } from '../../components/DraggableReorderList';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import { ChibiCategoryBadge, SpringPressable } from '../../components/Motion';
 import {
   useTheme,
   ThemeColors,
@@ -214,13 +215,13 @@ export default function CategoriesManageScreen() {
           </Pressable>
         </View>
 
-        <Pressable
-          style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.85 }]}
+        <SpringPressable
+          style={styles.addBtn}
           onPress={openAddModal}
         >
           <Ionicons name="add" size={18} color={colors.onPrimary} />
           <Text style={styles.addBtnText}>Thêm</Text>
-        </Pressable>
+        </SpringPressable>
       </View>
 
       <ScrollView
@@ -291,14 +292,7 @@ export default function CategoriesManageScreen() {
                   }}
                   renderContent={(cat) => (
                     <View style={styles.itemInner}>
-                      <View
-                        style={[
-                          styles.catIconBox,
-                          { backgroundColor: `${cat.color}1F` },
-                        ]}
-                      >
-                        <Ionicons name={cat.icon as any} size={18} color={cat.color} />
-                      </View>
+                      <ChibiCategoryBadge icon={cat.icon} color={cat.color} size={38} />
                       <Text style={styles.catName} numberOfLines={1}>
                         {cat.name}
                       </Text>

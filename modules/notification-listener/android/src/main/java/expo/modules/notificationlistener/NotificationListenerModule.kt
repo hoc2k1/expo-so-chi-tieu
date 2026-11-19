@@ -57,6 +57,35 @@ class NotificationListenerModule : Module() {
       return@Function NotificationService.ensureServiceBound(context, forceToggle = false)
     }
 
+    Function("isServiceConnected") {
+      return@Function NotificationService.activeService != null
+    }
+
+    Function("forceReconnectService") {
+      val context = appContext.reactContext ?: return@Function false
+      return@Function NotificationService.ensureServiceBound(context, forceToggle = true)
+    }
+
+    Function("isPostNotificationGranted") {
+      val context = appContext.reactContext ?: return@Function true
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        return@Function context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
+          android.content.pm.PackageManager.PERMISSION_GRANTED
+      }
+      return@Function true
+    }
+
+    Function("getNativeLogsJson") {
+      val context = appContext.reactContext ?: return@Function "[]"
+      return@Function NotificationService.getNativeLogsJson(context)
+    }
+
+    Function("clearNativeLogs") {
+      val context = appContext.reactContext ?: return@Function false
+      NotificationService.clearNativeLogs(context)
+      return@Function true
+    }
+
     Function("forceScanStatusBar") {
       val context = appContext.reactContext ?: return@Function false
       return@Function NotificationService.forceScanStatusBar(context)

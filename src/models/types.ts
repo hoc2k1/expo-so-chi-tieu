@@ -85,6 +85,25 @@ export interface AppSettings {
   updateHistory?: UpdateHistoryItem[];
 }
 
+export interface NotificationDebugLog {
+  id: string;
+  timestamp: number;
+  packageName: string;
+  source?: string;
+  status:
+    | 'added'
+    | 'soft_duplicate_added'
+    | 'hard_duplicate'
+    | 'ignored_not_enabled'
+    | 'ignored_invalid_or_otp'
+    | 'already_processed'
+    | 'native_filtered'
+    | 'captured';
+  reason: string;
+  preview: string;
+  amount?: number;
+}
+
 export interface TransactionFilterState {
   type: 'all' | 'expense' | 'income';
   categoryIds: string[]; // empty array = tất cả

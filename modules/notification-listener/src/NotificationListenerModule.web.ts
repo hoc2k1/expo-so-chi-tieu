@@ -1,4 +1,4 @@
-import { RawNotification } from './NotificationListener.types';
+import { RawNotification, NativeDebugLog } from './NotificationListener.types';
 
 export default {
   isPermissionGranted(): boolean {
@@ -9,6 +9,21 @@ export default {
   },
   ensureServiceConnected(): boolean {
     return false;
+  },
+  isServiceConnected(): boolean {
+    return false;
+  },
+  forceReconnectService(): boolean {
+    return false;
+  },
+  isPostNotificationGranted(): boolean {
+    return true;
+  },
+  getNativeLogs(): NativeDebugLog[] {
+    return [];
+  },
+  clearNativeLogs(): boolean {
+    return true;
   },
   forceScanStatusBar(): boolean {
     return false;

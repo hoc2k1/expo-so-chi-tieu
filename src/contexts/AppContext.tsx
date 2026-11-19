@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { AppState, AppStateStatus, Platform } from 'react-native';
+import { AppState, AppStateStatus, PermissionsAndroid, Platform } from 'react-native';
 import * as Updates from 'expo-updates';
 import {
   Transaction,
@@ -10,6 +10,7 @@ import {
   AppSettings,
   TransactionType,
   TransactionFilterState,
+  NotificationDebugLog,
 } from '../models/types';
 import { StorageService } from '../services/storage';
 import { parseNotification } from '../services/parser';
@@ -35,6 +36,9 @@ interface AppContextValue {
   settings: AppSettings;
   isPermissionGranted: boolean;
   isBatteryOptimizationIgnored: boolean;
+  isPostNotificationGranted: boolean;
+  isServiceConnected: boolean;
+  notificationDebugLogs: NotificationDebugLog[];
 
   // Shared Transaction Filter (used by Transactions screen & Statistics drill-down)
   transactionFilter: TransactionFilterState;
@@ -47,6 +51,10 @@ interface AppContextValue {
   checkPermission: () => Promise<boolean>;
   requestPermission: () => Promise<boolean>;
   requestIgnoreBatteryOptimization: () => Promise<boolean>;
+  requestPostNotificationPermission: () => Promise<boolean>;
+  forceReconnectService: () => Promise<boolean>;
+  refreshDebugLogs: () => Promise<void>;
+  clearDebugLogs: () => Promise<void>;
   classifyTransaction: (
     pendingId: string,
     params: {
@@ -147,6 +155,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [isPermissionGranted, setIsPermissionGranted] = useState(false);
   const [isBatteryOptimizationIgnored, setIsBatteryOptimizationIgnored] = useState(true);
+  const [isPostNotificationGranted, setIsPostNotificationGranted] = useState(true);
+  const [isServiceConnected, setIsServiceConnected] = useState(false);
+  const [notificationDebugLogs, setNotificationDebugLogs] = useState<NotificationDebugLog[]>([]);
   const [transactionFilter, setTransactionFilter] = useState<TransactionFilterState>(DEFAULT_FILTER);
   const [toast, setToast] = useState<ToastData | null>(null);
 
@@ -163,6 +174,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const txsRef = useRef(transactions);
   const settingsRef = useRef<AppSettings>(DEFAULT_SETTINGS);
   const rulesRef = useRef(rules);
+  const debugLogsRef = useRef<NotificationDebugLog[]>([]);
   const isInitializedRef = useRef(false);
   const isSyncingRef = useRef(false);
   const hasPendingSyncRef = useRef(false);
@@ -228,6 +240,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const granted = NotificationListener.isPermissionGranted();
       setIsPermissionGranted(granted);
       setIsBatteryOptimizationIgnored(NotificationListener.isBatteryOptimizationIgnored());
+      setIsPostNotificationGranted(NotificationListener.isPostNotificationGranted());
+      setIsServiceConnected(NotificationListener.isServiceConnected());
       if (granted) {
         NotificationListener.ensureServiceConnected();
       }
@@ -255,6 +269,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  const requestPostNotificationPermission = useCallback(async () => {
+    if (Platform.OS !== 'android') return true;
+    try {
+      if (typeof Platform.Version === 'number' && Platform.Version < 33) {
+        setIsPostNotificationGranted(true);
+        return true;
+      }
+      const res = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+      );
+      const granted = res === PermissionsAndroid.RESULTS.GRANTED;
+      setIsPostNotificationGranted(granted);
+      if (granted) {
+        NotificationListener.setBadgeCount(pendingRef.current.length);
+        showToast('Đã bật quyền hiển thị bubble ngoài icon app!', 'success');
+      } else {
+        showToast('Chưa cấp quyền thông báo (cần để hiện số chờ ngoài icon)', 'info');
+      }
+      return granted;
+    } catch {
+      return false;
+    }
+  }, [showToast]);
+
+  const forceReconnectService = useCallback(async () => {
+    if (Platform.OS !== 'android') return false;
+    try {
+      const ok = NotificationListener.forceReconnectService();
+      setTimeout(() => {
+        setIsServiceConnected(NotificationListener.isServiceConnected());
+      }, 600);
+      showToast(ok ? 'Đã gửi yêu cầu kết nối lại dịch vụ đọc thông báo' : 'Không thể kết nối lại', ok ? 'success' : 'error');
+      return ok;
+    } catch {
+      return false;
+    }
+  }, [showToast]);
+
+  const refreshDebugLogs = useCallback(async () => {
+    const jsLogs = await StorageService.getDebugLogs();
+    const nativeLogs = Platform.OS === 'android' ? NotificationListener.getNativeLogs() : [];
+    const mappedNative: NotificationDebugLog[] = nativeLogs.map((nl) => ({
+      id: nl.id,
+      timestamp: nl.timestamp,
+      packageName: nl.packageName,
+      status: nl.status === 'native_filtered' ? 'native_filtered' : 'captured',
+      reason: nl.reason,
+      preview: nl.preview,
+    }));
+    const merged = [...jsLogs, ...mappedNative]
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 150);
+    debugLogsRef.current = jsLogs;
+    setNotificationDebugLogs(merged);
+  }, []);
+
+  const clearDebugLogs = useCallback(async () => {
+    debugLogsRef.current = [];
+    await StorageService.saveDebugLogs([]);
+    if (Platform.OS === 'android') {
+      NotificationListener.clearNativeLogs();
+    }
+    setNotificationDebugLogs([]);
+    showToast('Đã xóa nhật ký kiểm tra thông báo', 'info');
+  }, [showToast]);
+
   // Process a single raw notification into currentPending
   const processSingleRawNotification = useCallback(
     (
@@ -263,18 +343,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       currentCompleted: Transaction[],
       currentSettings: AppSettings,
       currentRules: AutoRule[]
-    ): { item?: PendingTransaction; status: string } => {
+    ): { item?: PendingTransaction; status: NotificationDebugLog['status'] | 'ignored_wakeup'; reason: string; source?: string } => {
       if (!raw || raw.id === 'service_connected_sync') {
-        return { status: 'ignored_wakeup' };
+        return { status: 'ignored_wakeup', reason: 'Wakeup sync signal' };
       }
 
       if (raw.id && processedRawIdsRef.current.has(raw.id)) {
-        return { status: 'already_processed' };
+        return { status: 'already_processed', reason: 'Đã xử lý trong phiên hiện tại' };
       }
 
       // 1. Check if package is enabled in Settings
       if (!isPackageAllowed(raw.packageName, currentSettings.enabledPackages)) {
-        return { status: 'ignored_not_enabled' };
+        return {
+          status: 'ignored_not_enabled',
+          reason: `Ứng dụng (${raw.packageName}) chưa bật trong Quản lý Ngân hàng & Ví`,
+        };
       }
 
       // 2. Parse text, title, subText & amount
@@ -286,7 +369,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
       if (!parsed.isValidTransaction) {
         if (raw.id) processedRawIdsRef.current.add(raw.id);
-        return { status: 'ignored_invalid_or_otp' };
+        return {
+          status: 'ignored_invalid_or_otp',
+          reason: parsed.ignoreReason || 'Không phải thông báo giao dịch hợp lệ',
+          source: parsed.source,
+        };
       }
 
       if (raw.id) {
@@ -311,7 +398,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
 
       if (dedupResult.isHardDuplicate) {
-        return { status: 'hard_duplicate' };
+        return {
+          status: 'hard_duplicate',
+          reason: dedupResult.duplicateReason || 'Trùng lặp hoàn toàn với giao dịch đã có',
+          source: parsed.source,
+        };
       }
 
       // 4. Auto-Rule Suggestion
@@ -348,6 +439,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       return {
         status: dedupResult.isSoftDuplicate ? 'soft_duplicate_added' : 'added',
+        reason: dedupResult.isSoftDuplicate
+          ? dedupResult.duplicateReason || 'Đã đưa vào hàng chờ (nghi trùng)'
+          : 'Đã nhận và đưa vào hàng chờ phân loại',
+        source: parsed.source,
         item: newPending,
       };
     },
@@ -377,6 +472,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const granted = NotificationListener.isPermissionGranted();
           setIsPermissionGranted(granted);
           setIsBatteryOptimizationIgnored(NotificationListener.isBatteryOptimizationIgnored());
+          setIsPostNotificationGranted(NotificationListener.isPostNotificationGranted());
+          setIsServiceConnected(NotificationListener.isServiceConnected());
           if (!granted) {
             if (options?.showFeedbackToast) {
               showToast('Chưa cấp quyền đọc thông báo!', 'error');
@@ -408,6 +505,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const curRules = rulesRef.current;
           let addedCount = 0;
           const processedIdsToRemove: string[] = [];
+          const newDebugEntries: NotificationDebugLog[] = [];
 
           for (const rawItem of sorted) {
             const res = processSingleRawNotification(
@@ -420,6 +518,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (rawItem.id) {
               processedIdsToRemove.push(rawItem.id);
             }
+            if (res.status !== 'ignored_wakeup' && res.status !== 'already_processed') {
+              const preview = [rawItem.title, rawItem.text].filter(Boolean).join(' — ').slice(0, 180);
+              newDebugEntries.push({
+                id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                timestamp: Number(rawItem.timestamp) || Date.now(),
+                packageName: rawItem.packageName || 'unknown',
+                source: res.source,
+                status: res.status,
+                reason: res.reason,
+                preview,
+                amount: res.item?.amount,
+              });
+            }
             if (res.item) {
               curPending = [res.item, ...curPending];
               addedCount++;
@@ -430,6 +541,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             pendingRef.current = curPending;
             setPendingTransactions(curPending);
             await StorageService.savePendingTransactions(curPending);
+          }
+
+          if (newDebugEntries.length > 0) {
+            const updatedLogs = [...newDebugEntries.reverse(), ...debugLogsRef.current].slice(0, 120);
+            debugLogsRef.current = updatedLogs;
+            await StorageService.saveDebugLogs(updatedLogs);
           }
 
           // Atomically remove only the IDs that were just processed so newly arriving notifications are never wiped
@@ -461,13 +578,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     async function initialize() {
       try {
         await StorageService.initStorage();
-        const [txs, pending, cats, savedNotes, autoRules, appSettings] = await Promise.all([
+        const [txs, pending, cats, savedNotes, autoRules, appSettings, savedDebugLogs] = await Promise.all([
           StorageService.getTransactions(),
           StorageService.getPendingTransactions(),
           StorageService.getCategories(),
           StorageService.getNotes(),
           StorageService.getRules(),
           StorageService.getSettings(),
+          StorageService.getDebugLogs(),
         ]);
 
         // Record current EAS Update in history if running an OTA update not yet logged
@@ -494,9 +612,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         txsRef.current = txs;
         settingsRef.current = appSettings;
         rulesRef.current = autoRules;
+        debugLogsRef.current = savedDebugLogs;
 
         if (Platform.OS === 'android') {
           NotificationListener.setEnabledPackages(appSettings.enabledPackages);
+          setIsPostNotificationGranted(NotificationListener.isPostNotificationGranted());
+          setIsServiceConnected(NotificationListener.isServiceConnected());
         }
 
         isInitializedRef.current = true;
@@ -867,6 +988,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         settings,
         isPermissionGranted,
         isBatteryOptimizationIgnored,
+        isPostNotificationGranted,
+        isServiceConnected,
+        notificationDebugLogs,
         transactionFilter,
         setTransactionFilter,
         resetTransactionFilter,
@@ -875,6 +999,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         checkPermission,
         requestPermission,
         requestIgnoreBatteryOptimization,
+        requestPostNotificationPermission,
+        forceReconnectService,
+        refreshDebugLogs,
+        clearDebugLogs,
         classifyTransaction,
         batchClassify,
         deletePending,

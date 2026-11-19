@@ -7,6 +7,15 @@ export interface RawNotification {
   timestamp: number;
 }
 
+export interface NativeDebugLog {
+  id: string;
+  timestamp: number;
+  packageName: string;
+  status: string;
+  reason: string;
+  preview: string;
+}
+
 export type NotificationListenerEvents = {
   [eventName: string]: (...args: any[]) => void;
   onNotificationReceived: (notification: RawNotification) => void;

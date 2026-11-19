@@ -74,6 +74,13 @@ function RootNavigator() {
             title: 'Ứng dụng Ngân hàng & Ví',
           }}
         />
+        <Stack.Screen
+          name="modal/notification-logs"
+          options={{
+            presentation: 'modal',
+            title: 'Nhật ký kiểm tra thông báo',
+          }}
+        />
       </Stack>
     </>
   );

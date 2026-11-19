@@ -7,6 +7,7 @@ import {
   SavedNote,
   AutoRule,
   AppSettings,
+  NotificationDebugLog,
 } from '../models/types';
 import {
   DEFAULT_CATEGORIES,
@@ -25,6 +26,7 @@ const FILES = {
   NOTES: `${BASE_DIR}notes.json`,
   RULES: `${BASE_DIR}rules.json`,
   SETTINGS: `${BASE_DIR}settings.json`,
+  DEBUG_LOGS: `${BASE_DIR}notification_debug_logs.json`,
 };
 
 // In-memory web fallback if localStorage or FileSystem not available
@@ -196,6 +198,14 @@ export const StorageService = {
   },
   async saveSettings(data: AppSettings): Promise<void> {
     return writeFileJson(FILES.SETTINGS, data);
+  },
+
+  // Notification Debug Logs (capped at 120 entries)
+  async getDebugLogs(): Promise<NotificationDebugLog[]> {
+    return readFileJson<NotificationDebugLog[]>(FILES.DEBUG_LOGS, []);
+  },
+  async saveDebugLogs(data: NotificationDebugLog[]): Promise<void> {
+    return writeFileJson(FILES.DEBUG_LOGS, data.slice(0, 120));
   },
 
   // Export full backup

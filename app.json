@@ -14,7 +14,7 @@
     "android": {
       "package": "com.hockt.sochitieu",
       "adaptiveIcon": {
-        "backgroundColor": "#090D16",
+        "backgroundColor": "#FAFAF2",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png"
       },
@@ -34,9 +34,13 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#090D16",
+          "backgroundColor": "#FAFAF2",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200
+          "imageWidth": 220,
+          "dark": {
+            "backgroundColor": "#151A15",
+            "image": "./assets/images/splash-icon.png"
+          }
         }
       ],
       "expo-sharing"

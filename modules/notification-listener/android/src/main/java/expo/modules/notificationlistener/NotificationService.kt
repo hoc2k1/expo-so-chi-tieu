@@ -26,8 +26,11 @@ class NotificationService : NotificationListenerService() {
         private const val KEY_NOTIFICATIONS = "cached_notifications"
         private const val KEY_PROCESSED_IDS = "processed_notification_ids"
         private const val KEY_ENABLED_PACKAGES = "enabled_packages"
+        private const val KEY_PENDING_COUNT = "persisted_pending_count"
+        private const val KEY_NATIVE_LOGS = "native_debug_logs"
         private const val MAX_CACHED = 500
         private const val MAX_PROCESSED_IDS = 1200
+        private const val MAX_NATIVE_LOGS = 120
         private const val TOGGLE_COOLDOWN_MS = 20_000L
         private const val REBIND_COOLDOWN_MS = 5_000L
         private const val BADGE_CHANNEL_ID = "so_chi_tieu_pending_badge"
@@ -55,8 +58,8 @@ class NotificationService : NotificationListenerService() {
             "hsbc", "shinhan", "woori", "scb", "bacabank", "abbank", "bvbank",
             "VietCapital", "banviet", "ncb", "kienlong", "pgbank", "saigonbank",
             "vietbank", "vietabank", "baoviet", "gpbank", "oceanbank", "cbway",
-            "pay", "wallet", "bank", "finance",
-            "com.google.android.gm", "outlook", "messaging", "mms", "sms", "zalo"
+            "pay", "wallet", "bank", "finance", "credit", "card", "money",
+            "com.google.android.gm", "outlook", "mail", "messaging", "message", "mms", "sms", "zalo", "conversations"
         )
 
         @Volatile
@@ -115,6 +118,48 @@ class NotificationService : NotificationListenerService() {
             return false
         }
 
+        @Synchronized
+        fun appendNativeLog(
+            context: Context,
+            packageName: String,
+            status: String,
+            reason: String,
+            preview: String = ""
+        ) {
+            try {
+                val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                val jsonStr = prefs.getString(KEY_NATIVE_LOGS, "[]") ?: "[]"
+                val arr = JSONArray(jsonStr)
+                val entry = JSONObject().apply {
+                    put("id", "nlog_${System.currentTimeMillis()}_${(Math.random() * 10000).toInt()}")
+                    put("timestamp", System.currentTimeMillis())
+                    put("packageName", packageName)
+                    put("status", status)
+                    put("reason", reason)
+                    put("preview", preview.take(160))
+                }
+                val newArr = JSONArray()
+                newArr.put(entry)
+                val limit = minOf(arr.length(), MAX_NATIVE_LOGS - 1)
+                for (i in 0 until limit) {
+                    newArr.put(arr.get(i))
+                }
+                prefs.edit().putString(KEY_NATIVE_LOGS, newArr.toString()).apply()
+            } catch (_: Exception) {}
+        }
+
+        @Synchronized
+        fun getNativeLogsJson(context: Context): String {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            return prefs.getString(KEY_NATIVE_LOGS, "[]") ?: "[]"
+        }
+
+        @Synchronized
+        fun clearNativeLogs(context: Context) {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit().putString(KEY_NATIVE_LOGS, "[]").apply()
+        }
+
         fun ensureServiceBound(context: Context, forceToggle: Boolean = false): Boolean {
             try {
                 val appCtx = context.applicationContext
@@ -131,8 +176,8 @@ class NotificationService : NotificationListenerService() {
                 val now = System.currentTimeMillis()
                 val componentName = ComponentName(appCtx, NotificationService::class.java)
 
-                // Only toggle component state if service is null and cooldown has elapsed
-                if (activeService == null && (forceToggle || now - lastToggleAttemptMs > TOGGLE_COOLDOWN_MS)) {
+                // Only toggle component state on explicit forceToggle (avoid breaking OEM binding automatically)
+                if (forceToggle && now - lastToggleAttemptMs > TOGGLE_COOLDOWN_MS) {
                     lastToggleAttemptMs = now
                     val pm = appCtx.packageManager
                     pm.setComponentEnabledSetting(
@@ -205,7 +250,8 @@ class NotificationService : NotificationListenerService() {
                 }
 
                 prefs.edit().putString(KEY_NOTIFICATIONS, remainingArray.toString()).commit()
-                updateAppBadge(context, remainingArray.length())
+                val persistedPending = prefs.getInt(KEY_PENDING_COUNT, 0)
+                updateAppBadge(context, persistedPending + remainingArray.length(), persistAsPending = false)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -215,7 +261,8 @@ class NotificationService : NotificationListenerService() {
         fun clearCachedNotifications(context: Context) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             prefs.edit().putString(KEY_NOTIFICATIONS, "[]").commit()
-            updateAppBadge(context, 0)
+            val persistedPending = prefs.getInt(KEY_PENDING_COUNT, 0)
+            updateAppBadge(context, persistedPending, persistAsPending = false)
         }
 
         @Synchronized
@@ -314,7 +361,15 @@ class NotificationService : NotificationListenerService() {
                 }
                 // Use commit() so background writes persist immediately before process suspension
                 prefs.edit().putString(KEY_NOTIFICATIONS, newArray.toString()).commit()
-                updateAppBadge(context, newArray.length())
+                val persistedPending = prefs.getInt(KEY_PENDING_COUNT, 0)
+                updateAppBadge(context, persistedPending + newArray.length(), persistAsPending = false)
+                appendNativeLog(
+                    context,
+                    packageName,
+                    "captured",
+                    "Đã lưu vào bộ đệm native",
+                    "$title $text".trim()
+                )
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -336,14 +391,30 @@ class NotificationService : NotificationListenerService() {
         }
 
         @Synchronized
-        fun updateAppBadge(context: Context, count: Int) {
+        fun updateAppBadge(context: Context, count: Int, persistAsPending: Boolean = true) {
             try {
+                val safeCount = maxOf(0, count)
+                if (persistAsPending) {
+                    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    prefs.edit().putInt(KEY_PENDING_COUNT, safeCount).apply()
+                }
+
                 val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
 
-                if (count <= 0) {
+                if (safeCount <= 0) {
                     notificationManager.cancel(BADGE_NOTIFICATION_ID)
                     sendLauncherBadgeBroadcast(context, 0)
                     return
+                }
+
+                // Check POST_NOTIFICATIONS runtime permission on Android 13+ (API 33+)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val permCheck = context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                    if (permCheck != PackageManager.PERMISSION_GRANTED) {
+                        // Still attempt OEM launcher broadcast as best-effort fallback
+                        sendLauncherBadgeBroadcast(context, safeCount)
+                        return
+                    }
                 }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -353,6 +424,9 @@ class NotificationService : NotificationListenerService() {
                         NotificationManager.IMPORTANCE_LOW
                     ).apply {
                         setShowBadge(true)
+                        enableLights(false)
+                        enableVibration(false)
+                        setSound(null, null)
                         description = "Hiển thị số lượng giao dịch chờ duyệt trên biểu tượng ứng dụng"
                     }
                     notificationManager.createNotificationChannel(channel)
@@ -370,34 +444,44 @@ class NotificationService : NotificationListenerService() {
                     PendingIntent.getActivity(context, 0, launchIntent, flags)
                 } else null
 
+                val displayCountText = if (safeCount > 99) "99+" else safeCount.toString()
+                val badgeNumber = minOf(safeCount, 99)
                 val iconRes = context.applicationInfo.icon
                 val notification = NotificationCompat.Builder(context, BADGE_CHANNEL_ID)
                     .setSmallIcon(if (iconRes != 0) iconRes else android.R.drawable.ic_dialog_info)
                     .setContentTitle("Sổ Chi Tiêu")
-                    .setContentText("Có $count giao dịch mới đang chờ phân loại")
-                    .setNumber(count)
+                    .setContentText("Có $displayCountText giao dịch đang chờ phân loại")
+                    .setNumber(badgeNumber)
                     .setBadgeIconType(NotificationCompat.BADGE_ICON_SMALL)
                     .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .setSilent(true)
                     .setOngoing(true)
                     .setContentIntent(pendingIntent)
                     .setAutoCancel(false)
                     .build()
 
                 notificationManager.notify(BADGE_NOTIFICATION_ID, notification)
-                sendLauncherBadgeBroadcast(context, count)
+                sendLauncherBadgeBroadcast(context, safeCount)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
 
         private fun sendLauncherBadgeBroadcast(context: Context, count: Int) {
+            val badgeNumber = minOf(maxOf(0, count), 99)
+            val displayBadgeText = when {
+                count <= 0 -> ""
+                count > 99 -> "99+"
+                else -> count.toString()
+            }
+            val launchClassName = context.packageManager.getLaunchIntentForPackage(context.packageName)?.component?.className ?: ""
+
             try {
                 // Samsung / Standard OEM badge intent
                 val intent = Intent("android.intent.action.BADGE_COUNT_UPDATE").apply {
-                    putExtra("badge_count", count)
+                    putExtra("badge_count", badgeNumber)
                     putExtra("badge_count_package_name", context.packageName)
-                    val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-                    putExtra("badge_count_class_name", launchIntent?.component?.className ?: "")
+                    putExtra("badge_count_class_name", launchClassName)
                 }
                 context.sendBroadcast(intent)
             } catch (_: Exception) {}
@@ -405,9 +489,8 @@ class NotificationService : NotificationListenerService() {
             try {
                 // Xiaomi MIUI message badge intent
                 val miuiIntent = Intent("android.intent.action.APPLICATION_MESSAGE_UPDATE").apply {
-                    val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-                    putExtra("android.intent.extra.update_application_component_name", "${context.packageName}/${launchIntent?.component?.className}")
-                    putExtra("android.intent.extra.update_application_message_text", if (count > 0) count.toString() else "")
+                    putExtra("android.intent.extra.update_application_component_name", "${context.packageName}/$launchClassName")
+                    putExtra("android.intent.extra.update_application_message_text", displayBadgeText)
                 }
                 context.sendBroadcast(miuiIntent)
             } catch (_: Exception) {}
@@ -541,6 +624,16 @@ class NotificationService : NotificationListenerService() {
 
         // 2. Only cache candidate financial / messaging / email / user-enabled packages
         if (!isPackageCandidateAllowed(applicationContext, packageName)) {
+            if (!SYSTEM_IGNORED_PACKAGES.contains(packageName.lowercase()) && packageName != applicationContext.packageName) {
+                val preview = notification.extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim() ?: ""
+                appendNativeLog(
+                    applicationContext,
+                    packageName,
+                    "native_filtered",
+                    "Gói ứng dụng không nằm trong danh sách theo dõi",
+                    preview
+                )
+            }
             return
         }
 
@@ -621,7 +714,7 @@ class NotificationService : NotificationListenerService() {
         if (textLines.isNotEmpty()) {
             for ((idx, line) in textLines.withIndex()) {
                 if (line != primaryContent) {
-                    val lineUniqueId = "${packageName}_${sbn.id}_line_${line.hashCode()}"
+                    val lineUniqueId = "${packageName}_${sbn.id}_line_${line.hashCode()}_${postTime / 60000}"
                     saveAndDispatchNotification(
                         applicationContext,
                         lineUniqueId,

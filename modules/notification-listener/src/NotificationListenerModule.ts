@@ -1,10 +1,15 @@
 import { NativeModule, requireNativeModule } from 'expo';
-import { RawNotification, NotificationListenerEvents } from './NotificationListener.types';
+import { RawNotification, NativeDebugLog, NotificationListenerEvents } from './NotificationListener.types';
 
 declare class NotificationListenerNativeModule extends NativeModule<NotificationListenerEvents> {
   isPermissionGranted(): boolean;
   requestPermission(): boolean;
   ensureServiceConnected(): boolean;
+  isServiceConnected(): boolean;
+  forceReconnectService(): boolean;
+  isPostNotificationGranted(): boolean;
+  getNativeLogsJson(): string;
+  clearNativeLogs(): boolean;
   forceScanStatusBar(): boolean;
   setEnabledPackages(packagesJson: string): boolean;
   getCachedNotificationsJson(): string;
@@ -35,6 +40,57 @@ export default {
   ensureServiceConnected(): boolean {
     try {
       return nativeModule.ensureServiceConnected();
+    } catch {
+      return false;
+    }
+  },
+  isServiceConnected(): boolean {
+    try {
+      if (typeof nativeModule.isServiceConnected === 'function') {
+        return nativeModule.isServiceConnected();
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  },
+  forceReconnectService(): boolean {
+    try {
+      if (typeof nativeModule.forceReconnectService === 'function') {
+        return nativeModule.forceReconnectService();
+      }
+      return nativeModule.ensureServiceConnected();
+    } catch {
+      return false;
+    }
+  },
+  isPostNotificationGranted(): boolean {
+    try {
+      if (typeof nativeModule.isPostNotificationGranted === 'function') {
+        return nativeModule.isPostNotificationGranted();
+      }
+      return true;
+    } catch {
+      return true;
+    }
+  },
+  getNativeLogs(): NativeDebugLog[] {
+    try {
+      if (typeof nativeModule.getNativeLogsJson !== 'function') return [];
+      const jsonStr = nativeModule.getNativeLogsJson();
+      if (!jsonStr) return [];
+      const parsed = JSON.parse(jsonStr);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  },
+  clearNativeLogs(): boolean {
+    try {
+      if (typeof nativeModule.clearNativeLogs === 'function') {
+        return nativeModule.clearNativeLogs();
+      }
+      return false;
     } catch {
       return false;
     }

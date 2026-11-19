@@ -10,10 +10,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import Animated, { FadeInDown, FadeOutRight, LinearTransition } from 'react-native-reanimated';
 import { useApp } from '../../contexts/AppContext';
 import { PendingTransaction, Transaction } from '../../models/types';
 import { formatCurrency, formatRelativeTime } from '../../utils/formatters';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import { ChibiStrawberry } from '../../components/ChibiStrawberry';
+import { GardenBox } from '../../components/GardenDecor';
+import { AnimatedCurrency, ChibiCategoryBadge, SpringPressable } from '../../components/Motion';
 import {
   useTheme,
   ThemeColors,
@@ -30,7 +34,9 @@ export default function OverviewScreen() {
     categories,
     pendingTransactions,
     isPermissionGranted,
+    isPostNotificationGranted,
     requestPermission,
+    requestPostNotificationPermission,
     syncCachedNotifications,
     deletePending,
     batchDeletePending,
@@ -159,27 +165,32 @@ export default function OverviewScreen() {
     setSelectedIds([]);
   };
 
-  const renderPendingItem = ({ item }: { item: PendingTransaction }) => {
+  const renderPendingItem = ({ item, index }: { item: PendingTransaction; index: number }) => {
     const isSelected = selectedIds.includes(item.id);
     const isIncome = item.type === 'income';
     const isExpanded = expandedContentId === item.id;
 
     return (
-      <Pressable
-        delayLongPress={280}
-        onLongPress={() => handleLongPressItem(item.id)}
-        onPress={() => {
-          if (isBatchMode) {
-            toggleSelect(item.id);
-          }
-        }}
-        style={({ pressed }) => [
-          styles.card,
-          item.isSuspectedDuplicate && styles.cardDuplicate,
-          isSelected && styles.cardSelected,
-          pressed && { opacity: 0.92 },
-        ]}
+      <Animated.View
+        entering={FadeInDown.delay(Math.min(index, 6) * 45).duration(280)}
+        exiting={FadeOutRight.duration(220)}
+        layout={LinearTransition.springify().damping(18)}
       >
+        <Pressable
+          delayLongPress={280}
+          onLongPress={() => handleLongPressItem(item.id)}
+          onPress={() => {
+            if (isBatchMode) {
+              toggleSelect(item.id);
+            }
+          }}
+          style={({ pressed }) => [
+            styles.card,
+            item.isSuspectedDuplicate && styles.cardDuplicate,
+            isSelected && styles.cardSelected,
+            pressed && { opacity: 0.92 },
+          ]}
+        >
         {item.isSuspectedDuplicate && (
           <View style={styles.duplicateBanner}>
             <View style={styles.duplicateBannerHeader}>
@@ -299,8 +310,8 @@ export default function OverviewScreen() {
               <Text style={styles.deleteBtnText}>Bỏ qua</Text>
             </Pressable>
 
-            <Pressable
-              style={({ pressed }) => [styles.classifyBtn, pressed && { opacity: 0.85 }]}
+            <SpringPressable
+              style={styles.classifyBtn}
               onPress={() =>
                 router.push({
                   pathname: '/modal/classify',
@@ -311,10 +322,11 @@ export default function OverviewScreen() {
             >
               <Ionicons name="checkmark-circle" size={18} color={colors.onPrimary} />
               <Text style={styles.classifyBtnText}>Phân loại ngay</Text>
-            </Pressable>
+            </SpringPressable>
           </View>
         )}
-      </Pressable>
+        </Pressable>
+      </Animated.View>
     );
   };
 
@@ -331,9 +343,7 @@ export default function OverviewScreen() {
         onPress={() => router.push('/(tabs)/transactions')}
         accessibilityRole="button"
       >
-        <View style={[styles.recentIconBox, { backgroundColor: `${catColor}1F` }]}>
-          <Ionicons name={catIcon} size={20} color={catColor} />
-        </View>
+        <ChibiCategoryBadge icon={catIcon} color={catColor} size={42} />
         <View style={styles.recentInfo}>
           <Text style={styles.recentTitle} numberOfLines={1}>
             {tx.note || tx.categoryName}
@@ -379,73 +389,98 @@ export default function OverviewScreen() {
         </View>
       )}
 
-      {/* Hero Balance Card */}
-      <View style={styles.heroCard}>
+      {/* Android Bubble Permission Banner (Android 13+) */}
+      {Platform.OS === 'android' && isPermissionGranted && !isPostNotificationGranted && (
+        <View style={styles.permBanner}>
+          <View style={styles.permIconBox}>
+            <Ionicons name="notifications-outline" size={20} color={colors.primary} />
+          </View>
+          <View style={styles.permTextContainer}>
+            <Text style={styles.permTitle}>Bật Bubble số chờ ngoài icon</Text>
+            <Text style={styles.permSubtitle}>
+              Cho phép thông báo để hiển thị số giao dịch đang chờ ngay ngoài icon ứng dụng
+            </Text>
+          </View>
+          <SpringPressable
+            style={styles.permBtn}
+            onPress={() => requestPostNotificationPermission()}
+            accessibilityRole="button"
+          >
+            <Text style={styles.permBtnText}>Bật ngay</Text>
+          </SpringPressable>
+        </View>
+      )}
+
+      {/* Hero Balance Garden Card */}
+      <GardenBox variant="card" style={{ marginTop: 8, marginBottom: Spacing.md }} contentStyle={styles.heroCard}>
         <View style={styles.heroTopRow}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.heroLabel}>Số dư ròng tháng này</Text>
             <Text style={styles.heroMonthBadge}>{currentMonthLabel}</Text>
           </View>
-          <Pressable
-            style={({ pressed }) => [styles.heroChartBtn, pressed && { opacity: 0.75 }]}
+          <ChibiStrawberry size={62} mood="happy" style={{ marginRight: 6 }} />
+          <SpringPressable
+            style={styles.heroChartBtn}
             onPress={() => router.push('/(tabs)/statistics')}
             hitSlop={TouchTarget.hitSlop}
             accessibilityLabel="Xem thống kê"
           >
             <Ionicons name="bar-chart-outline" size={18} color={colors.heroText} />
-          </Pressable>
+          </SpringPressable>
         </View>
 
-        <Text style={styles.heroAmount} numberOfLines={1} adjustsFontSizeToFit>
-          {monthlyBalance < 0 ? '-' : ''}
-          {formatCurrency(monthlyBalance)}
-        </Text>
+        <AnimatedCurrency
+          value={monthlyBalance}
+          format={formatCurrency}
+          prefix={monthlyBalance < 0 ? '-' : ''}
+          style={styles.heroAmount}
+        />
 
         <View style={styles.heroSplitRow}>
           <View style={styles.heroStatBox}>
             <View style={styles.heroStatHeader}>
-              <View style={[styles.heroDot, { backgroundColor: '#10B981' }]} />
+              <View style={[styles.heroDot, { backgroundColor: colors.income }]} />
               <Text style={styles.heroStatLabel}>Tổng thu</Text>
             </View>
-            <Text style={[styles.heroStatValue, { color: '#34D399' }]} numberOfLines={1}>
-              +{formatCurrency(monthlyIncome)}
-            </Text>
+            <AnimatedCurrency
+              value={monthlyIncome}
+              format={formatCurrency}
+              prefix="+"
+              style={[styles.heroStatValue, { color: colors.income }]}
+            />
           </View>
 
           <View style={styles.heroDivider} />
 
           <View style={styles.heroStatBox}>
             <View style={styles.heroStatHeader}>
-              <View style={[styles.heroDot, { backgroundColor: '#F43F5E' }]} />
+              <View style={[styles.heroDot, { backgroundColor: colors.expense }]} />
               <Text style={styles.heroStatLabel}>Tổng chi</Text>
             </View>
-            <Text style={[styles.heroStatValue, { color: '#FB7185' }]} numberOfLines={1}>
-              -{formatCurrency(monthlyExpense)}
-            </Text>
+            <AnimatedCurrency
+              value={monthlyExpense}
+              format={formatCurrency}
+              prefix="-"
+              style={[styles.heroStatValue, { color: colors.expense }]}
+            />
           </View>
         </View>
-      </View>
+      </GardenBox>
 
       {/* Quick Actions */}
       <View style={styles.quickActionsRow}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.primaryActionBtn,
-            pressed && { opacity: 0.88 },
-          ]}
+        <SpringPressable
+          style={styles.primaryActionBtn}
           onPress={() => router.push('/modal/manual-transaction')}
           accessibilityRole="button"
         >
           <Ionicons name="add-circle" size={20} color={colors.onPrimary} />
           <Text style={styles.primaryActionText}>Thêm giao dịch</Text>
-        </Pressable>
+        </SpringPressable>
 
         {Platform.OS === 'android' ? (
-          <Pressable
-            style={({ pressed }) => [
-              styles.secondaryActionBtn,
-              pressed && { opacity: 0.8 },
-            ]}
+          <SpringPressable
+            style={styles.secondaryActionBtn}
             onPress={() =>
               syncCachedNotifications({ forceRescan: true, showFeedbackToast: true })
             }
@@ -453,19 +488,16 @@ export default function OverviewScreen() {
           >
             <Ionicons name="sync" size={18} color={colors.primary} />
             <Text style={styles.secondaryActionText}>Đồng bộ</Text>
-          </Pressable>
+          </SpringPressable>
         ) : (
-          <Pressable
-            style={({ pressed }) => [
-              styles.secondaryActionBtn,
-              pressed && { opacity: 0.8 },
-            ]}
+          <SpringPressable
+            style={styles.secondaryActionBtn}
             onPress={() => router.push('/(tabs)/transactions')}
             accessibilityRole="button"
           >
             <Ionicons name="receipt-outline" size={18} color={colors.primary} />
             <Text style={styles.secondaryActionText}>Sổ giao dịch</Text>
-          </Pressable>
+          </SpringPressable>
         )}
       </View>
 
@@ -552,23 +584,21 @@ export default function OverviewScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconBox}>
-              <Ionicons name="checkmark-done-circle" size={44} color={colors.income} />
-            </View>
+          <GardenBox variant="minimal" style={{ marginTop: 10 }} contentStyle={styles.emptyContainer}>
+            <ChibiStrawberry size={94} mood="chill" />
             <Text style={styles.emptyTitle}>Hàng chờ đang trống</Text>
             <Text style={styles.emptySubtitle}>
               Thông báo biến động số dư từ ngân hàng hoặc ví điện tử sẽ tự động xuất hiện
               tại đây để bạn phân loại nhanh chóng.
             </Text>
-            <Pressable
-              style={({ pressed }) => [styles.emptyCtaBtn, pressed && { opacity: 0.85 }]}
+            <SpringPressable
+              style={styles.emptyCtaBtn}
               onPress={() => router.push('/modal/manual-transaction')}
             >
               <Ionicons name="add" size={18} color={colors.primary} />
               <Text style={styles.emptyCtaText}>Ghi chép giao dịch mới</Text>
-            </Pressable>
-          </View>
+            </SpringPressable>
+          </GardenBox>
         }
       />
 

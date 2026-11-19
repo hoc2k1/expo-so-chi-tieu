@@ -1,14 +1,15 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../contexts/AppContext';
 import { useTheme } from '../../constants/theme';
+import { AnimatedTabIcon } from '../../components/Motion';
 
 export default function TabLayout() {
   const { pendingTransactions } = useApp();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const pendingCount = pendingTransactions.length;
+  const badgeLabel = pendingCount > 99 ? '99+' : pendingCount > 0 ? pendingCount : undefined;
 
   return (
     <Tabs
@@ -29,7 +30,7 @@ export default function TabLayout() {
           backgroundColor: colors.tabBarBg,
           borderTopWidth: 1,
           borderTopColor: colors.border,
-          height: 60 + insets.bottom,
+          height: 62 + insets.bottom,
           paddingBottom: Math.max(insets.bottom, 8),
           paddingTop: 6,
         },
@@ -47,13 +48,14 @@ export default function TabLayout() {
           title: 'Tổng quan',
           tabBarLabel: 'Tổng quan',
           tabBarIcon: ({ color, focused, size }) => (
-            <Ionicons
+            <AnimatedTabIcon
               name={focused ? 'wallet' : 'wallet-outline'}
               size={size}
-              color={typeof color === 'string' ? color : undefined}
+              color={typeof color === 'string' ? color : colors.primary}
+              focused={focused}
             />
           ),
-          tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
+          tabBarBadge: badgeLabel,
           tabBarBadgeStyle: {
             backgroundColor: colors.expense,
             color: '#FFFFFF',
@@ -68,10 +70,11 @@ export default function TabLayout() {
           title: 'Sổ giao dịch',
           tabBarLabel: 'Giao dịch',
           tabBarIcon: ({ color, focused, size }) => (
-            <Ionicons
+            <AnimatedTabIcon
               name={focused ? 'receipt' : 'receipt-outline'}
               size={size}
-              color={typeof color === 'string' ? color : undefined}
+              color={typeof color === 'string' ? color : colors.primary}
+              focused={focused}
             />
           ),
         }}
@@ -82,10 +85,11 @@ export default function TabLayout() {
           title: 'Thống kê',
           tabBarLabel: 'Thống kê',
           tabBarIcon: ({ color, focused, size }) => (
-            <Ionicons
+            <AnimatedTabIcon
               name={focused ? 'pie-chart' : 'pie-chart-outline'}
               size={size}
-              color={typeof color === 'string' ? color : undefined}
+              color={typeof color === 'string' ? color : colors.primary}
+              focused={focused}
             />
           ),
         }}
@@ -96,10 +100,11 @@ export default function TabLayout() {
           title: 'Phân loại & Ghi chú',
           tabBarLabel: 'Phân loại',
           tabBarIcon: ({ color, focused, size }) => (
-            <Ionicons
+            <AnimatedTabIcon
               name={focused ? 'pricetags' : 'pricetags-outline'}
               size={size}
-              color={typeof color === 'string' ? color : undefined}
+              color={typeof color === 'string' ? color : colors.primary}
+              focused={focused}
             />
           ),
         }}
@@ -110,10 +115,11 @@ export default function TabLayout() {
           title: 'Cài đặt',
           tabBarLabel: 'Cài đặt',
           tabBarIcon: ({ color, focused, size }) => (
-            <Ionicons
+            <AnimatedTabIcon
               name={focused ? 'settings' : 'settings-outline'}
               size={size}
-              color={typeof color === 'string' ? color : undefined}
+              color={typeof color === 'string' ? color : colors.primary}
+              focused={focused}
             />
           ),
         }}

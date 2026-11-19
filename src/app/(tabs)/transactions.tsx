@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useApp } from '../../contexts/AppContext';
 import { Transaction } from '../../models/types';
 import {
@@ -23,6 +24,9 @@ import {
 import { MultiSelectGridModal, MultiSelectOption } from '../../components/MultiSelectGridModal';
 import { DateRangePickerModal } from '../../components/DateRangePickerModal';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import { ChibiStrawberry } from '../../components/ChibiStrawberry';
+import { GardenBox } from '../../components/GardenDecor';
+import { ChibiCategoryBadge, SpringPressable } from '../../components/Motion';
 import { SUPPORTED_APPS } from '../../constants/defaultData';
 import {
   useTheme,
@@ -227,10 +231,10 @@ export default function TransactionsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      {/* Search + Add Row */}
-      <View style={styles.topSearchBarRow}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color={colors.textMuted} />
+      {/* Search + Add Row (Nature UI Garden Input) */}
+      <View style={[styles.topSearchBarRow, { paddingTop: Spacing.md }]}>
+        <GardenBox variant="input" style={{ flex: 1 }} contentStyle={styles.searchBar}>
+          <Ionicons name="search" size={18} color={colors.primary} />
           <TextInput
             style={styles.searchInput}
             placeholder="Tìm ghi chú, danh mục, ngân hàng..."
@@ -250,16 +254,16 @@ export default function TransactionsScreen() {
               <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
             </Pressable>
           )}
-        </View>
+        </GardenBox>
 
-        <Pressable
-          style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.85 }]}
+        <SpringPressable
+          style={styles.addBtn}
           onPress={() => router.push('/modal/manual-transaction')}
           accessibilityRole="button"
         >
           <Ionicons name="add" size={20} color={colors.onPrimary} />
           <Text style={styles.addBtnText}>Thêm</Text>
-        </Pressable>
+        </SpringPressable>
       </View>
 
       {/* Filter Controls */}
@@ -544,21 +548,22 @@ export default function TransactionsScreen() {
             </View>
           </View>
         )}
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const isIncome = item.type === 'income';
           const cat = categoryMap[item.categoryId];
           const catColor = cat?.color || (isIncome ? colors.income : colors.expense);
           const catIcon = (cat?.icon || (isIncome ? 'arrow-down' : 'pricetag')) as any;
 
           return (
-            <View style={styles.txCard}>
+            <Animated.View
+              entering={FadeInDown.delay(Math.min(index, 6) * 35).duration(240)}
+              style={styles.txCard}
+            >
               <Pressable
                 style={({ pressed }) => [styles.txRowMain, pressed && { opacity: 0.78 }]}
                 onPress={() => setDetailModalTx(item)}
               >
-                <View style={[styles.txIconBox, { backgroundColor: `${catColor}1F` }]}>
-                  <Ionicons name={catIcon} size={20} color={catColor} />
-                </View>
+                <ChibiCategoryBadge icon={catIcon} color={catColor} size={42} />
 
                 <View style={styles.txDetails}>
                   <Text style={styles.txCategoryName} numberOfLines={1}>
@@ -620,22 +625,20 @@ export default function TransactionsScreen() {
               >
                 <Ionicons name="trash-outline" size={18} color={colors.textMuted} />
               </Pressable>
-            </View>
+            </Animated.View>
           );
         }}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconBox}>
-              <Ionicons name="receipt-outline" size={44} color={colors.primary} />
-            </View>
+          <GardenBox variant="minimal" style={{ marginTop: 14 }} contentStyle={styles.emptyContainer}>
+            <ChibiStrawberry size={92} mood="curious" />
             <Text style={styles.emptyTitle}>Chưa có giao dịch phù hợp</Text>
             <Text style={styles.emptySubtitle}>
               {hasActiveFilter
                 ? 'Thử thay đổi hoặc xóa bớt bộ lọc để xem thêm giao dịch'
                 : 'Các giao dịch đã phân loại hoặc ghi chép thủ công sẽ hiển thị tại đây'}
             </Text>
-            <Pressable
-              style={({ pressed }) => [styles.emptyCtaBtn, pressed && { opacity: 0.85 }]}
+            <SpringPressable
+              style={styles.emptyCtaBtn}
               onPress={() =>
                 hasActiveFilter
                   ? resetTransactionFilter()
@@ -650,8 +653,8 @@ export default function TransactionsScreen() {
               <Text style={styles.emptyCtaText}>
                 {hasActiveFilter ? 'Đặt lại bộ lọc' : 'Thêm giao dịch mới'}
               </Text>
-            </Pressable>
-          </View>
+            </SpringPressable>
+          </GardenBox>
         }
       />
 
@@ -964,18 +967,14 @@ const createStyles = (colors: ThemeColors) =>
       minHeight: TouchTarget.minSize,
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: colors.surface,
-      paddingHorizontal: Spacing.md,
-      borderRadius: Radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
+      paddingHorizontal: Spacing.base,
       gap: Spacing.sm,
     },
     searchInput: {
       flex: 1,
       color: colors.text,
       fontSize: 14,
-      paddingVertical: 8,
+      paddingVertical: 10,
     },
     addBtn: {
       minHeight: TouchTarget.minSize,
@@ -984,7 +983,7 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: 'center',
       backgroundColor: colors.primary,
       paddingHorizontal: Spacing.base,
-      borderRadius: Radius.md,
+      borderRadius: Radius.pill,
       gap: 4,
     },
     addBtnText: {

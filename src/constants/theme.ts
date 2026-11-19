@@ -1,187 +1,172 @@
 import { Platform, useColorScheme } from 'react-native';
 
 /**
- * Layer 1: Primitive Design Tokens
+ * Layer 1: Primitive Design Tokens — Nature UI Minimalist (Strawberry Garden)
  * Raw palette values — never reference directly in screens/components.
  */
 export const Primitives = {
-  slate: {
-    50: '#F8FAFC',
-    100: '#F1F5F9',
-    200: '#E2E8F0',
-    300: '#CBD5E1',
-    400: '#94A3B8',
-    500: '#64748B',
-    600: '#475569',
-    700: '#334155',
-    800: '#1E293B',
-    900: '#0F172A',
-    950: '#020617',
+  cream: {
+    50: '#FFFFFF',
+    100: '#FAFAF2', // Core Nature UI cream background
+    200: '#F3F6EC', // Soft meadow cream surface
+    300: '#E5EEDB', // Gentle leaf-tinted surface
   },
-  indigo: {
-    50: '#EEF2FF',
-    100: '#E0E7FF',
-    400: '#818CF8',
-    500: '#6366F1',
-    600: '#4F46E5',
-    700: '#4338CA',
-    900: '#1E1B4B',
+  leaf: {
+    100: '#EAF4DF',
+    200: '#D4E7BE',
+    300: '#A8CC83', // Core Nature UI light green border
+    400: '#8AB963',
+    500: '#6FA34B',
+    600: '#588B3A',
+    700: '#426B2B',
   },
-  emerald: {
-    50: '#ECFDF5',
-    100: '#D1FAE5',
-    400: '#34D399',
-    500: '#10B981',
-    600: '#059669',
-    950: '#022C22',
+  moss: {
+    950: '#151A15', // Dark mode serene forest background
+    900: '#1D241D', // Dark mode surface
+    850: '#242E24', // Dark mode secondary surface
+    800: '#2B372B', // Dark mode elevated
+    700: '#2E3B2B', // Light mode primary text (deep earthy moss)
+    500: '#5D6E59', // Light mode secondary text
+    400: '#869682', // Muted text
+    300: '#BAC7B5', // Dark mode secondary text
+    100: '#F4F6EC', // Dark mode primary text (warm cream)
   },
-  rose: {
-    50: '#FFF1F2',
-    100: '#FFE4E6',
-    400: '#FB7185',
-    500: '#F43F5E',
-    600: '#E11D48',
-    950: '#4C0519',
+  berry: {
+    100: '#FFE9EC',
+    400: '#F28B99',
+    500: '#E46A7A',
+    600: '#D45466',
   },
-  amber: {
-    50: '#FFFBEB',
-    400: '#FBBF24',
-    500: '#F59E0B',
-    600: '#D97706',
-    950: '#451A03',
+  honey: {
+    100: '#FFF6DE',
+    400: '#F5C469',
+    600: '#C98924',
   },
   sky: {
-    400: '#38BDF8',
-    500: '#0EA5E9',
-    600: '#0284C7',
-  },
-  oled: {
-    bg: '#090D16',
-    surface: '#111827',
-    surfaceSecondary: '#1A2234',
-    surfaceElevated: '#1E293B',
-    heroBg: '#131C31',
+    100: '#E8F4FA',
+    400: '#87C1E5',
+    600: '#4287B5',
   },
   white: '#FFFFFF',
   black: '#000000',
 } as const;
 
 /**
- * Layer 2: Semantic Theme Tokens (Light & OLED-friendly Dark Mode)
- * Designed for Personal Finance / Fintech clarity and >=4.5:1 contrast.
+ * Layer 2: Semantic Theme Tokens (Nature UI Minimalist — Light & Dark)
+ * Cream #FAFAF2 + Light Leaf Border #A8CC83 + Gentle Green Shadow.
  */
 export const Colors = {
   light: {
     // Surfaces & Backgrounds
-    background: Primitives.slate[50],
-    surface: Primitives.white,
-    surfaceSecondary: Primitives.slate[100],
-    surfaceElevated: Primitives.white,
-    backgroundElement: Primitives.slate[100],
-    backgroundSelected: Primitives.slate[200],
+    background: Primitives.cream[100],
+    surface: Primitives.cream[50],
+    surfaceSecondary: Primitives.cream[200],
+    surfaceElevated: Primitives.cream[50],
+    backgroundElement: Primitives.cream[200],
+    backgroundSelected: Primitives.cream[300],
 
-    // Hero Card (Trust Navy / Deep Slate)
-    heroBackground: Primitives.slate[800],
-    heroSurface: 'rgba(255, 255, 255, 0.08)',
-    heroText: Primitives.slate[50],
-    heroTextMuted: Primitives.slate[300],
-    heroBorder: 'rgba(255, 255, 255, 0.14)',
+    // Hero Card (Minimalist Garden Cream with Leaf Border)
+    heroBackground: '#F4F9EC',
+    heroSurface: 'rgba(168, 204, 131, 0.16)',
+    heroText: Primitives.moss[700],
+    heroTextMuted: Primitives.moss[500],
+    heroBorder: Primitives.leaf[300],
 
-    // Text
-    text: Primitives.slate[900],
-    textSecondary: Primitives.slate[600],
-    textMuted: Primitives.slate[500],
+    // Text (Earthy Moss — gentle & high contrast)
+    text: Primitives.moss[700],
+    textSecondary: Primitives.moss[500],
+    textMuted: Primitives.moss[400],
     textInverse: Primitives.white,
 
     // Borders & Dividers
-    border: Primitives.slate[200],
-    borderStrong: Primitives.slate[300],
-    divider: Primitives.slate[100],
+    border: '#DCE9CD',
+    borderStrong: Primitives.leaf[300],
+    divider: '#ECF3E3',
 
-    // Brand / Primary
-    primary: Primitives.indigo[600],
-    primarySoft: 'rgba(79, 70, 229, 0.10)',
-    primaryBorder: 'rgba(79, 70, 229, 0.24)',
+    // Brand / Primary (Fresh Garden Leaf)
+    primary: Primitives.leaf[500],
+    primarySoft: 'rgba(111, 163, 75, 0.12)',
+    primaryBorder: 'rgba(168, 204, 131, 0.55)',
     onPrimary: Primitives.white,
 
     // Semantic Fintech Status
-    income: Primitives.emerald[600],
-    incomeSoft: 'rgba(5, 150, 105, 0.10)',
-    incomeBorder: 'rgba(5, 150, 105, 0.24)',
+    income: Primitives.leaf[600],
+    incomeSoft: 'rgba(88, 139, 58, 0.12)',
+    incomeBorder: 'rgba(168, 204, 131, 0.45)',
 
-    expense: Primitives.rose[600],
-    expenseSoft: 'rgba(225, 29, 72, 0.10)',
-    expenseBorder: 'rgba(225, 29, 72, 0.24)',
+    expense: Primitives.berry[600],
+    expenseSoft: 'rgba(212, 84, 102, 0.11)',
+    expenseBorder: 'rgba(212, 84, 102, 0.28)',
 
-    warning: Primitives.amber[600],
-    warningSoft: 'rgba(217, 119, 6, 0.12)',
-    warningBorder: 'rgba(217, 119, 6, 0.28)',
+    warning: Primitives.honey[600],
+    warningSoft: 'rgba(201, 137, 36, 0.12)',
+    warningBorder: 'rgba(201, 137, 36, 0.28)',
 
     info: Primitives.sky[600],
-    infoSoft: 'rgba(2, 132, 199, 0.10)',
-    infoBorder: 'rgba(2, 132, 199, 0.24)',
+    infoSoft: 'rgba(66, 135, 181, 0.11)',
+    infoBorder: 'rgba(66, 135, 181, 0.26)',
 
     // Overlays & Controls
-    scrim: 'rgba(15, 23, 42, 0.55)',
-    tabBarBg: Primitives.white,
-    tabBarInactive: Primitives.slate[500],
-    switchTrackOff: Primitives.slate[300],
+    scrim: 'rgba(30, 42, 28, 0.42)',
+    tabBarBg: Primitives.cream[50],
+    tabBarInactive: Primitives.moss[400],
+    switchTrackOff: '#D7E2CC',
   },
   dark: {
-    // Surfaces & Backgrounds (OLED-friendly Deep Slate)
-    background: Primitives.oled.bg,
-    surface: Primitives.oled.surface,
-    surfaceSecondary: Primitives.oled.surfaceSecondary,
-    surfaceElevated: Primitives.oled.surfaceElevated,
-    backgroundElement: Primitives.oled.surfaceSecondary,
-    backgroundSelected: Primitives.slate[700],
+    // Surfaces & Backgrounds (Serene Night Garden — gentle on the eyes)
+    background: Primitives.moss[950],
+    surface: Primitives.moss[900],
+    surfaceSecondary: Primitives.moss[850],
+    surfaceElevated: Primitives.moss[800],
+    backgroundElement: Primitives.moss[850],
+    backgroundSelected: '#314031',
 
-    // Hero Card
-    heroBackground: Primitives.oled.heroBg,
-    heroSurface: 'rgba(255, 255, 255, 0.06)',
-    heroText: Primitives.slate[50],
-    heroTextMuted: Primitives.slate[400],
-    heroBorder: 'rgba(148, 163, 184, 0.18)',
+    // Hero Card (Night Meadow)
+    heroBackground: '#202B20',
+    heroSurface: 'rgba(168, 204, 131, 0.12)',
+    heroText: Primitives.moss[100],
+    heroTextMuted: Primitives.moss[300],
+    heroBorder: 'rgba(168, 204, 131, 0.36)',
 
-    // Text
-    text: Primitives.slate[50],
-    textSecondary: Primitives.slate[400],
-    textMuted: Primitives.slate[500],
-    textInverse: Primitives.slate[900],
+    // Text (Warm Cream)
+    text: Primitives.moss[100],
+    textSecondary: Primitives.moss[300],
+    textMuted: Primitives.moss[400],
+    textInverse: Primitives.moss[950],
 
-    // Borders & Dividers (subtle)
-    border: 'rgba(148, 163, 184, 0.14)',
-    borderStrong: 'rgba(148, 163, 184, 0.26)',
-    divider: 'rgba(148, 163, 184, 0.10)',
+    // Borders & Dividers
+    border: 'rgba(168, 204, 131, 0.18)',
+    borderStrong: 'rgba(168, 204, 131, 0.42)',
+    divider: 'rgba(168, 204, 131, 0.10)',
 
-    // Brand / Primary
-    primary: Primitives.indigo[500],
-    primarySoft: 'rgba(99, 102, 241, 0.16)',
-    primaryBorder: 'rgba(99, 102, 241, 0.32)',
-    onPrimary: Primitives.white,
+    // Brand / Primary (Soft Sprout Green)
+    primary: Primitives.leaf[300],
+    primarySoft: 'rgba(168, 204, 131, 0.16)',
+    primaryBorder: 'rgba(168, 204, 131, 0.38)',
+    onPrimary: Primitives.moss[950],
 
     // Semantic Fintech Status
-    income: Primitives.emerald[500],
-    incomeSoft: 'rgba(16, 185, 129, 0.15)',
-    incomeBorder: 'rgba(16, 185, 129, 0.30)',
+    income: '#8FD07C',
+    incomeSoft: 'rgba(143, 208, 124, 0.15)',
+    incomeBorder: 'rgba(143, 208, 124, 0.32)',
 
-    expense: Primitives.rose[500],
-    expenseSoft: 'rgba(244, 63, 94, 0.15)',
-    expenseBorder: 'rgba(244, 63, 94, 0.30)',
+    expense: Primitives.berry[400],
+    expenseSoft: 'rgba(242, 139, 153, 0.15)',
+    expenseBorder: 'rgba(242, 139, 153, 0.30)',
 
-    warning: Primitives.amber[500],
-    warningSoft: 'rgba(245, 158, 11, 0.15)',
-    warningBorder: 'rgba(245, 158, 11, 0.32)',
+    warning: Primitives.honey[400],
+    warningSoft: 'rgba(245, 196, 105, 0.15)',
+    warningBorder: 'rgba(245, 196, 105, 0.32)',
 
     info: Primitives.sky[400],
-    infoSoft: 'rgba(56, 189, 248, 0.14)',
-    infoBorder: 'rgba(56, 189, 248, 0.28)',
+    infoSoft: 'rgba(135, 193, 229, 0.14)',
+    infoBorder: 'rgba(135, 193, 229, 0.28)',
 
     // Overlays & Controls
-    scrim: 'rgba(2, 6, 23, 0.78)',
-    tabBarBg: Primitives.oled.bg,
-    tabBarInactive: Primitives.slate[500],
-    switchTrackOff: Primitives.slate[700],
+    scrim: 'rgba(10, 14, 10, 0.76)',
+    tabBarBg: Primitives.moss[900],
+    tabBarInactive: Primitives.moss[400],
+    switchTrackOff: '#364436',
   },
 } as const;
 
@@ -232,14 +217,14 @@ export const Spacing = {
 } as const;
 
 /**
- * Border Radius Scale (Cards: 16px - 20px)
+ * Nature UI Minimalist Radius Scale (24–30px for main cards & inputs)
  */
 export const Radius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  xxl: 24,
+  sm: 12,
+  md: 16,
+  lg: 22,
+  xl: 26,
+  xxl: 30,
   pill: 9999,
 } as const;
 
@@ -314,14 +299,14 @@ export const TouchTarget = {
 } as const;
 
 /**
- * Elevation / Shadow Presets
+ * Soft Leaf-Green Tinted Shadows (Nature UI Minimalist)
  */
 export const Shadows = {
   card: Platform.select({
     ios: {
-      shadowColor: '#0F172A',
+      shadowColor: '#7DA862',
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.06,
+      shadowOpacity: 0.1,
       shadowRadius: 12,
     },
     android: {
@@ -331,13 +316,13 @@ export const Shadows = {
   }),
   hero: Platform.select({
     ios: {
-      shadowColor: '#0F172A',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.18,
+      shadowColor: '#7DA862',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.14,
       shadowRadius: 16,
     },
     android: {
-      elevation: 6,
+      elevation: 3,
     },
     default: {},
   }),
@@ -351,7 +336,7 @@ export const MaxContentWidth = 800;
  */
 export function useTheme() {
   const scheme = useColorScheme();
-  const isDark = scheme !== 'light';
+  const isDark = scheme === 'dark';
   const colors = isDark ? Colors.dark : Colors.light;
   return {
     colorScheme: isDark ? ('dark' as const) : ('light' as const),

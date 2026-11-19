@@ -229,10 +229,14 @@ function parseSingleTextBlock(
   let amount = 0;
   let type: TransactionType = 'expense';
 
-  // Priority 6.1: Explicitly signed amount with currency unit (e.g., +50,000 VND, -120.000đ, -50.000₫)
-  const signedWithCurrencyMatch = maskedText.match(
-    /([+-])\s*([0-9]{1,3}(?:[.,][0-9]{3})+(?:[.,][0-9]{1,2})?|[0-9]{4,})\s*(?:vnd|vnđ|đ|₫|d\b)/i
-  );
+  // Priority 6.1: Explicitly signed amount with currency unit (e.g., +50,000 VND, -120.000đ, VND -50,000)
+  const signedWithCurrencyMatch =
+    maskedText.match(
+      /([+-])\s*([0-9]{1,3}(?:[.,][0-9]{3})+(?:[.,][0-9]{1,2})?|[0-9]{4,})\s*(?:vnd|vnđ|đ|₫|d\b)/i
+    ) ||
+    maskedText.match(
+      /(?:vnd|vnđ|₫)\s*([+-])\s*([0-9]{1,3}(?:[.,][0-9]{3})+(?:[.,][0-9]{1,2})?|[0-9]{4,})/i
+    );
 
   // Priority 6.2: Explicitly signed amount with thousand separators (e.g., +50,000 or -120.000) or after GD/PS/Số tiền
   const signedFormattedMatch =
@@ -257,14 +261,14 @@ function parseSingleTextBlock(
       );
     const isIncome = hasIncomeKeyword && !hasExpenseKeyword;
 
-    // Priority 6.3: Amount followed by currency unit (VND, VNĐ, đ, ₫, d)
+    // Priority 6.3: Amount followed OR preceded by currency unit (50,000 VND, 50.000đ, VND 50,000)
     const amountWithCurrencyRegex =
-      /([0-9]{1,3}(?:[.,][0-9]{3})+(?:[.,][0-9]{1,2})?|[0-9]{4,})\s*(?:vnd|vnđ|đ|₫|d\b)/gi;
+      /(?:([0-9]{1,3}(?:[.,][0-9]{3})+(?:[.,][0-9]{1,2})?|[0-9]{4,})\s*(?:vnd|vnđ|đ|₫|d\b)|(?:vnd|vnđ|₫)\s*([0-9]{1,3}(?:[.,][0-9]{3})+(?:[.,][0-9]{1,2})?|[0-9]{4,}))/gi;
     let match: RegExpExecArray | null;
     const candidates: number[] = [];
 
     while ((match = amountWithCurrencyRegex.exec(maskedText)) !== null) {
-      const val = cleanNumber(match[1]);
+      const val = cleanNumber(match[1] || match[2]);
       if (val >= 1000 && (!balanceAfter || val !== balanceAfter)) {
         candidates.push(val);
       }

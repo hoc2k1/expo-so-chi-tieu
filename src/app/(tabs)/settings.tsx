@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -39,8 +40,11 @@ export default function SettingsScreen() {
     refreshAllData,
     isPermissionGranted,
     isBatteryOptimizationIgnored,
+    isPostNotificationGranted,
+    isServiceConnected,
     requestPermission,
     requestIgnoreBatteryOptimization,
+    requestPostNotificationPermission,
     showToast,
   } = useApp();
 
@@ -243,7 +247,7 @@ export default function SettingsScreen() {
                 )}
               </View>
 
-              <View style={[styles.row, styles.rowLast]}>
+              <View style={styles.row}>
                 <View
                   style={[
                     styles.rowIconBox,
@@ -280,6 +284,62 @@ export default function SettingsScreen() {
                   </Pressable>
                 )}
               </View>
+
+              <View style={styles.row}>
+                <View
+                  style={[
+                    styles.rowIconBox,
+                    {
+                      backgroundColor: isPostNotificationGranted
+                        ? colors.incomeSoft
+                        : colors.warningSoft,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={isPostNotificationGranted ? 'notifications' : 'notifications-off-outline'}
+                    size={20}
+                    color={isPostNotificationGranted ? colors.income : colors.warning}
+                  />
+                </View>
+                <View style={styles.rowTexts}>
+                  <Text style={styles.rowTitle}>Bubble số chờ ngoài icon app</Text>
+                  <Text style={styles.rowSubtitle}>
+                    {isPostNotificationGranted
+                      ? 'Đã cấp quyền thông báo (hiện số giao dịch chờ, tối đa 99+)'
+                      : 'Cần cấp quyền để hiện số lượng thông báo chờ ngoài biểu tượng'}
+                  </Text>
+                </View>
+                {!isPostNotificationGranted && (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.grantBtn,
+                      pressed && { opacity: 0.85 },
+                    ]}
+                    onPress={() => requestPostNotificationPermission()}
+                  >
+                    <Text style={styles.grantBtnText}>Bật ngay</Text>
+                  </Pressable>
+                )}
+              </View>
+
+              <Pressable
+                style={({ pressed }) => [styles.row, styles.rowLast, pressed && { opacity: 0.78 }]}
+                onPress={() => router.push('/modal/notification-logs')}
+              >
+                <View style={[styles.rowIconBox, { backgroundColor: colors.infoSoft }]}>
+                  <Ionicons name="bug-outline" size={20} color={colors.info} />
+                </View>
+                <View style={styles.rowTexts}>
+                  <Text style={styles.rowTitle}>Nhật ký kiểm tra thông báo</Text>
+                  <Text style={styles.rowSubtitle}>
+                    {isServiceConnected
+                      ? 'Dịch vụ đang kết nối • Xem chi tiết thông báo nhận / bị bỏ qua'
+                      : 'Chạm để kiểm tra lý do rớt thông báo & kết nối lại dịch vụ'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+              </Pressable>
             </View>
           </View>
         )}
