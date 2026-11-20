@@ -113,60 +113,60 @@ export const Colors = {
     switchTrackOff: '#D7E2CC',
   },
   dark: {
-    // Surfaces & Backgrounds (Serene Night Garden — gentle on the eyes)
-    background: Primitives.moss[950],
-    surface: Primitives.moss[900],
-    surfaceSecondary: Primitives.moss[850],
-    surfaceElevated: Primitives.moss[800],
-    backgroundElement: Primitives.moss[850],
-    backgroundSelected: '#314031',
+    // Surfaces & Backgrounds (Crisp Deep Forest — high contrast & clear elevation)
+    background: '#0E1210',
+    surface: '#171E1A',
+    surfaceSecondary: '#1F2924',
+    surfaceElevated: '#27342D',
+    backgroundElement: '#1F2924',
+    backgroundSelected: '#243A2C',
 
-    // Hero Card (Night Meadow)
-    heroBackground: '#202B20',
-    heroSurface: 'rgba(168, 204, 131, 0.12)',
-    heroText: Primitives.moss[100],
-    heroTextMuted: Primitives.moss[300],
-    heroBorder: 'rgba(168, 204, 131, 0.36)',
+    // Hero Card (Deep Emerald Garden)
+    heroBackground: '#16241C',
+    heroSurface: 'rgba(108, 208, 112, 0.14)',
+    heroText: '#F3F7F4',
+    heroTextMuted: '#A8B9AE',
+    heroBorder: '#3A6648',
 
-    // Text (Warm Cream)
-    text: Primitives.moss[100],
-    textSecondary: Primitives.moss[300],
-    textMuted: Primitives.moss[400],
-    textInverse: Primitives.moss[950],
+    // Text (Crisp Off-White & Balanced Cool-Moss Neutrals)
+    text: '#F3F7F4',
+    textSecondary: '#B2C2B7',
+    textMuted: '#7E9285',
+    textInverse: '#0C120E',
 
-    // Borders & Dividers
-    border: 'rgba(168, 204, 131, 0.18)',
-    borderStrong: 'rgba(168, 204, 131, 0.42)',
-    divider: 'rgba(168, 204, 131, 0.10)',
+    // Borders & Dividers (Clearly Defined)
+    border: '#2A3830',
+    borderStrong: '#3E5948',
+    divider: '#222E27',
 
-    // Brand / Primary (Soft Sprout Green)
-    primary: Primitives.leaf[300],
-    primarySoft: 'rgba(168, 204, 131, 0.16)',
-    primaryBorder: 'rgba(168, 204, 131, 0.38)',
-    onPrimary: Primitives.moss[950],
+    // Brand / Primary (Vibrant Fresh Leaf Green)
+    primary: '#6CD070',
+    primarySoft: 'rgba(108, 208, 112, 0.16)',
+    primaryBorder: 'rgba(108, 208, 112, 0.45)',
+    onPrimary: '#0B140D',
 
-    // Semantic Fintech Status
-    income: '#8FD07C',
-    incomeSoft: 'rgba(143, 208, 124, 0.15)',
-    incomeBorder: 'rgba(143, 208, 124, 0.32)',
+    // Semantic Fintech Status (Crisp, Vivid & Legible)
+    income: '#4ADE80',
+    incomeSoft: 'rgba(74, 222, 128, 0.16)',
+    incomeBorder: 'rgba(74, 222, 128, 0.38)',
 
-    expense: Primitives.berry[400],
-    expenseSoft: 'rgba(242, 139, 153, 0.15)',
-    expenseBorder: 'rgba(242, 139, 153, 0.30)',
+    expense: '#FB7185',
+    expenseSoft: 'rgba(251, 113, 133, 0.16)',
+    expenseBorder: 'rgba(251, 113, 133, 0.38)',
 
-    warning: Primitives.honey[400],
-    warningSoft: 'rgba(245, 196, 105, 0.15)',
-    warningBorder: 'rgba(245, 196, 105, 0.32)',
+    warning: '#FBBF24',
+    warningSoft: 'rgba(251, 191, 36, 0.16)',
+    warningBorder: 'rgba(251, 191, 36, 0.38)',
 
-    info: Primitives.sky[400],
-    infoSoft: 'rgba(135, 193, 229, 0.14)',
-    infoBorder: 'rgba(135, 193, 229, 0.28)',
+    info: '#38BDF8',
+    infoSoft: 'rgba(56, 189, 248, 0.16)',
+    infoBorder: 'rgba(56, 189, 248, 0.38)',
 
     // Overlays & Controls
-    scrim: 'rgba(10, 14, 10, 0.76)',
-    tabBarBg: Primitives.moss[900],
-    tabBarInactive: Primitives.moss[400],
-    switchTrackOff: '#364436',
+    scrim: 'rgba(4, 8, 6, 0.78)',
+    tabBarBg: '#141A16',
+    tabBarInactive: '#7E9285',
+    switchTrackOff: '#2E3D34',
   },
 } as const;
 

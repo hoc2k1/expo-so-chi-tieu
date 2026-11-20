@@ -483,7 +483,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           if (options?.forceRescan) {
             processedRawIdsRef.current.clear();
-            NotificationListener.forceScanStatusBar();
+            const scannedImmediately = NotificationListener.forceScanStatusBar();
+            if (!scannedImmediately) {
+              // Service was disconnected and is rebinding asynchronously — wait briefly and retry once
+              await new Promise((resolve) => setTimeout(resolve, 1200));
+              NotificationListener.forceScanStatusBar();
+              setIsServiceConnected(NotificationListener.isServiceConnected());
+            }
           }
 
           const cached = NotificationListener.getCachedNotifications();
@@ -616,6 +622,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (Platform.OS === 'android') {
           NotificationListener.setEnabledPackages(appSettings.enabledPackages);
+          NotificationListener.ensureServiceConnected();
           setIsPostNotificationGranted(NotificationListener.isPostNotificationGranted());
           setIsServiceConnected(NotificationListener.isServiceConnected());
         }

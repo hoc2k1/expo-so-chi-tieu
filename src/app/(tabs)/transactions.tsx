@@ -25,7 +25,7 @@ import { MultiSelectGridModal, MultiSelectOption } from '../../components/MultiS
 import { DateRangePickerModal } from '../../components/DateRangePickerModal';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { ChibiStrawberry } from '../../components/ChibiStrawberry';
-import { GardenBox } from '../../components/GardenDecor';
+import { GardenBox, GardenSprouts } from '../../components/GardenDecor';
 import { ChibiCategoryBadge, SpringPressable } from '../../components/Motion';
 import { SUPPORTED_APPS } from '../../constants/defaultData';
 import {
@@ -261,6 +261,7 @@ export default function TransactionsScreen() {
           onPress={() => router.push('/modal/manual-transaction')}
           accessibilityRole="button"
         >
+          <GardenSprouts variant="chip" align="right" />
           <Ionicons name="add" size={20} color={colors.onPrimary} />
           <Text style={styles.addBtnText}>Thêm</Text>
         </SpringPressable>
@@ -270,6 +271,7 @@ export default function TransactionsScreen() {
       <View style={styles.filterGroup}>
         {/* Row 1: Type Segmented Filter */}
         <View style={styles.typeFilterRow}>
+          <GardenSprouts variant="chip" align="left" />
           <Pressable
             style={[
               styles.filterChip,
@@ -336,6 +338,7 @@ export default function TransactionsScreen() {
 
         {/* Row 2: Time Range Selector */}
         <View style={styles.timeRangeBar}>
+          <GardenSprouts variant="chip" align="right" />
           {(['today', 'week', 'month', 'year', 'custom'] as const).map((t) => {
             const labels: Record<string, string> = {
               today: 'Hôm nay',
@@ -379,6 +382,7 @@ export default function TransactionsScreen() {
             ]}
             onPress={() => setShowBankModal(true)}
           >
+            <GardenSprouts variant="chip" align="left" />
             <Ionicons
               name="business-outline"
               size={14}
@@ -410,6 +414,7 @@ export default function TransactionsScreen() {
             ]}
             onPress={() => setShowCategoryModal(true)}
           >
+            <GardenSprouts variant="chip" align="right" />
             <Ionicons
               name="pricetag-outline"
               size={14}
@@ -723,6 +728,7 @@ export default function TransactionsScreen() {
         >
           <View style={styles.modalOverlay}>
             <View style={styles.detailCard}>
+              <GardenSprouts variant="modal" />
               <View style={styles.detailHeader}>
                 <Text style={styles.detailTitle}>
                   {isEditingTx ? 'Chỉnh sửa giao dịch' : 'Chi tiết giao dịch'}

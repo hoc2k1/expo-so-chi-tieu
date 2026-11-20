@@ -13,8 +13,11 @@ import { Category, TransactionType } from '../../models/types';
 import { CategoryNoteFormModal } from '../../components/CategoryNoteFormModal';
 import { DraggableReorderList } from '../../components/DraggableReorderList';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import { useTheme, ThemeColors } from '../../constants/theme';
 
 export default function CategoryEditModal() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const {
     categories,
     addCategory,
@@ -134,7 +137,7 @@ export default function CategoryEditModal() {
           </View>
 
           <TouchableOpacity style={styles.addBtn} onPress={handleOpenAdd}>
-            <Ionicons name="add" size={18} color="#0F172A" />
+            <Ionicons name="add" size={18} color={colors.onPrimary} />
             <Text style={styles.addBtnText}>Thêm</Text>
           </TouchableOpacity>
         </View>
@@ -165,14 +168,14 @@ export default function CategoryEditModal() {
                     style={styles.actionIconBtn}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Ionicons name="create-outline" size={18} color="#38BDF8" />
+                    <Ionicons name="create-outline" size={18} color={colors.info} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => handleDelete(cat)}
                     style={styles.actionIconBtn}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                    <Ionicons name="trash-outline" size={18} color={colors.expense} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -210,111 +213,114 @@ export default function CategoryEditModal() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 14,
-  },
-  typeSwitcher: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: '#1E293B',
-    borderRadius: 10,
-    padding: 4,
-    gap: 6,
-  },
-  typeBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  typeBtnActiveExpense: {
-    backgroundColor: '#EF4444',
-  },
-  typeBtnActiveIncome: {
-    backgroundColor: '#10B981',
-  },
-  typeText: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  typeTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#10B981',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    gap: 4,
-  },
-  addBtnText: {
-    color: '#0F172A',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  section: {
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    color: '#F8FAFC',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  dragHint: {
-    color: '#64748B',
-    fontSize: 11,
-  },
-  catInner: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  catIconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  catName: {
-    flex: 1,
-    color: '#F8FAFC',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  rowActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  actionIconBtn: {
-    padding: 4,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      padding: 16,
+      paddingBottom: 40,
+    },
+    topRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 14,
+    },
+    typeSwitcher: {
+      flex: 1,
+      flexDirection: 'row',
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 4,
+      gap: 6,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    typeBtn: {
+      flex: 1,
+      paddingVertical: 8,
+      alignItems: 'center',
+      borderRadius: 8,
+    },
+    typeBtnActiveExpense: {
+      backgroundColor: colors.expense,
+    },
+    typeBtnActiveIncome: {
+      backgroundColor: colors.income,
+    },
+    typeText: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    typeTextActive: {
+      color: colors.onPrimary,
+      fontWeight: '700',
+    },
+    addBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.primary,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 12,
+      gap: 4,
+    },
+    addBtnText: {
+      color: colors.onPrimary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    section: {
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    sectionTitle: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    dragHint: {
+      color: colors.textMuted,
+      fontSize: 11,
+    },
+    catInner: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    catIconBox: {
+      width: 34,
+      height: 34,
+      borderRadius: 8,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 10,
+    },
+    catName: {
+      flex: 1,
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    rowActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    actionIconBtn: {
+      padding: 4,
+    },
+  });

@@ -15,8 +15,12 @@ import {
   KeyboardAwareScrollView,
   KeyboardAwareScrollViewRef,
 } from '../../components/KeyboardAwareScrollView';
+import { useTheme, ThemeColors } from '../../constants/theme';
+import { GardenSprouts } from '../../components/GardenDecor';
 
 export default function ClassifyModal() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
   const params = useLocalSearchParams<{
     pendingId?: string;
@@ -149,7 +153,7 @@ export default function ClassifyModal() {
         {/* Header Info */}
         {isBatch ? (
           <View style={styles.batchInfoBanner}>
-            <Ionicons name="layers" size={20} color="#A78BFA" />
+            <Ionicons name="layers" size={20} color={colors.primary} />
             <Text style={styles.batchInfoText}>
               Đang phân loại chung cho {batchIdList.length} giao dịch ({isIncome ? 'Thu nhập +' : 'Chi tiêu -'})
             </Text>
@@ -204,7 +208,7 @@ export default function ClassifyModal() {
                 value={amountStr}
                 onChangeText={setAmountStr}
                 placeholder="Nhập số tiền..."
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
               />
               <Text style={styles.currencySuffix}>VND</Text>
             </View>
@@ -239,7 +243,7 @@ export default function ClassifyModal() {
                   <Text
                     style={[
                       styles.catItemName,
-                      isSelected && { color: '#FFFFFF', fontWeight: '700' },
+                      isSelected && { color: colors.text, fontWeight: '700' },
                     ]}
                   >
                     {cat.name}
@@ -255,7 +259,7 @@ export default function ClassifyModal() {
             <TextInput
               style={styles.textInput}
               placeholder="VD: Nuôi thú cưng, Sửa nhà..."
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.textMuted}
               value={customCatName}
               onChangeText={(val) => {
                 setCustomCatName(val);
@@ -272,7 +276,7 @@ export default function ClassifyModal() {
                 <Ionicons
                   name={saveCustomCat ? 'checkbox' : 'square-outline'}
                   size={18}
-                  color={saveCustomCat ? '#10B981' : '#64748B'}
+                  color={saveCustomCat ? colors.primary : colors.textMuted}
                 />
                 <Text style={styles.checkboxLabel}>
                   Lưu vào danh sách mẫu để lần sau chọn nhanh
@@ -313,7 +317,7 @@ export default function ClassifyModal() {
           <TextInput
             style={styles.textInput}
             placeholder="Nhập hoặc chọn ghi chú..."
-            placeholderTextColor="#64748B"
+            placeholderTextColor={colors.textMuted}
             value={noteText}
             onChangeText={setNoteText}
             onFocus={() =>
@@ -329,7 +333,7 @@ export default function ClassifyModal() {
               <Ionicons
                 name={saveCustomNote ? 'checkbox' : 'square-outline'}
                 size={18}
-                color={saveCustomNote ? '#10B981' : '#64748B'}
+                color={saveCustomNote ? colors.primary : colors.textMuted}
               />
               <Text style={styles.checkboxLabel}>
                 Lưu ghi chú này vào mẫu cho lần sau
@@ -340,7 +344,8 @@ export default function ClassifyModal() {
 
         {/* Save Button */}
         <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-          <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+          <GardenSprouts variant="chip" align="both" />
+          <Ionicons name="checkmark-circle" size={20} color={colors.onPrimary} />
           <Text style={styles.saveBtnText}>
             {isBatch
               ? `Xác nhận phân loại ${batchIdList.length} giao dịch`
@@ -352,210 +357,211 @@ export default function ClassifyModal() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  batchInfoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#8B5CF625',
-    borderWidth: 1,
-    borderColor: '#8B5CF660',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
-    gap: 8,
-  },
-  batchInfoText: {
-    color: '#DDD6FE',
-    fontSize: 13,
-    fontWeight: '700',
-    flex: 1,
-  },
-  txSourceBox: {
-    backgroundColor: '#1E293B',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  txSourceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  txSourceTitle: {
-    color: '#38BDF8',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  detectedTypeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  detectedBadgeIncome: {
-    backgroundColor: '#10B98120',
-  },
-  detectedBadgeExpense: {
-    backgroundColor: '#EF444420',
-  },
-  detectedTypeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  detectedTextIncome: {
-    color: '#10B981',
-  },
-  detectedTextExpense: {
-    color: '#EF4444',
-  },
-  txSourceRaw: {
-    color: '#94A3B8',
-    fontSize: 11,
-    lineHeight: 16,
-  },
-  section: {
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  label: {
-    color: '#F8FAFC',
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 10,
-  },
-  subLabel: {
-    color: '#94A3B8',
-    fontSize: 11,
-    marginBottom: 6,
-  },
-  amountInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0F172A',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  signPrefix: {
-    fontSize: 20,
-    fontWeight: '800',
-    marginRight: 6,
-  },
-  amountInput: {
-    flex: 1,
-    fontSize: 20,
-    fontWeight: '800',
-    paddingVertical: 10,
-  },
-  currencySuffix: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  catGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
-  },
-  catItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    backgroundColor: '#0F172A',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
-    gap: 6,
-  },
-  catItemName: {
-    color: '#CBD5E1',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  customCatBox: {
-    borderTopWidth: 1,
-    borderTopColor: '#334155',
-    paddingTop: 10,
-  },
-  textInput: {
-    backgroundColor: '#0F172A',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: '#F8FAFC',
-    fontSize: 13,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    gap: 6,
-  },
-  checkboxLabel: {
-    color: '#94A3B8',
-    fontSize: 11,
-  },
-  notePills: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 10,
-  },
-  notePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  notePillActive: {
-    backgroundColor: '#10B981',
-    borderColor: '#10B981',
-  },
-  notePillText: {
-    color: '#94A3B8',
-    fontSize: 11,
-  },
-  notePillTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  saveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#10B981',
-    borderRadius: 12,
-    paddingVertical: 14,
-    gap: 8,
-    marginTop: 8,
-  },
-  saveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    content: {
+      padding: 16,
+      paddingBottom: 40,
+    },
+    batchInfoBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.primarySoft,
+      borderWidth: 1,
+      borderColor: colors.primaryBorder,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 16,
+      gap: 8,
+    },
+    batchInfoText: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: '700',
+      flex: 1,
+    },
+    txSourceBox: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    txSourceHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 6,
+    },
+    txSourceTitle: {
+      color: colors.info,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    detectedTypeBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6,
+    },
+    detectedBadgeIncome: {
+      backgroundColor: colors.incomeSoft,
+    },
+    detectedBadgeExpense: {
+      backgroundColor: colors.expenseSoft,
+    },
+    detectedTypeText: {
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    detectedTextIncome: {
+      color: colors.income,
+    },
+    detectedTextExpense: {
+      color: colors.expense,
+    },
+    txSourceRaw: {
+      color: colors.textSecondary,
+      fontSize: 11,
+      lineHeight: 16,
+    },
+    section: {
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    label: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+      marginBottom: 10,
+    },
+    subLabel: {
+      color: colors.textSecondary,
+      fontSize: 11,
+      marginBottom: 6,
+    },
+    amountInputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    signPrefix: {
+      fontSize: 20,
+      fontWeight: '800',
+      marginRight: 6,
+    },
+    amountInput: {
+      flex: 1,
+      fontSize: 20,
+      fontWeight: '800',
+      paddingVertical: 10,
+    },
+    currencySuffix: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    catGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 12,
+    },
+    catItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 6,
+    },
+    catItemName: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    customCatBox: {
+      borderTopWidth: 1,
+      borderTopColor: colors.divider,
+      paddingTop: 10,
+    },
+    textInput: {
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      color: colors.text,
+      fontSize: 13,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    checkboxRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 8,
+      gap: 6,
+    },
+    checkboxLabel: {
+      color: colors.textSecondary,
+      fontSize: 11,
+    },
+    notePills: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+      marginBottom: 10,
+    },
+    notePill: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 14,
+      backgroundColor: colors.surfaceSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    notePillActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    notePillText: {
+      color: colors.textSecondary,
+      fontSize: 11,
+    },
+    notePillTextActive: {
+      color: colors.onPrimary,
+      fontWeight: '700',
+    },
+    saveBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primary,
+      borderRadius: 14,
+      paddingVertical: 14,
+      gap: 8,
+      marginTop: 8,
+    },
+    saveBtnText: {
+      color: colors.onPrimary,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+  });

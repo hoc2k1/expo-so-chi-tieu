@@ -74,6 +74,9 @@ class NotificationService : NotificationListenerService() {
         @Volatile
         private var lastRebindAttemptMs: Long = 0L
 
+        @Volatile
+        private var pendingForceRescan: Boolean = false
+
         @Synchronized
         fun setEnabledPackages(context: Context, packagesJson: String) {
             try {
@@ -176,8 +179,13 @@ class NotificationService : NotificationListenerService() {
                 val now = System.currentTimeMillis()
                 val componentName = ComponentName(appCtx, NotificationService::class.java)
 
-                // Only toggle component state on explicit forceToggle (avoid breaking OEM binding automatically)
-                if (forceToggle && now - lastToggleAttemptMs > TOGGLE_COOLDOWN_MS) {
+                // Toggle component state when service is disconnected (with cooldown) or explicitly forced
+                val shouldToggle = if (activeService == null) {
+                    forceToggle || (now - lastToggleAttemptMs > TOGGLE_COOLDOWN_MS)
+                } else {
+                    forceToggle && (now - lastToggleAttemptMs > TOGGLE_COOLDOWN_MS)
+                }
+                if (shouldToggle) {
                     lastToggleAttemptMs = now
                     val pm = appCtx.packageManager
                     pm.setComponentEnabledSetting(
@@ -216,9 +224,11 @@ class NotificationService : NotificationListenerService() {
         fun forceScanStatusBar(context: Context): Boolean {
             val service = activeService
             if (service != null) {
+                pendingForceRescan = false
                 service.scanActiveStatusBarNotifications(ignoreProcessedCache = true)
                 return true
             } else {
+                pendingForceRescan = true
                 ensureServiceBound(context, forceToggle = true)
                 return false
             }
@@ -510,12 +520,14 @@ class NotificationService : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         activeService = this
-        scanActiveStatusBarNotifications(ignoreProcessedCache = false)
+        val shouldIgnoreProcessed = pendingForceRescan
+        pendingForceRescan = false
+        scanActiveStatusBarNotifications(ignoreProcessedCache = shouldIgnoreProcessed)
         // Notify JS in case JS opened while service was still binding asynchronously
         try {
             val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val cachedStr = prefs.getString(KEY_NOTIFICATIONS, "[]") ?: "[]"
-            if (cachedStr != "[]" && cachedStr.length > 2) {
+            if (shouldIgnoreProcessed || (cachedStr != "[]" && cachedStr.length > 2)) {
                 val wakeupBundle = Bundle().apply {
                     putString("id", "service_connected_sync")
                     putString("packageName", applicationContext.packageName)
@@ -624,16 +636,6 @@ class NotificationService : NotificationListenerService() {
 
         // 2. Only cache candidate financial / messaging / email / user-enabled packages
         if (!isPackageCandidateAllowed(applicationContext, packageName)) {
-            if (!SYSTEM_IGNORED_PACKAGES.contains(packageName.lowercase()) && packageName != applicationContext.packageName) {
-                val preview = notification.extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim() ?: ""
-                appendNativeLog(
-                    applicationContext,
-                    packageName,
-                    "native_filtered",
-                    "Gói ứng dụng không nằm trong danh sách theo dõi",
-                    preview
-                )
-            }
             return
         }
 

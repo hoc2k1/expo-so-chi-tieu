@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -16,8 +16,11 @@ import {
   KeyboardAwareScrollView,
   KeyboardAwareScrollViewRef,
 } from '../../components/KeyboardAwareScrollView';
+import { useTheme, ThemeColors } from '../../constants/theme';
 
 export default function AppsManagerModal() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { settings, updateSettings, showToast } = useApp();
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
 
@@ -117,7 +120,7 @@ export default function AppsManagerModal() {
               <Switch
                 value={isEnabled(app.packageName)}
                 onValueChange={() => toggleApp(app)}
-                trackColor={{ false: '#334155', true: '#10B981' }}
+                trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
                 thumbColor="#FFFFFF"
               />
             </View>
@@ -139,7 +142,7 @@ export default function AppsManagerModal() {
               <Switch
                 value={isEnabled(app.packageName)}
                 onValueChange={() => toggleApp(app)}
-                trackColor={{ false: '#334155', true: '#10B981' }}
+                trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
                 thumbColor="#FFFFFF"
               />
             </View>
@@ -164,7 +167,7 @@ export default function AppsManagerModal() {
               <Switch
                 value={isEnabled(app.packageName)}
                 onValueChange={() => toggleApp(app)}
-                trackColor={{ false: '#334155', true: '#10B981' }}
+                trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
                 thumbColor="#FFFFFF"
               />
             </View>
@@ -177,7 +180,7 @@ export default function AppsManagerModal() {
           <TextInput
             style={styles.textInput}
             placeholder="VD: com.mybank.app..."
-            placeholderTextColor="#64748B"
+            placeholderTextColor={colors.textMuted}
             value={customPackage}
             onChangeText={setCustomPackage}
             autoCapitalize="none"
@@ -186,7 +189,7 @@ export default function AppsManagerModal() {
             }
           />
           <TouchableOpacity style={styles.addBtn} onPress={handleAddCustom}>
-            <Ionicons name="add" size={18} color="#FFFFFF" />
+            <Ionicons name="add" size={18} color={colors.onPrimary} />
             <Text style={styles.addBtnText}>Thêm vào danh sách theo dõi</Text>
           </TouchableOpacity>
         </View>
@@ -195,117 +198,118 @@ export default function AppsManagerModal() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  countText: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  topBtns: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  quickBtn: {
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  quickBtnText: {
-    color: '#38BDF8',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  section: {
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  sectionTitle: {
-    color: '#F8FAFC',
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  sectionSubtitle: {
-    color: '#64748B',
-    fontSize: 11,
-    marginBottom: 10,
-  },
-  appRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
-  },
-  appIconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  appTexts: {
-    flex: 1,
-    paddingRight: 8,
-  },
-  appName: {
-    color: '#F8FAFC',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  appPackage: {
-    color: '#64748B',
-    fontSize: 10,
-    marginTop: 2,
-  },
-  textInput: {
-    backgroundColor: '#0F172A',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: '#F8FAFC',
-    fontSize: 13,
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginBottom: 10,
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#3B82F6',
-    borderRadius: 8,
-    paddingVertical: 10,
-    gap: 6,
-  },
-  addBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    content: {
+      padding: 16,
+      paddingBottom: 40,
+    },
+    topBar: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    countText: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    topBtns: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    quickBtn: {
+      backgroundColor: colors.surface,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    quickBtnText: {
+      color: colors.primary,
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    section: {
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    sectionTitle: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '700',
+      marginBottom: 6,
+    },
+    sectionSubtitle: {
+      color: colors.textMuted,
+      fontSize: 11,
+      marginBottom: 10,
+    },
+    appRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+    },
+    appIconBox: {
+      width: 34,
+      height: 34,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 10,
+    },
+    appTexts: {
+      flex: 1,
+      paddingRight: 8,
+    },
+    appName: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    appPackage: {
+      color: colors.textMuted,
+      fontSize: 10,
+      marginTop: 2,
+    },
+    textInput: {
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      color: colors.text,
+      fontSize: 13,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: 10,
+    },
+    addBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primary,
+      borderRadius: 10,
+      paddingVertical: 11,
+      gap: 6,
+    },
+    addBtnText: {
+      color: colors.onPrimary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+  });

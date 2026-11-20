@@ -22,6 +22,7 @@ import { StorageService } from '../../services/storage';
 import { exportTransactionsToCsv } from '../../services/csvExporter';
 import { formatDateTime } from '../../utils/formatters';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import { GardenSprouts } from '../../components/GardenDecor';
 import {
   useTheme,
   ThemeColors,
@@ -208,7 +209,9 @@ export default function SettingsScreen() {
         {Platform.OS === 'android' && (
           <View style={styles.groupWrapper}>
             <Text style={styles.groupOverline}>QUYỀN HỆ THỐNG & CHẠY NGẦM</Text>
-            <View style={styles.groupedCard}>
+            <View style={{ position: 'relative', overflow: 'visible' }}>
+              <GardenSprouts variant="minimal" />
+              <View style={styles.groupedCard}>
               <View style={styles.row}>
                 <View
                   style={[
@@ -341,13 +344,16 @@ export default function SettingsScreen() {
                 <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
               </Pressable>
             </View>
+            </View>
           </View>
         )}
 
         {/* Smart Categorization & Anti-Duplicate */}
         <View style={styles.groupWrapper}>
           <Text style={styles.groupOverline}>CHỐNG TRÙNG & GỢI Ý THÔNG MINH</Text>
-          <View style={styles.groupedCard}>
+          <View style={{ position: 'relative', overflow: 'visible' }}>
+            <GardenSprouts variant="minimal" />
+            <View style={styles.groupedCard}>
             <View style={styles.row}>
               <View style={[styles.rowIconBox, { backgroundColor: colors.primarySoft }]}>
                 <Ionicons name="sparkles" size={18} color={colors.primary} />
@@ -415,12 +421,15 @@ export default function SettingsScreen() {
               </View>
             </View>
           </View>
+          </View>
         </View>
 
         {/* Backup, Restore & Export */}
         <View style={styles.groupWrapper}>
           <Text style={styles.groupOverline}>SAO LƯU & XUẤT DỮ LIỆU</Text>
-          <View style={styles.groupedCard}>
+          <View style={{ position: 'relative', overflow: 'visible' }}>
+            <GardenSprouts variant="minimal" />
+            <View style={styles.groupedCard}>
             <Pressable
               style={({ pressed }) => [styles.actionRow, pressed && { opacity: 0.75 }]}
               onPress={handleExportJson}
@@ -474,12 +483,14 @@ export default function SettingsScreen() {
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
             </Pressable>
           </View>
+          </View>
         </View>
 
         {/* OTA Update */}
         <View style={styles.groupWrapper}>
           <Text style={styles.groupOverline}>CẬP NHẬT ỨNG DỤNG (EXPO EAS)</Text>
           <View style={styles.groupedCardPad}>
+            <GardenSprouts variant="minimal" />
             <View style={styles.updateInfoBox}>
               <View style={styles.updateInfoRow}>
                 <Text style={styles.updateInfoLabel}>Phiên bản Runtime</Text>
@@ -518,6 +529,7 @@ export default function SettingsScreen() {
                 onPress={handleCheckAndApplyUpdate}
                 disabled={isCheckingUpdate}
               >
+                <GardenSprouts variant="chip" align="left" />
                 {isCheckingUpdate ? (
                   <ActivityIndicator size="small" color={colors.onPrimary} />
                 ) : (
@@ -539,6 +551,7 @@ export default function SettingsScreen() {
                 ]}
                 onPress={() => setShowUpdateModal(true)}
               >
+                <GardenSprouts variant="chip" align="right" />
                 <Ionicons name="list-outline" size={18} color={colors.primary} />
                 <Text style={styles.historyUpdateBtnText}>Lịch sử</Text>
               </Pressable>
@@ -564,6 +577,7 @@ export default function SettingsScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
+            <GardenSprouts variant="modal" />
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Lịch sử cập nhật OTA</Text>
               <Pressable

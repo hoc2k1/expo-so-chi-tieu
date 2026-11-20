@@ -20,6 +20,7 @@ import {
 import { PieChartSvg } from '../../components/PieChartSvg';
 import { DateRangePickerModal } from '../../components/DateRangePickerModal';
 import { MultiSelectGridModal, MultiSelectOption } from '../../components/MultiSelectGridModal';
+import { GardenSprouts } from '../../components/GardenDecor';
 import { SUPPORTED_APPS } from '../../constants/defaultData';
 import {
   useTheme,
@@ -180,6 +181,7 @@ export default function StatisticsScreen() {
       >
         {/* Time Range Selector */}
         <View style={styles.timeRangeBar}>
+          <GardenSprouts variant="chip" align="left" />
           {(['today', 'week', 'month', 'year', 'custom'] as const).map((t) => {
             const labels: Record<string, string> = {
               today: 'Hôm nay',
@@ -232,6 +234,7 @@ export default function StatisticsScreen() {
             ]}
             onPress={() => setShowBankModal(true)}
           >
+            <GardenSprouts variant="chip" align="left" />
             <Ionicons
               name="business-outline"
               size={14}
@@ -263,6 +266,7 @@ export default function StatisticsScreen() {
             ]}
             onPress={() => setShowCategoryModal(true)}
           >
+            <GardenSprouts variant="chip" align="right" />
             <Ionicons
               name="pricetag-outline"
               size={14}
@@ -345,6 +349,7 @@ export default function StatisticsScreen() {
         {/* Summary Cards */}
         <View style={styles.summaryContainer}>
           <View style={styles.summaryCard}>
+            <GardenSprouts variant="chip" align="left" />
             <View style={styles.summaryLabelRow}>
               <View style={[styles.summaryDot, { backgroundColor: colors.income }]} />
               <Text style={styles.summaryLabel}>Tổng Thu</Text>
@@ -355,6 +360,7 @@ export default function StatisticsScreen() {
           </View>
 
           <View style={styles.summaryCard}>
+            <GardenSprouts variant="chip" align="right" />
             <View style={styles.summaryLabelRow}>
               <View style={[styles.summaryDot, { backgroundColor: colors.expense }]} />
               <Text style={styles.summaryLabel}>Tổng Chi</Text>
@@ -365,6 +371,7 @@ export default function StatisticsScreen() {
           </View>
 
           <View style={[styles.summaryCard, styles.balanceCard]}>
+            <GardenSprouts variant="minimal" />
             <Text style={styles.summaryLabel}>Chênh lệch (Số dư ròng)</Text>
             <Text
               style={[
@@ -380,6 +387,7 @@ export default function StatisticsScreen() {
 
         {/* Type Switcher */}
         <View style={styles.typeSwitcher}>
+          <GardenSprouts variant="chip" align="both" />
           <Pressable
             style={[
               styles.typeSwitchBtn,
@@ -428,6 +436,7 @@ export default function StatisticsScreen() {
         {/* Donut Chart Card */}
         {categoryBreakdown.length > 0 && (
           <View style={styles.pieContainer}>
+            <GardenSprouts variant="card" />
             <Text style={styles.pieTitle}>
               Phân bổ {activeType === 'expense' ? 'Chi tiêu' : 'Thu nhập'} theo danh mục
             </Text>
@@ -450,6 +459,7 @@ export default function StatisticsScreen() {
 
         {categoryBreakdown.length === 0 ? (
           <View style={styles.emptyContainer}>
+            <GardenSprouts variant="minimal" />
             <View style={styles.emptyIconBox}>
               <Ionicons name="pie-chart-outline" size={40} color={colors.primary} />
             </View>

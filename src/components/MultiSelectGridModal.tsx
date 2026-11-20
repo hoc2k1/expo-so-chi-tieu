@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme, ThemeColors } from '../constants/theme';
+import { GardenSprouts } from './GardenDecor';
 
 export interface MultiSelectOption {
   id: string;
@@ -40,6 +42,8 @@ const MultiSelectGridModalContent: React.FC<Omit<MultiSelectGridModalProps, 'vis
   onClose,
   onApply,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [selected, setSelected] = useState<string[]>(selectedIds);
   const [search, setSearch] = useState('');
 
@@ -96,6 +100,7 @@ const MultiSelectGridModalContent: React.FC<Omit<MultiSelectGridModalProps, 'vis
   return (
     <KeyboardAvoidingView style={styles.overlay} behavior="padding">
       <SafeAreaView style={styles.sheetContainer} edges={['bottom']}>
+          <GardenSprouts variant="modal" />
           {/* Header */}
           <View style={styles.header}>
             <View>
@@ -107,24 +112,24 @@ const MultiSelectGridModalContent: React.FC<Omit<MultiSelectGridModalProps, 'vis
               </Text>
             </View>
             <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-              <Ionicons name="close" size={22} color="#94A3B8" />
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           {/* Search bar */}
           {options.length > 6 && (
             <View style={styles.searchBar}>
-              <Ionicons name="search" size={16} color="#64748B" />
+              <Ionicons name="search" size={16} color={colors.textMuted} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Tìm kiếm..."
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
                 value={search}
                 onChangeText={setSearch}
               />
               {search.length > 0 && (
                 <TouchableOpacity onPress={() => setSearch('')}>
-                  <Ionicons name="close-circle" size={16} color="#64748B" />
+                  <Ionicons name="close-circle" size={16} color={colors.textMuted} />
                 </TouchableOpacity>
               )}
             </View>
@@ -139,7 +144,7 @@ const MultiSelectGridModalContent: React.FC<Omit<MultiSelectGridModalProps, 'vis
               <Ionicons
                 name={isAllSelected ? 'checkmark-circle' : 'radio-button-off'}
                 size={14}
-                color={isAllSelected ? '#38BDF8' : '#94A3B8'}
+                color={isAllSelected ? colors.primary : colors.textSecondary}
               />
               <Text
                 style={[
@@ -153,8 +158,8 @@ const MultiSelectGridModalContent: React.FC<Omit<MultiSelectGridModalProps, 'vis
 
             {!isAllSelected && (
               <TouchableOpacity style={styles.quickBtn} onPress={handleDeselectAll}>
-                <Ionicons name="refresh" size={14} color="#EF4444" />
-                <Text style={[styles.quickBtnText, { color: '#EF4444' }]}>
+                <Ionicons name="refresh" size={14} color={colors.expense} />
+                <Text style={[styles.quickBtnText, { color: colors.expense }]}>
                   Chọn lại tất cả
                 </Text>
               </TouchableOpacity>
@@ -203,7 +208,7 @@ const MultiSelectGridModalContent: React.FC<Omit<MultiSelectGridModalProps, 'vis
                       <Ionicons
                         name={opt.icon as any}
                         size={16}
-                        color={isChecked ? '#38BDF8' : '#94A3B8'}
+                        color={isChecked ? colors.primary : colors.textSecondary}
                       />
                     ) : (
                       <View style={styles.dotIndicator} />
@@ -220,10 +225,10 @@ const MultiSelectGridModalContent: React.FC<Omit<MultiSelectGridModalProps, 'vis
                       size={18}
                       color={
                         isExplicit
-                          ? '#38BDF8'
+                          ? colors.primary
                           : isAllSelected
-                          ? '#0284C7'
-                          : '#475569'
+                          ? colors.primary
+                          : colors.textMuted
                       }
                     />
                   </View>
@@ -255,7 +260,8 @@ const MultiSelectGridModalContent: React.FC<Omit<MultiSelectGridModalProps, 'vis
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.applyBtn} onPress={handleConfirm}>
-              <Ionicons name="checkmark-done" size={18} color="#0F172A" />
+              <GardenSprouts variant="chip" align="right" />
+              <Ionicons name="checkmark-done" size={18} color={colors.onPrimary} />
               <Text style={styles.applyBtnText}>
                 {isAllSelected
                   ? `Áp dụng (${allLabel})`
@@ -276,197 +282,200 @@ export const MultiSelectGridModal: React.FC<MultiSelectGridModalProps> = (props)
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'flex-end',
-  },
-  sheetContainer: {
-    backgroundColor: '#0F172A',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderWidth: 1,
-    borderColor: '#334155',
-    maxHeight: '82%',
-    paddingTop: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
-  },
-  title: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  subtitle: {
-    color: '#38BDF8',
-    fontSize: 12,
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  closeBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: '#1E293B',
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E293B',
-    borderRadius: 10,
-    marginHorizontal: 16,
-    marginTop: 12,
-    paddingHorizontal: 12,
-    height: 38,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  searchInput: {
-    flex: 1,
-    color: '#F8FAFC',
-    fontSize: 13,
-  },
-  quickBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 10,
-  },
-  quickBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#334155',
-    gap: 6,
-  },
-  quickBtnActive: {
-    borderColor: '#38BDF8',
-    backgroundColor: '#0284C720',
-  },
-  quickBtnText: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  quickBtnTextActive: {
-    color: '#38BDF8',
-    fontWeight: '700',
-  },
-  scrollArea: {
-    paddingHorizontal: 16,
-    maxHeight: 380,
-  },
-  gridContent: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 10,
-    paddingVertical: 8,
-    paddingBottom: 24,
-  },
-  gridItem: {
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
-    justifyContent: 'space-between',
-    minHeight: 74,
-  },
-  gridItemChecked: {
-    borderColor: '#0284C7',
-    backgroundColor: '#0f243a',
-  },
-  gridItemExplicit: {
-    borderColor: '#38BDF8',
-    backgroundColor: '#03344e',
-  },
-  itemTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  colorBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dotIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#64748B',
-  },
-  itemName: {
-    color: '#CBD5E1',
-    fontSize: 13,
-    fontWeight: '600',
-    lineHeight: 18,
-  },
-  itemNameChecked: {
-    color: '#F8FAFC',
-    fontWeight: '700',
-  },
-  itemSubtitle: {
-    color: '#64748B',
-    fontSize: 10,
-    marginTop: 4,
-  },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#1E293B',
-    backgroundColor: '#0F172A',
-    gap: 10,
-  },
-  resetBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  resetBtnText: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  applyBtn: {
-    flex: 1.5,
-    flexDirection: 'row',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#38BDF8',
-    gap: 6,
-  },
-  applyBtnText: {
-    color: '#0F172A',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: colors.scrim,
+      justifyContent: 'flex-end',
+    },
+    sheetContainer: {
+      backgroundColor: colors.background,
+      borderTopLeftRadius: 22,
+      borderTopRightRadius: 22,
+      borderWidth: 1.5,
+      borderColor: colors.borderStrong,
+      overflow: 'visible',
+      maxHeight: '82%',
+      paddingTop: 16,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    subtitle: {
+      color: colors.primary,
+      fontSize: 12,
+      marginTop: 2,
+      fontWeight: '500',
+    },
+    closeBtn: {
+      padding: 6,
+      borderRadius: 8,
+      backgroundColor: colors.surfaceSecondary,
+    },
+    searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: 10,
+      marginHorizontal: 16,
+      marginTop: 12,
+      paddingHorizontal: 12,
+      height: 38,
+      gap: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    searchInput: {
+      flex: 1,
+      color: colors.text,
+      fontSize: 13,
+    },
+    quickBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      gap: 10,
+    },
+    quickBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 6,
+    },
+    quickBtnActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primarySoft,
+    },
+    quickBtnText: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    quickBtnTextActive: {
+      color: colors.primary,
+      fontWeight: '700',
+    },
+    scrollArea: {
+      paddingHorizontal: 16,
+      maxHeight: 380,
+    },
+    gridContent: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      gap: 10,
+      paddingVertical: 8,
+      paddingBottom: 24,
+    },
+    gridItem: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      justifyContent: 'space-between',
+      minHeight: 74,
+    },
+    gridItemChecked: {
+      borderColor: colors.primaryBorder,
+      backgroundColor: colors.primarySoft,
+    },
+    gridItemExplicit: {
+      borderColor: colors.primary,
+      backgroundColor: colors.backgroundSelected,
+    },
+    itemTopRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    colorBadge: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dotIndicator: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.textMuted,
+    },
+    itemName: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+      lineHeight: 18,
+    },
+    itemNameChecked: {
+      color: colors.text,
+      fontWeight: '700',
+    },
+    itemSubtitle: {
+      color: colors.textMuted,
+      fontSize: 10,
+      marginTop: 4,
+    },
+    footer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderTopWidth: 1,
+      borderTopColor: colors.divider,
+      backgroundColor: colors.background,
+      gap: 10,
+    },
+    resetBtn: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    resetBtnText: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    applyBtn: {
+      flex: 1.5,
+      flexDirection: 'row',
+      paddingVertical: 12,
+      borderRadius: 10,
+      overflow: 'visible',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primary,
+      gap: 6,
+    },
+    applyBtnText: {
+      color: colors.onPrimary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+  });

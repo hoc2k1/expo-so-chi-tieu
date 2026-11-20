@@ -1,122 +1,193 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
+import LottieView from 'lottie-react-native';
 import { Radius, Shadows, useTheme } from '../constants/theme';
 
+const SPROUT_TOP_SOURCE = require('../../assets/lottie/json/sprout_top.json');
+const GRASS_LEFT_SOURCE = require('../../assets/lottie/json/grass-left.json');
+const GRASS_RIGHT_SOURCE = require('../../assets/lottie/json/grass-right.json');
+
+export type GardenVariant = 'input' | 'card' | 'modal' | 'minimal' | 'chip';
+
 interface GardenSproutsProps {
-  /** Which corners show subtle sprouting leaves/grass (kept to 2–3 max for minimalist feel) */
-  variant?: 'input' | 'card' | 'minimal';
+  /** Preset layout for grass/sprout clusters on borders */
+  variant?: GardenVariant;
+  /** Optional placement for compact 'chip' variant (default 'right') */
+  align?: 'left' | 'right' | 'both';
 }
 
 /**
- * Minimalist Nature UI sprouting leaves, grass blades, and tiny white daisies
- * peeking out at 2–3 border points — never wrapping the whole border.
+ * Nature UI animated Lottie grass & daisy tufts peeking out along borders.
+ * Always pointerEvents="none" and relies on parent having overflow: 'visible'.
  */
-export const GardenSprouts: React.FC<GardenSproutsProps> = ({ variant = 'input' }) => {
+export const GardenSprouts: React.FC<GardenSproutsProps> = ({
+  variant = 'card',
+  align = 'right',
+}) => {
   const { isDark } = useTheme();
-  const sway = useSharedValue(0);
+  const lottieOpacity = isDark ? 0.88 : 1;
 
-  useEffect(() => {
-    sway.value = withRepeat(
-      withSequence(
-        withTiming(3, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
-        withTiming(-2, { duration: 2200, easing: Easing.inOut(Easing.sin) })
-      ),
-      -1,
-      false
+  if (variant === 'chip') {
+    return (
+      <View style={[StyleSheet.absoluteFill, styles.layer, { opacity: lottieOpacity }]} pointerEvents="none">
+        {(align === 'left' || align === 'both') && (
+          <View style={styles.chipTopLeft}>
+            <LottieView
+              source={SPROUT_TOP_SOURCE}
+              autoPlay
+              loop
+              speed={0.9}
+              style={styles.chipSproutSize}
+            />
+          </View>
+        )}
+        {(align === 'right' || align === 'both') && (
+          <View style={styles.chipTopRight}>
+            <LottieView
+              source={align === 'both' ? GRASS_RIGHT_SOURCE : SPROUT_TOP_SOURCE}
+              autoPlay
+              loop
+              speed={0.85}
+              style={align === 'both' ? styles.chipRightGrassSize : styles.chipSproutSize}
+            />
+          </View>
+        )}
+      </View>
     );
-  }, [sway]);
+  }
 
-  const leafSwayStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${sway.value}deg` }],
-  }));
+  if (variant === 'modal') {
+    return (
+      <View style={[StyleSheet.absoluteFill, styles.layer, { opacity: lottieOpacity }]} pointerEvents="none">
+        {/* Top-left large grass + white daisy */}
+        <View style={styles.modalTopLeftGrass}>
+          <LottieView
+            source={GRASS_LEFT_SOURCE}
+            autoPlay
+            loop
+            speed={0.85}
+            style={styles.grassLeftSize}
+          />
+        </View>
 
-  const leafMain = isDark ? '#8AB963' : '#94C36F';
-  const leafLight = isDark ? '#A8CC83' : '#B6DB8F';
-  const leafDark = isDark ? '#69994A' : '#73A654';
-  const petal = isDark ? '#F4F6EC' : '#FFFFFF';
-  const flowerCenter = '#F8CF64';
+        {/* Top-center small sprout */}
+        <View style={styles.modalTopCenterSprout}>
+          <LottieView
+            source={SPROUT_TOP_SOURCE}
+            autoPlay
+            loop
+            speed={0.95}
+            style={styles.sproutTopSize}
+          />
+        </View>
 
+        {/* Top-right small grass + white daisy */}
+        <View style={styles.modalTopRightGrass}>
+          <LottieView
+            source={GRASS_RIGHT_SOURCE}
+            autoPlay
+            loop
+            speed={0.9}
+            style={styles.grassRightSize}
+          />
+        </View>
+      </View>
+    );
+  }
+
+  if (variant === 'minimal') {
+    return (
+      <View style={[StyleSheet.absoluteFill, styles.layer, { opacity: lottieOpacity }]} pointerEvents="none">
+        <View style={styles.topLeftSprout}>
+          <LottieView
+            source={SPROUT_TOP_SOURCE}
+            autoPlay
+            loop
+            speed={0.9}
+            style={styles.sproutTopSmallSize}
+          />
+        </View>
+        <View style={styles.topRightGrass}>
+          <LottieView
+            source={GRASS_RIGHT_SOURCE}
+            autoPlay
+            loop
+            speed={0.85}
+            style={styles.grassRightSmallSize}
+          />
+        </View>
+      </View>
+    );
+  }
+
+  // 'card' and 'input' variants: top sprout + bottom-left big grass + right grass/daisy
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {/* Position 1: Top-left small sprouting leaves */}
-      <Animated.View style={[styles.topLeftLeaf, leafSwayStyle]}>
-        <Svg width={38} height={22} viewBox="0 0 38 22">
-          <Path
-            d="M15 20 C12 13, 6 9, 4 6 C10 6, 15 10, 17 17 Z"
-            fill={leafLight}
-          />
-          <Path
-            d="M17 19 C17 10, 22 4, 28 2 C27 9, 23 16, 18 19 Z"
-            fill={leafMain}
-          />
-          <Path
-            d="M27 14 C30 11, 34 10, 36 11 C34 14, 31 15, 27 14 Z"
-            fill={leafLight}
-            opacity={0.9}
-          />
-        </Svg>
-      </Animated.View>
-
-      {/* Position 2: Bottom-left grass tuft + tiny daisy */}
-      <View style={styles.bottomLeftGrass}>
-        <Svg width={44} height={30} viewBox="0 0 44 30">
-          <Path d="M12 28 C6 20, 4 12, 6 4 C8 12, 12 19, 17 26 Z" fill={leafLight} />
-          <Path d="M15 28 C12 21, 12 14, 15 8 C17 15, 18 21, 21 27 Z" fill={leafMain} />
-          <Path d="M18 28 C23 23, 30 22, 37 26 C30 28, 24 29, 18 28 Z" fill={leafDark} />
-          {/* Tiny white daisy */}
-          <Circle cx="16" cy="21" r="2.2" fill={petal} />
-          <Circle cx="19" cy="23.2" r="2.2" fill={petal} />
-          <Circle cx="17.8" cy="26.5" r="2.2" fill={petal} />
-          <Circle cx="14.2" cy="26.5" r="2.2" fill={petal} />
-          <Circle cx="13" cy="23.2" r="2.2" fill={petal} />
-          <Circle cx="16" cy="24" r="2.1" fill={flowerCenter} />
-        </Svg>
+    <View style={[StyleSheet.absoluteFill, styles.layer, { opacity: lottieOpacity }]} pointerEvents="none">
+      {/* Top border sprout */}
+      <View style={variant === 'input' ? styles.inputTopLeftSprout : styles.topLeftSprout}>
+        <LottieView
+          source={SPROUT_TOP_SOURCE}
+          autoPlay
+          loop
+          speed={0.95}
+          style={variant === 'input' ? styles.sproutTopSmallSize : styles.sproutTopSize}
+        />
       </View>
 
-      {/* Position 3: Bottom-right tiny grass + daisy (shown on input & card variants) */}
-      {variant !== 'minimal' && (
-        <View style={styles.bottomRightGrass}>
-          <Svg width={48} height={22} viewBox="0 0 48 22">
-            <Path d="M8 20 C6 15, 7 10, 10 6 C11 11, 12 16, 14 20 Z" fill={leafMain} />
-            <Path d="M14 20 C15 14, 18 9, 22 6 C21 12, 20 16, 18 20 Z" fill={leafLight} />
-            <Path d="M16 20 C22 16, 30 15, 38 19 C32 21, 24 21, 16 20 Z" fill={leafDark} opacity={0.85} />
-            {/* Tiny white daisy */}
-            <Circle cx="28" cy="14" r="1.9" fill={petal} />
-            <Circle cx="30.6" cy="16" r="1.9" fill={petal} />
-            <Circle cx="29.6" cy="18.8" r="1.9" fill={petal} />
-            <Circle cx="26.4" cy="18.8" r="1.9" fill={petal} />
-            <Circle cx="25.4" cy="16" r="1.9" fill={petal} />
-            <Circle cx="28" cy="16.8" r="1.8" fill={flowerCenter} />
-          </Svg>
+      {/* Top-right grass tuft on cards so cards always have grass on top too */}
+      {variant === 'card' && (
+        <View style={styles.topRightGrass}>
+          <LottieView
+            source={GRASS_RIGHT_SOURCE}
+            autoPlay
+            loop
+            speed={0.88}
+            style={styles.grassRightSmallSize}
+          />
         </View>
       )}
+
+      {/* Bottom-left large grass + white daisy */}
+      <View style={styles.bottomLeftGrass}>
+        <LottieView
+          source={GRASS_LEFT_SOURCE}
+          autoPlay
+          loop
+          speed={0.85}
+          style={variant === 'input' ? styles.grassLeftSmallSize : styles.grassLeftSize}
+        />
+      </View>
+
+      {/* Bottom-right small grass + white daisy */}
+      <View style={styles.bottomRightGrass}>
+        <LottieView
+          source={GRASS_RIGHT_SOURCE}
+          autoPlay
+          loop
+          speed={0.92}
+          style={variant === 'input' ? styles.grassRightSmallSize : styles.grassRightSize}
+        />
+      </View>
     </View>
   );
 };
 
 interface GardenBoxProps {
   children: React.ReactNode;
-  variant?: 'input' | 'card' | 'minimal';
+  variant?: GardenVariant;
+  align?: 'left' | 'right' | 'both';
   style?: StyleProp<ViewStyle>;
   contentStyle?: StyleProp<ViewStyle>;
 }
 
 /**
- * Minimalist Nature UI container: cream/surface fill, #A8CC83 border, 26px radius,
- * subtle leaf-green shadow, and 2–3 sprouting grass/leaf clusters on the border.
+ * Minimalist Nature UI container: cream/surface fill, leaf-green border,
+ * soft shadow, and animated Lottie grass/sprout clusters on the border.
  */
 export const GardenBox: React.FC<GardenBoxProps> = ({
   children,
   variant = 'card',
+  align,
   style,
   contentStyle,
 }) => {
@@ -138,7 +209,7 @@ export const GardenBox: React.FC<GardenBoxProps> = ({
       >
         {children}
       </View>
-      <GardenSprouts variant={variant} />
+      <GardenSprouts variant={variant} align={align} />
     </View>
   );
 };
@@ -151,19 +222,98 @@ const styles = StyleSheet.create({
   box: {
     borderWidth: 1.5,
   },
-  topLeftLeaf: {
+  layer: {
+    overflow: 'visible',
+    zIndex: 10,
+  },
+  // Lottie intrinsic aspect ratios:
+  // sprout_top: 120x70 (1.71), grass-left: 160x140 (1.14), grass-right: 150x80 (1.875)
+  sproutTopSize: {
+    width: 44,
+    height: 26,
+  },
+  sproutTopSmallSize: {
+    width: 36,
+    height: 21,
+  },
+  grassLeftSize: {
+    width: 46,
+    height: 40,
+  },
+  grassLeftSmallSize: {
+    width: 38,
+    height: 33,
+  },
+  grassRightSize: {
+    width: 48,
+    height: 26,
+  },
+  grassRightSmallSize: {
+    width: 40,
+    height: 21,
+  },
+  chipSproutSize: {
+    width: 26,
+    height: 15,
+  },
+  chipRightGrassSize: {
+    width: 30,
+    height: 16,
+  },
+
+  // Positions
+  topLeftSprout: {
     position: 'absolute',
-    top: -15,
-    left: 20,
+    top: -22,
+    left: 18,
+  },
+  inputTopLeftSprout: {
+    position: 'absolute',
+    top: -18,
+    left: 18,
+  },
+  topRightGrass: {
+    position: 'absolute',
+    top: -18,
+    right: 14,
   },
   bottomLeftGrass: {
     position: 'absolute',
     bottom: -4,
-    left: -5,
+    left: -8,
   },
   bottomRightGrass: {
     position: 'absolute',
     bottom: -3,
-    right: 22,
+    right: 14,
+  },
+
+  // Modal / Bottom-sheet top-border lush arrangement
+  modalTopLeftGrass: {
+    position: 'absolute',
+    top: -36,
+    left: 10,
+  },
+  modalTopCenterSprout: {
+    position: 'absolute',
+    top: -22,
+    left: '44%',
+  },
+  modalTopRightGrass: {
+    position: 'absolute',
+    top: -22,
+    right: 12,
+  },
+
+  // Compact chip / filter / button top-border sprouts
+  chipTopLeft: {
+    position: 'absolute',
+    top: -13,
+    left: 10,
+  },
+  chipTopRight: {
+    position: 'absolute',
+    top: -13,
+    right: 10,
   },
 });

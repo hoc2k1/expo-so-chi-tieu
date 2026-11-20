@@ -10,6 +10,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { parseFlexibleDateTime } from '../utils/formatters';
+import { useTheme, ThemeColors } from '../constants/theme';
+import { GardenSprouts } from './GardenDecor';
 
 interface DateRangePickerModalProps {
   visible: boolean;
@@ -43,6 +45,8 @@ const DateRangePickerModalContent: React.FC<Omit<DateRangePickerModalProps, 'vis
   onClose,
   onApply,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   // Extract initial start & end Date objects
   const [startDate, setStartDate] = useState<Date | null>(() => {
     const ms = parseFlexibleDateTime(initialStart, false);
@@ -235,6 +239,7 @@ const DateRangePickerModalContent: React.FC<Omit<DateRangePickerModalProps, 'vis
   return (
     <View style={styles.overlay}>
       <SafeAreaView style={styles.sheetContainer} edges={['bottom']}>
+          <GardenSprouts variant="modal" />
           {/* Header */}
           <View style={styles.header}>
             <View>
@@ -244,7 +249,7 @@ const DateRangePickerModalContent: React.FC<Omit<DateRangePickerModalProps, 'vis
               </Text>
             </View>
             <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-              <Ionicons name="close" size={22} color="#94A3B8" />
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -303,7 +308,7 @@ const DateRangePickerModalContent: React.FC<Omit<DateRangePickerModalProps, 'vis
             {/* Calendar Controls */}
             <View style={styles.monthNav}>
               <TouchableOpacity style={styles.navBtn} onPress={prevMonth}>
-                <Ionicons name="chevron-back" size={20} color="#38BDF8" />
+                <Ionicons name="chevron-back" size={20} color={colors.primary} />
               </TouchableOpacity>
 
               <Text style={styles.monthTitle}>
@@ -311,7 +316,7 @@ const DateRangePickerModalContent: React.FC<Omit<DateRangePickerModalProps, 'vis
               </Text>
 
               <TouchableOpacity style={styles.navBtn} onPress={nextMonth}>
-                <Ionicons name="chevron-forward" size={20} color="#38BDF8" />
+                <Ionicons name="chevron-forward" size={20} color={colors.primary} />
               </TouchableOpacity>
             </View>
 
@@ -379,7 +384,7 @@ const DateRangePickerModalContent: React.FC<Omit<DateRangePickerModalProps, 'vis
 
             {/* Instruction hint */}
             <View style={styles.hintBox}>
-              <Ionicons name="information-circle-outline" size={16} color="#94A3B8" />
+              <Ionicons name="information-circle-outline" size={16} color={colors.textSecondary} />
               <Text style={styles.hintText}>
                 Nhấn chọn ngày bắt đầu, sau đó nhấn ngày kết thúc để chọn khoảng ngày.
               </Text>
@@ -393,7 +398,8 @@ const DateRangePickerModalContent: React.FC<Omit<DateRangePickerModalProps, 'vis
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.applyBtn} onPress={handleApply}>
-              <Ionicons name="checkmark-done" size={18} color="#0F172A" />
+              <GardenSprouts variant="chip" align="right" />
+              <Ionicons name="checkmark-done" size={18} color={colors.onPrimary} />
               <Text style={styles.applyBtnText}>Áp dụng khoảng ngày</Text>
             </TouchableOpacity>
           </View>
@@ -410,219 +416,226 @@ export const DateRangePickerModal: React.FC<DateRangePickerModalProps> = (props)
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'flex-end',
-  },
-  sheetContainer: {
-    backgroundColor: '#0F172A',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderWidth: 1,
-    borderColor: '#334155',
-    maxHeight: '85%',
-    paddingTop: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
-  },
-  title: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  subtitle: {
-    color: '#38BDF8',
-    fontSize: 13,
-    marginTop: 2,
-    fontWeight: '600',
-  },
-  closeBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: '#1E293B',
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
-  },
-  sectionTitle: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  presetsRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: 16,
-  },
-  presetChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  presetChipText: {
-    color: '#CBD5E1',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  monthNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginBottom: 12,
-  },
-  navBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: '#0F172A',
-  },
-  monthTitle: {
-    color: '#F8FAFC',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  weekRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
-    marginBottom: 6,
-  },
-  weekDayText: {
-    width: '14.28%',
-    textAlign: 'center',
-    color: '#64748B',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  weekEndText: {
-    color: '#F59E0B',
-  },
-  calendarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 14,
-  },
-  dayCell: {
-    width: '14.28%',
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayCellInRange: {
-    backgroundColor: '#0284C725',
-  },
-  dayCellStartRange: {
-    borderTopLeftRadius: 21,
-    borderBottomLeftRadius: 21,
-    backgroundColor: '#0284C725',
-  },
-  dayCellEndRange: {
-    borderTopRightRadius: 21,
-    borderBottomRightRadius: 21,
-    backgroundColor: '#0284C725',
-  },
-  dayBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayBtnSelected: {
-    backgroundColor: '#38BDF8',
-  },
-  dayBtnToday: {
-    borderWidth: 1,
-    borderColor: '#38BDF8',
-  },
-  dayText: {
-    color: '#E2E8F0',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  dayTextInRange: {
-    color: '#38BDF8',
-    fontWeight: '600',
-  },
-  dayTextSelected: {
-    color: '#0F172A',
-    fontWeight: '800',
-  },
-  dayTextToday: {
-    color: '#38BDF8',
-    fontWeight: '700',
-  },
-  hintBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E293B',
-    borderRadius: 8,
-    padding: 10,
-    gap: 8,
-    marginBottom: 16,
-  },
-  hintText: {
-    color: '#94A3B8',
-    fontSize: 11,
-    flex: 1,
-    lineHeight: 16,
-  },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#1E293B',
-    gap: 10,
-  },
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  cancelBtnText: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  applyBtn: {
-    flex: 2,
-    flexDirection: 'row',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#38BDF8',
-    gap: 6,
-  },
-  applyBtnText: {
-    color: '#0F172A',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: colors.scrim,
+      justifyContent: 'flex-end',
+    },
+    sheetContainer: {
+      backgroundColor: colors.background,
+      borderTopLeftRadius: 22,
+      borderTopRightRadius: 22,
+      borderWidth: 1.5,
+      borderColor: colors.borderStrong,
+      overflow: 'visible',
+      maxHeight: '85%',
+      paddingTop: 16,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    subtitle: {
+      color: colors.primary,
+      fontSize: 13,
+      marginTop: 2,
+      fontWeight: '600',
+    },
+    closeBtn: {
+      padding: 6,
+      borderRadius: 8,
+      backgroundColor: colors.surfaceSecondary,
+    },
+    scrollContent: {
+      paddingHorizontal: 16,
+      paddingTop: 10,
+    },
+    sectionTitle: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+      marginBottom: 8,
+    },
+    presetsRow: {
+      flexDirection: 'row',
+      gap: 6,
+      marginBottom: 16,
+    },
+    presetChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    presetChipText: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      fontWeight: '500',
+    },
+    monthNav: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    navBtn: {
+      padding: 6,
+      borderRadius: 8,
+      backgroundColor: colors.surfaceSecondary,
+    },
+    monthTitle: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    weekRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      paddingVertical: 6,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+      marginBottom: 6,
+    },
+    weekDayText: {
+      width: '14.28%',
+      textAlign: 'center',
+      color: colors.textMuted,
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    weekEndText: {
+      color: colors.warning,
+    },
+    calendarGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginBottom: 14,
+    },
+    dayCell: {
+      width: '14.28%',
+      height: 42,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dayCellInRange: {
+      backgroundColor: colors.primarySoft,
+    },
+    dayCellStartRange: {
+      borderTopLeftRadius: 21,
+      borderBottomLeftRadius: 21,
+      backgroundColor: colors.primarySoft,
+    },
+    dayCellEndRange: {
+      borderTopRightRadius: 21,
+      borderBottomRightRadius: 21,
+      backgroundColor: colors.primarySoft,
+    },
+    dayBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dayBtnSelected: {
+      backgroundColor: colors.primary,
+    },
+    dayBtnToday: {
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    dayText: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '500',
+    },
+    dayTextInRange: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    dayTextSelected: {
+      color: colors.onPrimary,
+      fontWeight: '800',
+    },
+    dayTextToday: {
+      color: colors.primary,
+      fontWeight: '700',
+    },
+    hintBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: 10,
+      padding: 10,
+      gap: 8,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    hintText: {
+      color: colors.textSecondary,
+      fontSize: 11,
+      flex: 1,
+      lineHeight: 16,
+    },
+    footer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderTopWidth: 1,
+      borderTopColor: colors.divider,
+      gap: 10,
+    },
+    cancelBtn: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cancelBtnText: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    applyBtn: {
+      flex: 2,
+      flexDirection: 'row',
+      paddingVertical: 12,
+      borderRadius: 10,
+      overflow: 'visible',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primary,
+      gap: 6,
+    },
+    applyBtnText: {
+      color: colors.onPrimary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+  });

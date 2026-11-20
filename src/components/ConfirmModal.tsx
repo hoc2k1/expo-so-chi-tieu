@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, ThemeColors, Radius, Spacing, Typography, TouchTarget } from '../constants/theme';
+import { GardenSprouts } from './GardenDecor';
 
 export interface ConfirmModalProps {
   visible: boolean;
@@ -77,6 +78,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         <View style={styles.overlay}>
           <TouchableWithoutFeedback>
             <View style={styles.card}>
+              <GardenSprouts variant="modal" />
               <View style={[styles.iconBadge, { backgroundColor: badgeBg }]}>
                 <Ionicons name={iconName} size={28} color={iconColor} />
               </View>
@@ -105,6 +107,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                   onPress={onConfirm}
                   accessibilityRole="button"
                 >
+                  <GardenSprouts variant="chip" align="right" />
                   <Text style={styles.confirmBtnText}>{confirmText}</Text>
                 </Pressable>
               </View>
@@ -130,8 +133,9 @@ const createStyles = (colors: ThemeColors) =>
       maxWidth: 360,
       backgroundColor: colors.surfaceElevated,
       borderRadius: Radius.xl,
-      borderWidth: 1,
-      borderColor: colors.border,
+      borderWidth: 1.5,
+      borderColor: colors.borderStrong,
+      overflow: 'visible',
       padding: Spacing.xl,
       alignItems: 'center',
       shadowColor: '#000',
@@ -184,6 +188,7 @@ const createStyles = (colors: ThemeColors) =>
       flex: 1,
       minHeight: TouchTarget.minSize,
       borderRadius: Radius.md,
+      overflow: 'visible',
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: Spacing.md,

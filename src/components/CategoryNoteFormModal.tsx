@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Category, SavedNote, TransactionType } from '../models/types';
+import { useTheme, ThemeColors } from '../constants/theme';
+import { GardenSprouts } from './GardenDecor';
 
 export const CATEGORY_COLOR_PALETTE = [
   '#EF4444',
@@ -78,6 +80,8 @@ const CategoryNoteFormContent: React.FC<
   onSaveCategory,
   onSaveNote,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const isEditing = Boolean(editingCategory || editingNote);
 
   const [activeTab, setActiveTab] = useState<'category' | 'note'>(() => {
@@ -161,6 +165,7 @@ const CategoryNoteFormContent: React.FC<
 
   return (
     <View style={styles.card}>
+      <GardenSprouts variant="modal" />
       {/* Header with Title & Close button */}
       <View style={styles.header}>
         <Text style={styles.title}>{title}</Text>
@@ -168,7 +173,7 @@ const CategoryNoteFormContent: React.FC<
           onPress={onClose}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="close" size={22} color="#94A3B8" />
+          <Ionicons name="close" size={22} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -183,7 +188,7 @@ const CategoryNoteFormContent: React.FC<
             <Ionicons
               name="pricetags"
               size={14}
-              color={activeTab === 'category' ? '#0F172A' : '#94A3B8'}
+              color={activeTab === 'category' ? colors.onPrimary : colors.textSecondary}
             />
             <Text
               style={[
@@ -203,7 +208,7 @@ const CategoryNoteFormContent: React.FC<
             <Ionicons
               name="document-text"
               size={14}
-              color={activeTab === 'note' ? '#0F172A' : '#94A3B8'}
+              color={activeTab === 'note' ? colors.onPrimary : colors.textSecondary}
             />
             <Text
               style={[
@@ -269,7 +274,7 @@ const CategoryNoteFormContent: React.FC<
               autoFocus={!isEditing}
               style={styles.textInput}
               placeholder="VD: Cà phê, Du lịch, Mua sắm..."
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.textMuted}
               value={catName}
               onChangeText={setCatName}
               returnKeyType="done"
@@ -307,7 +312,7 @@ const CategoryNoteFormContent: React.FC<
                   <Ionicons
                     name={ic as any}
                     size={20}
-                    color={selectedIcon === ic ? selectedColor : '#94A3B8'}
+                    color={selectedIcon === ic ? selectedColor : colors.textSecondary}
                   />
                 </TouchableOpacity>
               ))}
@@ -321,7 +326,7 @@ const CategoryNoteFormContent: React.FC<
               autoFocus={!isEditing}
               style={styles.textInput}
               placeholder="VD: Ăn sáng, Đổ xăng, Cà phê..."
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.textMuted}
               value={noteText}
               onChangeText={setNoteText}
               returnKeyType="done"
@@ -378,10 +383,11 @@ const CategoryNoteFormContent: React.FC<
           onPress={handleSubmit}
           disabled={isSaving}
         >
+          <GardenSprouts variant="chip" align="right" />
           <Ionicons
             name={isEditing ? 'checkmark' : 'add'}
             size={18}
-            color="#FFFFFF"
+            color={colors.onPrimary}
           />
           <Text style={styles.saveBtnText}>
             {isEditing ? 'Lưu thay đổi' : 'Thêm mới'}
@@ -403,6 +409,8 @@ export const CategoryNoteFormModal: React.FC<CategoryNoteFormModalProps> = ({
   onSaveCategory,
   onSaveNote,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const formKey = `${mode}-${categoryType}-${editingCategory?.id || 'new'}-${
     editingNote?.id || 'new'
   }`;
@@ -442,221 +450,224 @@ export const CategoryNoteFormModal: React.FC<CategoryNoteFormModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 18,
-  },
-  backdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(2, 6, 23, 0.78)',
-  },
-  card: {
-    width: '100%',
-    maxWidth: 440,
-    maxHeight: '85%',
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  title: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#0F172A',
-    borderRadius: 10,
-    padding: 3,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#334155',
-    gap: 4,
-  },
-  tabBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
-  },
-  tabBtnActive: {
-    backgroundColor: '#10B981',
-  },
-  tabBtnText: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  tabBtnTextActive: {
-    color: '#0F172A',
-    fontWeight: '700',
-  },
-  typeSwitcher: {
-    flexDirection: 'row',
-    backgroundColor: '#0F172A',
-    borderRadius: 8,
-    padding: 3,
-    marginBottom: 12,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  typeBtn: {
-    flex: 1,
-    paddingVertical: 7,
-    alignItems: 'center',
-    borderRadius: 6,
-  },
-  typeBtnActiveExpense: {
-    backgroundColor: '#EF4444',
-  },
-  typeBtnActiveIncome: {
-    backgroundColor: '#10B981',
-  },
-  typeText: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  typeTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  bodyScroll: {
-    flexGrow: 0,
-  },
-  label: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  textInput: {
-    backgroundColor: '#0F172A',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: '#F8FAFC',
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginBottom: 14,
-  },
-  paletteRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    padding: 3,
-    marginBottom: 14,
-  },
-  colorDot: {
-    width: 27,
-    height: 27,
-    borderRadius: 13.5,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  colorDotSelected: {
-    borderColor: '#FFFFFF',
-    transform: [{ scale: 1.12 }],
-  },
-  iconGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 8,
-  },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: '#0F172A',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  catWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 7,
-    marginBottom: 10,
-  },
-  catPill: {
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-    backgroundColor: '#0F172A',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  catPillActive: {
-    backgroundColor: '#10B981',
-    borderColor: '#10B981',
-  },
-  catPillText: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  catPillTextActive: {
-    color: '#0F172A',
-    fontWeight: '700',
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 14,
-  },
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: '#0F172A',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  cancelBtnText: {
-    color: '#94A3B8',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  saveBtn: {
-    flex: 2,
-    flexDirection: 'row',
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: '#10B981',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  saveBtnEdit: {
-    backgroundColor: '#3B82F6',
-  },
-  saveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    overlay: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 18,
+    },
+    backdrop: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: colors.scrim,
+    },
+    card: {
+      width: '100%',
+      maxWidth: 440,
+      maxHeight: '85%',
+      backgroundColor: colors.surface,
+      borderRadius: 18,
+      padding: 16,
+      borderWidth: 1.5,
+      borderColor: colors.borderStrong,
+      overflow: 'visible',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    tabContainer: {
+      flexDirection: 'row',
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: 10,
+      padding: 3,
+      marginBottom: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 4,
+    },
+    tabBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 8,
+      borderRadius: 8,
+      gap: 6,
+    },
+    tabBtnActive: {
+      backgroundColor: colors.primary,
+    },
+    tabBtnText: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    tabBtnTextActive: {
+      color: colors.onPrimary,
+      fontWeight: '700',
+    },
+    typeSwitcher: {
+      flexDirection: 'row',
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: 8,
+      padding: 3,
+      marginBottom: 12,
+      gap: 6,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    typeBtn: {
+      flex: 1,
+      paddingVertical: 7,
+      alignItems: 'center',
+      borderRadius: 6,
+    },
+    typeBtnActiveExpense: {
+      backgroundColor: colors.expense,
+    },
+    typeBtnActiveIncome: {
+      backgroundColor: colors.income,
+    },
+    typeText: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    typeTextActive: {
+      color: colors.onPrimary,
+      fontWeight: '700',
+    },
+    bodyScroll: {
+      flexGrow: 0,
+    },
+    label: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+      marginBottom: 6,
+    },
+    textInput: {
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      color: colors.text,
+      fontSize: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: 14,
+    },
+    paletteRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      padding: 3,
+      marginBottom: 14,
+    },
+    colorDot: {
+      width: 27,
+      height: 27,
+      borderRadius: 13.5,
+      borderWidth: 2,
+      borderColor: 'transparent',
+    },
+    colorDotSelected: {
+      borderColor: colors.text,
+      transform: [{ scale: 1.12 }],
+    },
+    iconGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 8,
+    },
+    iconBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 10,
+      backgroundColor: colors.surfaceSecondary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    catWrap: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 7,
+      marginBottom: 10,
+    },
+    catPill: {
+      paddingHorizontal: 11,
+      paddingVertical: 6,
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    catPillActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    catPillText: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    catPillTextActive: {
+      color: colors.onPrimary,
+      fontWeight: '700',
+    },
+    actions: {
+      flexDirection: 'row',
+      gap: 10,
+      marginTop: 14,
+    },
+    cancelBtn: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 10,
+      backgroundColor: colors.surfaceSecondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cancelBtnText: {
+      color: colors.textSecondary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    saveBtn: {
+      flex: 2,
+      flexDirection: 'row',
+      paddingVertical: 12,
+      borderRadius: 10,
+      overflow: 'visible',
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+    },
+    saveBtnEdit: {
+      backgroundColor: colors.primary,
+    },
+    saveBtnText: {
+      color: colors.onPrimary,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+  });

@@ -10,13 +10,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import Animated, { FadeInDown, FadeOutRight, LinearTransition } from 'react-native-reanimated';
+import Animated, { Easing, FadeInDown, FadeOutRight, LinearTransition } from 'react-native-reanimated';
 import { useApp } from '../../contexts/AppContext';
 import { PendingTransaction, Transaction } from '../../models/types';
 import { formatCurrency, formatRelativeTime } from '../../utils/formatters';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { ChibiStrawberry } from '../../components/ChibiStrawberry';
-import { GardenBox } from '../../components/GardenDecor';
+import { GardenBox, GardenSprouts } from '../../components/GardenDecor';
 import { AnimatedCurrency, ChibiCategoryBadge, SpringPressable } from '../../components/Motion';
 import {
   useTheme,
@@ -172,9 +172,11 @@ export default function OverviewScreen() {
 
     return (
       <Animated.View
-        entering={FadeInDown.delay(Math.min(index, 6) * 45).duration(280)}
-        exiting={FadeOutRight.duration(220)}
-        layout={LinearTransition.springify().damping(18)}
+        entering={FadeInDown.delay(Math.min(index, 6) * 45)
+          .duration(260)
+          .easing(Easing.inOut(Easing.ease))}
+        exiting={FadeOutRight.duration(220).easing(Easing.inOut(Easing.ease))}
+        layout={LinearTransition.duration(240).easing(Easing.inOut(Easing.ease))}
       >
         <Pressable
           delayLongPress={280}
@@ -191,6 +193,7 @@ export default function OverviewScreen() {
             pressed && { opacity: 0.92 },
           ]}
         >
+        <GardenSprouts variant="minimal" />
         {item.isSuspectedDuplicate && (
           <View style={styles.duplicateBanner}>
             <View style={styles.duplicateBannerHeader}>
@@ -474,6 +477,7 @@ export default function OverviewScreen() {
           onPress={() => router.push('/modal/manual-transaction')}
           accessibilityRole="button"
         >
+          <GardenSprouts variant="chip" align="left" />
           <Ionicons name="add-circle" size={20} color={colors.onPrimary} />
           <Text style={styles.primaryActionText}>Thêm giao dịch</Text>
         </SpringPressable>
@@ -486,6 +490,7 @@ export default function OverviewScreen() {
             }
             accessibilityRole="button"
           >
+            <GardenSprouts variant="chip" align="right" />
             <Ionicons name="sync" size={18} color={colors.primary} />
             <Text style={styles.secondaryActionText}>Đồng bộ</Text>
           </SpringPressable>
@@ -495,6 +500,7 @@ export default function OverviewScreen() {
             onPress={() => router.push('/(tabs)/transactions')}
             accessibilityRole="button"
           >
+            <GardenSprouts variant="chip" align="right" />
             <Ionicons name="receipt-outline" size={18} color={colors.primary} />
             <Text style={styles.secondaryActionText}>Sổ giao dịch</Text>
           </SpringPressable>
@@ -532,7 +538,10 @@ export default function OverviewScreen() {
             <Ionicons name="chevron-forward" size={14} color={colors.primary} />
           </Pressable>
         </View>
-        <View style={styles.recentCard}>{recentTransactions.map(renderRecentTxRow)}</View>
+        <View style={{ position: 'relative', overflow: 'visible' }}>
+          <View style={styles.recentCard}>{recentTransactions.map(renderRecentTxRow)}</View>
+          <GardenSprouts variant="minimal" />
+        </View>
       </View>
     ) : null;
 

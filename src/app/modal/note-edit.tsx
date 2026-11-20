@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,11 @@ import { SavedNote } from '../../models/types';
 import { CategoryNoteFormModal } from '../../components/CategoryNoteFormModal';
 import { DraggableReorderList } from '../../components/DraggableReorderList';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import { useTheme, ThemeColors } from '../../constants/theme';
 
 export default function NoteEditModal() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const {
     notes,
     categories,
@@ -95,7 +98,7 @@ export default function NoteEditModal() {
               <Text style={styles.dragHint}>Kéo ☰ để đổi vị trí</Text>
             </View>
             <TouchableOpacity style={styles.addBtn} onPress={handleOpenAdd}>
-              <Ionicons name="add" size={18} color="#0F172A" />
+              <Ionicons name="add" size={18} color={colors.onPrimary} />
               <Text style={styles.addBtnText}>Thêm</Text>
             </TouchableOpacity>
           </View>
@@ -124,14 +127,14 @@ export default function NoteEditModal() {
                       style={styles.actionIconBtn}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Ionicons name="create-outline" size={18} color="#38BDF8" />
+                      <Ionicons name="create-outline" size={18} color={colors.info} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => handleDelete(n)}
                       style={styles.actionIconBtn}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                      <Ionicons name="trash-outline" size={18} color={colors.expense} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -169,77 +172,78 @@ export default function NoteEditModal() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  section: {
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    color: '#F8FAFC',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  dragHint: {
-    color: '#64748B',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#10B981',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    gap: 4,
-  },
-  addBtnText: {
-    color: '#0F172A',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  noteInner: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  noteTexts: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  noteText: {
-    color: '#F8FAFC',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  noteCategory: {
-    color: '#94A3B8',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  rowActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  actionIconBtn: {
-    padding: 4,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      padding: 16,
+      paddingBottom: 40,
+    },
+    section: {
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    sectionTitle: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    dragHint: {
+      color: colors.textMuted,
+      fontSize: 11,
+      marginTop: 2,
+    },
+    addBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.primary,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 10,
+      gap: 4,
+    },
+    addBtnText: {
+      color: colors.onPrimary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    noteInner: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    noteTexts: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    noteText: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    noteCategory: {
+      color: colors.textSecondary,
+      fontSize: 11,
+      marginTop: 2,
+    },
+    rowActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    actionIconBtn: {
+      padding: 4,
+    },
+  });

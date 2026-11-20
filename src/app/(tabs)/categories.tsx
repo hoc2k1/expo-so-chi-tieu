@@ -15,6 +15,7 @@ import { CategoryNoteFormModal } from '../../components/CategoryNoteFormModal';
 import { DraggableReorderList } from '../../components/DraggableReorderList';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { ChibiCategoryBadge, SpringPressable } from '../../components/Motion';
+import { GardenSprouts } from '../../components/GardenDecor';
 import {
   useTheme,
   ThemeColors,
@@ -176,6 +177,7 @@ export default function CategoriesManageScreen() {
       {/* Top Segmented Tabs + Add Button */}
       <View style={styles.topBar}>
         <View style={styles.segmentBar}>
+          <GardenSprouts variant="chip" align="left" />
           <Pressable
             style={[styles.segmentBtn, activeTab === 'category' && styles.segmentBtnActive]}
             onPress={() => setActiveTab('category')}
@@ -219,6 +221,7 @@ export default function CategoriesManageScreen() {
           style={styles.addBtn}
           onPress={openAddModal}
         >
+          <GardenSprouts variant="chip" align="right" />
           <Ionicons name="add" size={18} color={colors.onPrimary} />
           <Text style={styles.addBtnText}>Thêm</Text>
         </SpringPressable>
@@ -234,6 +237,7 @@ export default function CategoriesManageScreen() {
           <>
             {/* Expense / Income Sub-switcher */}
             <View style={styles.typeSwitcher}>
+              <GardenSprouts variant="chip" align="both" />
               <Pressable
                 style={[
                   styles.typeBtn,
@@ -270,6 +274,7 @@ export default function CategoriesManageScreen() {
             </View>
 
             <View style={styles.groupedCard}>
+              <GardenSprouts variant="minimal" />
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>
                   Danh sách phân loại ({filteredCategories.length})
@@ -328,6 +333,7 @@ export default function CategoriesManageScreen() {
           </>
         ) : (
           <View style={styles.groupedCard}>
+            <GardenSprouts variant="minimal" />
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>
                 Danh sách Ghi chú mẫu ({notes.length})
@@ -397,7 +403,9 @@ export default function CategoriesManageScreen() {
         {/* Grouped Automation Tools Card */}
         <View style={styles.groupedSection}>
           <Text style={styles.groupOverline}>CÔNG CỤ PHÂN LOẠI TỰ ĐỘNG</Text>
-          <View style={styles.groupedCardCompact}>
+          <View style={{ position: 'relative', overflow: 'visible' }}>
+            <GardenSprouts variant="minimal" />
+            <View style={styles.groupedCardCompact}>
             <Pressable
               style={({ pressed }) => [styles.navRow, pressed && { opacity: 0.75 }]}
               onPress={() => router.push('/modal/rule-edit')}
@@ -423,6 +431,7 @@ export default function CategoriesManageScreen() {
               <Text style={styles.navTitle}>Danh sách App Ngân hàng & Ví</Text>
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
             </Pressable>
+            </View>
           </View>
         </View>
       </ScrollView>
