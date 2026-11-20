@@ -17,6 +17,8 @@ import {
 } from '../../components/KeyboardAwareScrollView';
 import { GardenSprouts } from '../../components/GardenDecor';
 import { SpringPressable } from '../../components/Motion';
+import { CategoryPickerSection } from '../../components/CategoryPickerSection';
+import { SaveTemplateCheckbox } from '../../components/ui/SaveTemplateCheckbox';
 import {
   useTheme,
   ThemeColors,
@@ -99,6 +101,11 @@ export default function ClassifyModal() {
     [notes, selectedCatId]
   );
 
+  const trimmedNote = noteText.trim();
+  const canSaveNote =
+    trimmedNote.length > 0 &&
+    !relevantNotes.some((n) => n.text.trim().toLowerCase() === trimmedNote.toLowerCase());
+
   const handleSave = async () => {
     let finalCatId = selectedCatId;
     let finalCatName = selectedCatName;
@@ -118,7 +125,9 @@ export default function ClassifyModal() {
       await batchClassify(batchIdList, {
         categoryId: finalCatId,
         categoryName: finalCatName,
-        note: noteText.trim() || 'Phân loại hàng loạt',
+        note: trimmedNote || 'Phân loại hàng loạt',
+        saveNewCategory: customCatName.trim().length > 0 && saveCustomCat,
+        saveNewNote: canSaveNote && saveCustomNote,
       });
       showToast(`Đã phân loại thành công ${count} giao dịch!`, 'success');
       router.back();
@@ -135,11 +144,11 @@ export default function ClassifyModal() {
     await classifyTransaction(targetItem.id, {
       categoryId: finalCatId,
       categoryName: finalCatName,
-      note: noteText.trim() || 'Không có ghi chú',
+      note: trimmedNote || 'Không có ghi chú',
       amount: cleanAmount,
       type: txType,
       saveNewCategory: customCatName.trim().length > 0 && saveCustomCat,
-      saveNewNote: noteText.trim().length > 0 && saveCustomNote,
+      saveNewNote: canSaveNote && saveCustomNote,
     });
 
     showToast(`Đã phân loại "${finalCatName}" thành công!`, 'success');
@@ -218,74 +227,25 @@ export default function ClassifyModal() {
           </View>
         )}
 
-        <View style={styles.section}>
-          <Text style={styles.label}>
-            Chọn Phân loại ({isIncome ? 'Thu nhập' : 'Chi tiêu'})
-          </Text>
-          <View style={styles.catGrid}>
-            {filteredCategories.map((cat) => {
-              const isSelected = selectedCatId === cat.id && !customCatName.trim();
-              return (
-                <Pressable
-                  key={cat.id}
-                  style={[
-                    styles.catItem,
-                    isSelected && {
-                      borderColor: cat.color,
-                      backgroundColor: `${cat.color}25`,
-                    },
-                  ]}
-                  onPress={() => {
-                    setSelectedCatId(cat.id);
-                    setSelectedCatName(cat.name);
-                    setCustomCatName('');
-                  }}
-                >
-                  <Ionicons name={cat.icon as any} size={20} color={cat.color} />
-                  <Text
-                    style={[
-                      styles.catItemName,
-                      isSelected && { color: colors.text, fontWeight: '700' },
-                    ]}
-                  >
-                    {cat.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={styles.customCatBox}>
-            <Text style={styles.subLabel}>Hoặc tự nhập Phân loại mới:</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="VD: Nuôi thú cưng, Sửa nhà..."
-              placeholderTextColor={colors.textMuted}
-              value={customCatName}
-              onChangeText={(val) => {
-                setCustomCatName(val);
-                if (val.trim()) {
-                  setSelectedCatName(val.trim());
-                }
-              }}
-            />
-            {customCatName.trim().length > 0 && (
-              <Pressable
-                style={styles.checkboxRow}
-                onPress={() => setSaveCustomCat(!saveCustomCat)}
-              >
-                <Ionicons
-                  name={saveCustomCat ? 'checkbox' : 'square-outline'}
-                  size={18}
-                  color={saveCustomCat ? colors.primary : colors.textMuted}
-                />
-                <Text style={styles.checkboxLabel}>
-                  Lưu vào danh sách mẫu để lần sau chọn nhanh
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
+        <CategoryPickerSection
+          txType={txType}
+          categories={filteredCategories}
+          selectedCatId={selectedCatId}
+          customCatName={customCatName}
+          saveCustomCat={saveCustomCat}
+          onSelectCategory={(cat) => {
+            setSelectedCatId(cat.id);
+            setSelectedCatName(cat.name);
+            setCustomCatName('');
+          }}
+          onChangeCustomCatName={(val) => {
+            setCustomCatName(val);
+            if (val.trim()) {
+              setSelectedCatName(val.trim());
+            }
+          }}
+          onToggleSaveCustomCat={() => setSaveCustomCat(!saveCustomCat)}
+        />
 
         <View style={styles.section}>
           <Text style={styles.label}>Ghi chú giao dịch</Text>
@@ -325,20 +285,12 @@ export default function ClassifyModal() {
             }
           />
 
-          {noteText.trim().length > 0 && (
-            <Pressable
-              style={styles.checkboxRow}
-              onPress={() => setSaveCustomNote(!saveCustomNote)}
-            >
-              <Ionicons
-                name={saveCustomNote ? 'checkbox' : 'square-outline'}
-                size={18}
-                color={saveCustomNote ? colors.primary : colors.textMuted}
-              />
-              <Text style={styles.checkboxLabel}>
-                Lưu ghi chú này vào mẫu cho lần sau
-              </Text>
-            </Pressable>
+          {canSaveNote && (
+            <SaveTemplateCheckbox
+              checked={saveCustomNote}
+              label="Lưu ghi chú này vào mẫu cho lần sau"
+              onToggle={() => setSaveCustomNote(!saveCustomNote)}
+            />
           )}
         </View>
 
@@ -445,11 +397,6 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: '700',
       marginBottom: 10,
     },
-    subLabel: {
-      color: colors.textSecondary,
-      fontSize: 11,
-      marginBottom: 6,
-    },
     amountInputRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -475,33 +422,6 @@ const createStyles = (colors: ThemeColors) =>
       fontSize: 13,
       fontWeight: '700',
     },
-    catGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: Spacing.sm,
-      marginBottom: Spacing.md,
-    },
-    catItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingVertical: Spacing.sm,
-      backgroundColor: colors.surfaceSecondary,
-      borderRadius: Radius.sm,
-      borderWidth: 1,
-      borderColor: colors.border,
-      gap: 6,
-    },
-    catItemName: {
-      color: colors.textSecondary,
-      fontSize: 12,
-      fontWeight: '600',
-    },
-    customCatBox: {
-      borderTopWidth: 1,
-      borderTopColor: colors.divider,
-      paddingTop: 10,
-    },
     textInput: {
       backgroundColor: colors.surfaceSecondary,
       borderRadius: Radius.sm,
@@ -511,16 +431,6 @@ const createStyles = (colors: ThemeColors) =>
       fontSize: 13,
       borderWidth: 1,
       borderColor: colors.border,
-    },
-    checkboxRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: Spacing.sm,
-      gap: 6,
-    },
-    checkboxLabel: {
-      color: colors.textSecondary,
-      fontSize: 11,
     },
     notePills: {
       flexDirection: 'row',

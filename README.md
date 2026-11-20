@@ -153,7 +153,7 @@ git commit -m "feat: cập nhật logic bóc tách thông báo và giao diện t
 git push origin main
 
 # Bước 4: Phát hành bản cập nhật OTA tức thì qua EAS Update
-npx eas-cli update --branch preview --message "Cập nhật tính năng mới"
+npx eas-cli update --branch preview --environment preview --platform android --message "Cập nhật tính năng mới"
 
 # (Hoặc nếu bạn đã cài đặt eas-cli global: eas update --branch preview --message "Cập nhật tính năng mới")
 ```

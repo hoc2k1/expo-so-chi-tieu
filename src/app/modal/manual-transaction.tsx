@@ -21,6 +21,8 @@ import {
 import { GardenSprouts } from '../../components/GardenDecor';
 import { SpringPressable } from '../../components/Motion';
 import { TypeSwitcher } from '../../components/ui/TypeSwitcher';
+import { CategoryPickerSection } from '../../components/CategoryPickerSection';
+import { SaveTemplateCheckbox } from '../../components/ui/SaveTemplateCheckbox';
 import {
   useTheme,
   ThemeColors,
@@ -69,9 +71,16 @@ export default function ManualTransactionModal() {
 
   const [amountStr, setAmountStr] = useState('');
   const [txType, setTxType] = useState<TransactionType>('expense');
-  const [selectedCatId, setSelectedCatId] = useState('');
-  const [selectedCatName, setSelectedCatName] = useState('');
+  const [selectedCatId, setSelectedCatId] = useState(
+    () => categories.find((c) => c.type === 'expense')?.id ?? ''
+  );
+  const [selectedCatName, setSelectedCatName] = useState(
+    () => categories.find((c) => c.type === 'expense')?.name ?? ''
+  );
+  const [customCatName, setCustomCatName] = useState('');
+  const [saveCustomCat, setSaveCustomCat] = useState(true);
   const [noteText, setNoteText] = useState('');
+  const [saveCustomNote, setSaveCustomNote] = useState(false);
 
   const [sourceGroup, setSourceGroup] = useState<SourceTypeGroup>('cash');
   const [selectedSource, setSelectedSource] = useState('Tiền mặt');
@@ -85,6 +94,10 @@ export default function ManualTransactionModal() {
   const relevantNotes = notes.filter(
     (n: SavedNote) => !n.categoryId || n.categoryId === selectedCatId
   );
+  const trimmedNote = noteText.trim();
+  const canSaveNote =
+    trimmedNote.length > 0 &&
+    !relevantNotes.some((n) => n.text.trim().toLowerCase() === trimmedNote.toLowerCase());
 
   const bankApps = SUPPORTED_APPS.filter((a) => a.category === 'bank');
   const walletApps = SUPPORTED_APPS.filter((a) => a.category === 'wallet');
@@ -125,8 +138,16 @@ export default function ManualTransactionModal() {
       return;
     }
 
-    if (!selectedCatName) {
-      showToast('Vui lòng chọn 1 danh mục phân loại', 'error');
+    let finalCatId = selectedCatId;
+    let finalCatName = selectedCatName;
+
+    if (customCatName.trim()) {
+      finalCatId = '';
+      finalCatName = customCatName.trim();
+    }
+
+    if (!finalCatName) {
+      showToast('Vui lòng chọn hoặc nhập tên Phân loại.', 'error');
       return;
     }
 
@@ -137,12 +158,14 @@ export default function ManualTransactionModal() {
     await addManualTransaction({
       amount: cleanAmount,
       type: txType,
-      categoryId: selectedCatId,
-      categoryName: selectedCatName,
-      note: noteText.trim() || selectedCatName,
+      categoryId: finalCatId,
+      categoryName: finalCatName,
+      note: trimmedNote || finalCatName,
       source: finalSource,
       date: txDateTime.toISOString(),
       timestamp: txDateTime.getTime(),
+      saveNewCategory: customCatName.trim().length > 0 && saveCustomCat,
+      saveNewNote: canSaveNote && saveCustomNote,
     });
 
     showToast('Đã thêm giao dịch thành công!', 'success');
@@ -194,8 +217,10 @@ export default function ManualTransactionModal() {
             value={txType}
             onChange={(type) => {
               setTxType(type);
-              setSelectedCatId('');
-              setSelectedCatName('');
+              const firstMatch = categories.find((c) => c.type === type);
+              setSelectedCatId(firstMatch?.id ?? '');
+              setSelectedCatName(firstMatch?.name ?? '');
+              setCustomCatName('');
             }}
             expenseLabel="Chi tiêu (-)"
             incomeLabel="Thu nhập (+)"
@@ -390,40 +415,25 @@ export default function ManualTransactionModal() {
         </View>
 
         {/* 4. Chọn Phân loại */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Chọn Phân loại</Text>
-          <View style={styles.catGrid}>
-            {filteredCategories.map((cat) => {
-              const isSelected = selectedCatId === cat.id;
-              return (
-                <Pressable
-                  key={cat.id}
-                  style={[
-                    styles.catItem,
-                    isSelected && {
-                      borderColor: cat.color,
-                      backgroundColor: `${cat.color}25`,
-                    },
-                  ]}
-                  onPress={() => {
-                    setSelectedCatId(cat.id);
-                    setSelectedCatName(cat.name);
-                  }}
-                >
-                  <Ionicons name={cat.icon as any} size={18} color={cat.color} />
-                  <Text
-                    style={[
-                      styles.catName,
-                      isSelected && { color: colors.text, fontWeight: '700' },
-                    ]}
-                  >
-                    {cat.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
+        <CategoryPickerSection
+          txType={txType}
+          categories={filteredCategories}
+          selectedCatId={selectedCatId}
+          customCatName={customCatName}
+          saveCustomCat={saveCustomCat}
+          onSelectCategory={(cat) => {
+            setSelectedCatId(cat.id);
+            setSelectedCatName(cat.name);
+            setCustomCatName('');
+          }}
+          onChangeCustomCatName={(val) => {
+            setCustomCatName(val);
+            if (val.trim()) {
+              setSelectedCatName(val.trim());
+            }
+          }}
+          onToggleSaveCustomCat={() => setSaveCustomCat(!saveCustomCat)}
+        />
 
         {/* 5. Ghi chú giao dịch */}
         <View style={styles.section}>
@@ -474,6 +484,13 @@ export default function ManualTransactionModal() {
               setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 150)
             }
           />
+          {canSaveNote && (
+            <SaveTemplateCheckbox
+              checked={saveCustomNote}
+              label="Lưu ghi chú này vào mẫu cho lần sau"
+              onToggle={() => setSaveCustomNote(!saveCustomNote)}
+            />
+          )}
         </View>
 
         <SpringPressable style={styles.saveBtn} onPress={handleSave}>
@@ -792,28 +809,6 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.textSecondary,
       fontSize: 11,
       fontWeight: '600',
-    },
-    catGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: Spacing.sm,
-    },
-    catItem: {
-      width: '31%',
-      backgroundColor: colors.surfaceSecondary,
-      paddingVertical: 10,
-      paddingHorizontal: 6,
-      borderRadius: Radius.sm,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
-      gap: Spacing.xs,
-    },
-    catName: {
-      color: colors.textSecondary,
-      fontSize: 11,
-      fontWeight: '600',
-      textAlign: 'center',
     },
     notesGrid: {
       flexDirection: 'row',

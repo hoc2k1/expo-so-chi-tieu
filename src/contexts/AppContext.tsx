@@ -73,6 +73,8 @@ interface AppContextValue {
       categoryId: string;
       categoryName: string;
       note: string;
+      saveNewCategory?: boolean;
+      saveNewNote?: boolean;
     }
   ) => Promise<void>;
   deletePending: (id: string) => Promise<void>;
@@ -86,6 +88,8 @@ interface AppContextValue {
     source?: string;
     date?: string;
     timestamp?: number;
+    saveNewCategory?: boolean;
+    saveNewNote?: boolean;
   }) => Promise<void>;
   updateTransaction: (tx: Transaction) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
@@ -692,6 +696,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [syncCachedNotifications]);
 
+  const persistCustomCategoryAndNote = async (params: {
+    categoryId: string;
+    categoryName: string;
+    type: TransactionType;
+    note: string;
+    saveNewCategory?: boolean;
+    saveNewNote?: boolean;
+  }): Promise<{ categoryId: string; categoryName: string }> => {
+    let finalCatId = params.categoryId || `cat_custom_${Date.now()}`;
+    let finalCatName = params.categoryName;
+
+    if (params.saveNewCategory && params.categoryName.trim()) {
+      const trimmedCat = params.categoryName.trim();
+      const existing = categories.find(
+        (c) => c.name.toLowerCase() === trimmedCat.toLowerCase() && c.type === params.type
+      );
+      if (existing) {
+        finalCatId = existing.id;
+        finalCatName = existing.name;
+      } else {
+        const newCat: Category = {
+          id: `cat_${Date.now()}`,
+          name: trimmedCat,
+          type: params.type,
+          icon: 'pricetag',
+          color: '#3B82F6',
+        };
+        const updatedCats = [...categories, newCat];
+        setCategories(updatedCats);
+        await StorageService.saveCategories(updatedCats);
+        finalCatId = newCat.id;
+        finalCatName = newCat.name;
+      }
+    }
+
+    if (params.saveNewNote && params.note.trim()) {
+      const trimmedNote = params.note.trim();
+      const existing = notes.find(
+        (n) => n.text.toLowerCase() === trimmedNote.toLowerCase()
+      );
+      if (!existing) {
+        const newNote: SavedNote = {
+          id: `note_${Date.now()}`,
+          text: trimmedNote,
+          categoryId: finalCatId,
+        };
+        const updatedNotes = [...notes, newNote];
+        setNotes(updatedNotes);
+        await StorageService.saveNotes(updatedNotes);
+      }
+    }
+
+    return { categoryId: finalCatId, categoryName: finalCatName };
+  };
+
   // Classify single transaction
   const classifyTransaction = async (
     pendingId: string,
@@ -709,46 +768,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const pendingItem = currentPendingList.find((p) => p.id === pendingId);
     if (!pendingItem) return;
 
-    let finalCatId = params.categoryId;
-    let finalCatName = params.categoryName;
-
-    // Save new category if requested
-    if (params.saveNewCategory && params.categoryName.trim()) {
-      const existing = categories.find(
-        (c) => c.name.toLowerCase() === params.categoryName.trim().toLowerCase()
-      );
-      if (!existing) {
-        const newCat: Category = {
-          id: `cat_${Date.now()}`,
-          name: params.categoryName.trim(),
-          type: params.type || pendingItem.type,
-          icon: 'pricetag',
-          color: '#3B82F6',
-        };
-        const updatedCats = [...categories, newCat];
-        setCategories(updatedCats);
-        await StorageService.saveCategories(updatedCats);
-        finalCatId = newCat.id;
-        finalCatName = newCat.name;
-      }
-    }
-
-    // Save new note if requested
-    if (params.saveNewNote && params.note.trim()) {
-      const existing = notes.find(
-        (n) => n.text.toLowerCase() === params.note.trim().toLowerCase()
-      );
-      if (!existing) {
-        const newNote: SavedNote = {
-          id: `note_${Date.now()}`,
-          text: params.note.trim(),
-          categoryId: finalCatId,
-        };
-        const updatedNotes = [...notes, newNote];
-        setNotes(updatedNotes);
-        await StorageService.saveNotes(updatedNotes);
-      }
-    }
+    const { categoryId: finalCatId, categoryName: finalCatName } =
+      await persistCustomCategoryAndNote({
+        categoryId: params.categoryId,
+        categoryName: params.categoryName,
+        type: params.type || pendingItem.type,
+        note: params.note,
+        saveNewCategory: params.saveNewCategory,
+        saveNewNote: params.saveNewNote,
+      });
 
     const d = new Date(pendingItem.timestamp);
     const dateStr = d.toISOString().split('T')[0];
@@ -788,10 +816,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       categoryId: string;
       categoryName: string;
       note: string;
+      saveNewCategory?: boolean;
+      saveNewNote?: boolean;
     }
   ) => {
     const itemsToClassify = pendingRef.current.filter((p) => pendingIds.includes(p.id));
     if (itemsToClassify.length === 0) return;
+
+    const batchType: TransactionType = itemsToClassify.every((i) => i.type === 'income')
+      ? 'income'
+      : 'expense';
+    const { categoryId: finalCatId, categoryName: finalCatName } =
+      await persistCustomCategoryAndNote({
+        categoryId: params.categoryId,
+        categoryName: params.categoryName,
+        type: batchType,
+        note: params.note,
+        saveNewCategory: params.saveNewCategory,
+        saveNewNote: params.saveNewNote,
+      });
 
     const newTransactions: Transaction[] = itemsToClassify.map((item) => {
       const d = new Date(item.timestamp);
@@ -799,8 +842,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         id: `tx_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         amount: item.amount,
         type: item.type,
-        categoryId: params.categoryId,
-        categoryName: params.categoryName,
+        categoryId: finalCatId,
+        categoryName: finalCatName,
         note: params.note.trim() || 'Phân loại hàng loạt',
         source: item.source,
         rawContent: item.rawContent,
@@ -850,7 +893,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     source?: string;
     date?: string;
     timestamp?: number;
+    saveNewCategory?: boolean;
+    saveNewNote?: boolean;
   }) => {
+    const { categoryId: finalCatId, categoryName: finalCatName } =
+      await persistCustomCategoryAndNote({
+        categoryId: params.categoryId,
+        categoryName: params.categoryName,
+        type: params.type,
+        note: params.note,
+        saveNewCategory: params.saveNewCategory,
+        saveNewNote: params.saveNewNote,
+      });
+
     const timestamp =
       params.timestamp || (params.date ? new Date(params.date).getTime() : Date.now());
     const dateStr =
@@ -860,9 +915,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `tx_${Date.now()}`,
       amount: params.amount,
       type: params.type,
-      categoryId: params.categoryId,
-      categoryName: params.categoryName,
-      note: params.note.trim() || params.categoryName,
+      categoryId: finalCatId,
+      categoryName: finalCatName,
+      note: params.note.trim() || finalCatName,
       source: params.source || 'Tiền mặt',
       timestamp,
       date: dateStr,
