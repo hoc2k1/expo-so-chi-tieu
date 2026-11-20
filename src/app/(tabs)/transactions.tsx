@@ -20,6 +20,7 @@ import {
   isTransactionInTimeRange,
 } from '../../utils/formatters';
 import { useFilterOptions } from '../../hooks/useFilterOptions';
+import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { MultiSelectGridModal } from '../../components/MultiSelectGridModal';
 import { DateRangePickerModal } from '../../components/DateRangePickerModal';
 import { ConfirmModal } from '../../components/ConfirmModal';
@@ -60,6 +61,7 @@ export default function TransactionsScreen() {
     transactions,
     categories
   );
+  const { refreshControl } = usePullToRefresh();
 
   const [detailModalTx, setDetailModalTx] = useState<Transaction | null>(null);
   const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
@@ -306,6 +308,7 @@ export default function TransactionsScreen() {
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.id}
+        refreshControl={refreshControl}
         contentContainerStyle={styles.listContent}
         stickySectionHeadersEnabled={false}
         showsVerticalScrollIndicator={false}

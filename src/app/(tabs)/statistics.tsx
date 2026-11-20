@@ -18,6 +18,7 @@ import {
   isTransactionInTimeRange,
 } from '../../utils/formatters';
 import { useFilterOptions } from '../../hooks/useFilterOptions';
+import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { PieChartSvg } from '../../components/PieChartSvg';
 import { DateRangePickerModal } from '../../components/DateRangePickerModal';
 import { MultiSelectGridModal } from '../../components/MultiSelectGridModal';
@@ -44,6 +45,7 @@ export default function StatisticsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { categoryOptions, bankOptions } = useFilterOptions(transactions, categories);
+  const { refreshControl } = usePullToRefresh();
 
   const [timeRange, setTimeRange] = useState<TimeRangePreset>('month');
   const [customStart, setCustomStart] = useState<string>(() => getDefaultMonthStartDisplay());
@@ -162,6 +164,7 @@ export default function StatisticsScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={refreshControl}
       >
         <TimeRangeBar
           value={timeRange}

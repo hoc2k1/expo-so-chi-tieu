@@ -14,6 +14,7 @@ import { useApp } from '../../contexts/AppContext';
 import { PendingTransaction, Transaction } from '../../models/types';
 import { formatCurrency, formatRelativeTime } from '../../utils/formatters';
 import { useCategoryMap } from '../../hooks/useFilterOptions';
+import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { GardenSprouts } from '../../components/GardenDecor';
 import { ChibiCategoryBadge, SpringPressable } from '../../components/Motion';
@@ -48,6 +49,7 @@ export default function OverviewScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const categoryMap = useCategoryMap(categories);
+  const { refreshControl } = usePullToRefresh();
 
   const [isBatchMode, setIsBatchMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -357,6 +359,7 @@ export default function OverviewScreen() {
       <FlatList
         data={pendingTransactions}
         keyExtractor={(item) => item.id}
+        refreshControl={refreshControl}
         renderItem={({ item, index }) => (
           <PendingTransactionCard
             item={item}
