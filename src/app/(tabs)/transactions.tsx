@@ -25,7 +25,7 @@ import { MultiSelectGridModal } from '../../components/MultiSelectGridModal';
 import { DateRangePickerModal } from '../../components/DateRangePickerModal';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { GardenBox, GardenSprouts } from '../../components/GardenDecor';
-import { ChibiCategoryBadge, SpringPressable } from '../../components/Motion';
+import { ChibiCategoryBadge, FadeInUpView, SpringPressable } from '../../components/Motion';
 import { TransactionDetailModal } from '../../components/TransactionDetailModal';
 import { EmptyState } from '../../components/ui/EmptyState';
 import {
@@ -61,7 +61,7 @@ export default function TransactionsScreen() {
     transactions,
     categories
   );
-  const { refreshControl } = usePullToRefresh();
+  const { refreshControl, refreshKey } = usePullToRefresh();
 
   const [detailModalTx, setDetailModalTx] = useState<Transaction | null>(null);
   const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
@@ -305,45 +305,46 @@ export default function TransactionsScreen() {
       />
 
       {/* Transactions SectionList */}
-      <SectionList
-        sections={sections}
-        keyExtractor={(item) => item.id}
-        refreshControl={refreshControl}
-        contentContainerStyle={styles.listContent}
-        stickySectionHeadersEnabled={false}
-        showsVerticalScrollIndicator={false}
-        renderSectionHeader={({ section }) => (
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionDateText}>{formatDate(section.date)}</Text>
-            <View style={styles.sectionTotals}>
-              {section.totalIncome > 0 && (
-                <View style={styles.sectionBadgeIncome}>
-                  <Text style={styles.sectionIncome}>
-                    +{formatCurrency(section.totalIncome)}
-                  </Text>
-                </View>
-              )}
-              {section.totalExpense > 0 && (
-                <View style={styles.sectionBadgeExpense}>
-                  <Text style={styles.sectionExpense}>
-                    -{formatCurrency(section.totalExpense)}
-                  </Text>
-                </View>
-              )}
+      <FadeInUpView triggerKey={refreshKey} style={{ flex: 1 }}>
+        <SectionList
+          sections={sections}
+          keyExtractor={(item) => item.id}
+          refreshControl={refreshControl}
+          contentContainerStyle={styles.listContent}
+          stickySectionHeadersEnabled={false}
+          showsVerticalScrollIndicator={false}
+          renderSectionHeader={({ section }) => (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionDateText}>{formatDate(section.date)}</Text>
+              <View style={styles.sectionTotals}>
+                {section.totalIncome > 0 && (
+                  <View style={styles.sectionBadgeIncome}>
+                    <Text style={styles.sectionIncome}>
+                      +{formatCurrency(section.totalIncome)}
+                    </Text>
+                  </View>
+                )}
+                {section.totalExpense > 0 && (
+                  <View style={styles.sectionBadgeExpense}>
+                    <Text style={styles.sectionExpense}>
+                      -{formatCurrency(section.totalExpense)}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
-        )}
-        renderItem={({ item, index }) => {
-          const isIncome = item.type === 'income';
-          const cat = categoryMap[item.categoryId];
-          const catColor = cat?.color || (isIncome ? colors.income : colors.expense);
-          const catIcon = (cat?.icon || (isIncome ? 'arrow-down' : 'pricetag')) as any;
+          )}
+          renderItem={({ item, index }) => {
+            const isIncome = item.type === 'income';
+            const cat = categoryMap[item.categoryId];
+            const catColor = cat?.color || (isIncome ? colors.income : colors.expense);
+            const catIcon = (cat?.icon || (isIncome ? 'arrow-down' : 'pricetag')) as any;
 
-          return (
-            <Animated.View
-              entering={FadeInDown.delay(Math.min(index, 6) * 35).duration(240)}
-              style={styles.txCard}
-            >
+            return (
+              <Animated.View
+                entering={FadeInDown.delay(index < 6 ? index * 35 : 0).duration(240)}
+                style={styles.txCard}
+              >
               <Pressable
                 style={({ pressed }) => [styles.txRowMain, pressed && { opacity: 0.78 }]}
                 onPress={() => setDetailModalTx(item)}
@@ -432,7 +433,8 @@ export default function TransactionsScreen() {
             }
           />
         }
-      />
+        />
+      </FadeInUpView>
 
       <DateRangePickerModal
         visible={showDateModal}

@@ -22,6 +22,7 @@ import { exportTransactionsToCsv } from '../../services/csvExporter';
 import { formatDateTime } from '../../utils/formatters';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { GardenSprouts } from '../../components/GardenDecor';
+import { FadeInUpView } from '../../components/Motion';
 import { OtaHistoryModal } from '../../components/OtaHistoryModal';
 import { SettingRow } from '../../components/ui/SettingRow';
 import {
@@ -215,6 +216,7 @@ export default function SettingsScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        <FadeInUpView style={{ gap: Spacing.lg }}>
         {/* Android Notification & Background Permissions */}
         {Platform.OS === 'android' && (
           <View style={styles.groupWrapper}>
@@ -493,6 +495,7 @@ export default function SettingsScreen() {
             Lưu trữ cục bộ an toàn • Hỗ trợ OTA qua Expo EAS
           </Text>
         </View>
+        </FadeInUpView>
       </ScrollView>
 
       <OtaHistoryModal

@@ -23,7 +23,7 @@ import { PieChartSvg } from '../../components/PieChartSvg';
 import { DateRangePickerModal } from '../../components/DateRangePickerModal';
 import { MultiSelectGridModal } from '../../components/MultiSelectGridModal';
 import { GardenSprouts } from '../../components/GardenDecor';
-import { ChibiCategoryBadge } from '../../components/Motion';
+import { ChibiCategoryBadge, FadeInUpView } from '../../components/Motion';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { TypeSwitcher } from '../../components/ui/TypeSwitcher';
 import {
@@ -45,7 +45,7 @@ export default function StatisticsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { categoryOptions, bankOptions } = useFilterOptions(transactions, categories);
-  const { refreshControl } = usePullToRefresh();
+  const { refreshControl, refreshKey } = usePullToRefresh();
 
   const [timeRange, setTimeRange] = useState<TimeRangePreset>('month');
   const [customStart, setCustomStart] = useState<string>(() => getDefaultMonthStartDisplay());
@@ -166,6 +166,7 @@ export default function StatisticsScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={refreshControl}
       >
+        <FadeInUpView triggerKey={refreshKey} style={{ gap: Spacing.md }}>
         <TimeRangeBar
           value={timeRange}
           onChange={setTimeRange}
@@ -331,6 +332,7 @@ export default function StatisticsScreen() {
             </Pressable>
           ))
         )}
+        </FadeInUpView>
       </ScrollView>
 
       <DateRangePickerModal

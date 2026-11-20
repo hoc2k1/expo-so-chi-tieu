@@ -14,7 +14,7 @@ import { Category, SavedNote, TransactionType } from '../../models/types';
 import { CategoryNoteFormModal } from '../../components/CategoryNoteFormModal';
 import { DraggableReorderList } from '../../components/DraggableReorderList';
 import { ConfirmModal } from '../../components/ConfirmModal';
-import { ChibiCategoryBadge, SpringPressable } from '../../components/Motion';
+import { ChibiCategoryBadge, FadeInUpView, SpringPressable } from '../../components/Motion';
 import { GardenSprouts } from '../../components/GardenDecor';
 import { TypeSwitcher } from '../../components/ui/TypeSwitcher';
 import { RowActionButtons } from '../../components/ui/RowActionButtons';
@@ -226,6 +226,7 @@ export default function CategoriesManageScreen() {
         scrollEnabled={!isDragging}
         showsVerticalScrollIndicator={false}
       >
+        <FadeInUpView style={{ gap: Spacing.base }}>
         {activeTab === 'category' ? (
           <>
             <TypeSwitcher
@@ -360,6 +361,7 @@ export default function CategoriesManageScreen() {
             </View>
           </View>
         </View>
+        </FadeInUpView>
       </ScrollView>
 
       <CategoryNoteFormModal

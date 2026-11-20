@@ -17,7 +17,7 @@ import { useCategoryMap } from '../../hooks/useFilterOptions';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { GardenSprouts } from '../../components/GardenDecor';
-import { ChibiCategoryBadge, SpringPressable } from '../../components/Motion';
+import { ChibiCategoryBadge, FadeInUpView, SpringPressable } from '../../components/Motion';
 import { HeroBalanceCard } from '../../components/HeroBalanceCard';
 import { PendingTransactionCard } from '../../components/PendingTransactionCard';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -49,7 +49,7 @@ export default function OverviewScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const categoryMap = useCategoryMap(categories);
-  const { refreshControl } = usePullToRefresh();
+  const { refreshControl, refreshKey } = usePullToRefresh();
 
   const [isBatchMode, setIsBatchMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -356,44 +356,46 @@ export default function OverviewScreen() {
         </View>
       )}
 
-      <FlatList
-        data={pendingTransactions}
-        keyExtractor={(item) => item.id}
-        refreshControl={refreshControl}
-        renderItem={({ item, index }) => (
-          <PendingTransactionCard
-            item={item}
-            index={index}
-            isBatchMode={isBatchMode}
-            isSelected={selectedIds.includes(item.id)}
-            isExpanded={expandedContentId === item.id}
-            onToggleSelect={toggleSelect}
-            onLongPress={handleLongPressItem}
-            onToggleExpand={(id) =>
-              setExpandedContentId((prev) => (prev === id ? null : id))
-            }
-            onDelete={handleDeleteSingle}
-            onClassify={(id) =>
-              router.push({ pathname: '/modal/classify', params: { pendingId: id } })
-            }
-          />
-        )}
-        ListHeaderComponent={ListHeader}
-        ListFooterComponent={ListFooter ?? undefined}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <EmptyState
-            title="Hàng chờ đang trống"
-            subtitle="Thông báo biến động số dư từ ngân hàng hoặc ví điện tử sẽ tự động xuất hiện tại đây để bạn phân loại nhanh chóng."
-            mood="chill"
-            mascotSize={94}
-            ctaLabel="Ghi chép giao dịch mới"
-            ctaIcon="add"
-            onCtaPress={() => router.push('/modal/manual-transaction')}
-          />
-        }
-      />
+      <FadeInUpView triggerKey={refreshKey} style={{ flex: 1 }}>
+        <FlatList
+          data={pendingTransactions}
+          keyExtractor={(item) => item.id}
+          refreshControl={refreshControl}
+          renderItem={({ item, index }) => (
+            <PendingTransactionCard
+              item={item}
+              index={index}
+              isBatchMode={isBatchMode}
+              isSelected={selectedIds.includes(item.id)}
+              isExpanded={expandedContentId === item.id}
+              onToggleSelect={toggleSelect}
+              onLongPress={handleLongPressItem}
+              onToggleExpand={(id) =>
+                setExpandedContentId((prev) => (prev === id ? null : id))
+              }
+              onDelete={handleDeleteSingle}
+              onClassify={(id) =>
+                router.push({ pathname: '/modal/classify', params: { pendingId: id } })
+              }
+            />
+          )}
+          ListHeaderComponent={ListHeader}
+          ListFooterComponent={ListFooter ?? undefined}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <EmptyState
+              title="Hàng chờ đang trống"
+              subtitle="Thông báo biến động số dư từ ngân hàng hoặc ví điện tử sẽ tự động xuất hiện tại đây để bạn phân loại nhanh chóng."
+              mood="chill"
+              mascotSize={94}
+              ctaLabel="Ghi chép giao dịch mới"
+              ctaIcon="add"
+              onCtaPress={() => router.push('/modal/manual-transaction')}
+            />
+          }
+        />
+      </FadeInUpView>
 
       {isBatchMode && selectedIds.length > 0 && (
         <View style={styles.batchFooter}>

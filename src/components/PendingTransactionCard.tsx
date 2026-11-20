@@ -47,9 +47,9 @@ export const PendingTransactionCard: React.FC<PendingTransactionCardProps> = ({
 
   return (
     <Animated.View
-      entering={FadeInDown.delay(Math.min(index, 6) * 45)
-        .duration(260)
-        .easing(Easing.inOut(Easing.ease))}
+      entering={FadeInDown.delay(index < 6 ? index * 40 : 0)
+        .duration(240)
+        .easing(Easing.out(Easing.cubic))}
       exiting={FadeOutRight.duration(220).easing(Easing.inOut(Easing.ease))}
       layout={LinearTransition.duration(240).easing(Easing.inOut(Easing.ease))}
     >

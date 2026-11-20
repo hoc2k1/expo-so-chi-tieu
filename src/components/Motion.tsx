@@ -1,11 +1,15 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, PressableProps, StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withDelay,
   withSequence,
+  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 const AnimatedPressableView = Animated.createAnimatedComponent(Pressable);
@@ -183,4 +187,53 @@ export const AnimatedTabIcon: React.FC<AnimatedTabIconProps> = ({
       <Ionicons name={name} size={size} color={color} />
     </Animated.View>
   );
+};
+
+interface FadeInUpViewProps {
+  children: React.ReactNode;
+  delay?: number;
+  duration?: number;
+  offsetY?: number;
+  triggerKey?: number;
+  style?: StyleProp<ViewStyle>;
+}
+
+/**
+ * Lightweight native-thread fade-up wrapper triggered on screen focus or refresh.
+ */
+export const FadeInUpView: React.FC<FadeInUpViewProps> = ({
+  children,
+  delay = 0,
+  duration = 240,
+  offsetY = 14,
+  triggerKey = 0,
+  style,
+}) => {
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(offsetY);
+
+  const play = useCallback(() => {
+    opacity.set(0);
+    translateY.set(offsetY);
+    const timing = { duration, easing: Easing.out(Easing.cubic) };
+    opacity.set(withDelay(delay, withTiming(1, timing)));
+    translateY.set(withDelay(delay, withTiming(0, timing)));
+  }, [delay, duration, offsetY, opacity, translateY]);
+
+  useFocusEffect(
+    useCallback(() => {
+      play();
+    }, [play])
+  );
+
+  useEffect(() => {
+    if (triggerKey > 0) play();
+  }, [triggerKey, play]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  return <Animated.View style={[style, animStyle]}>{children}</Animated.View>;
 };

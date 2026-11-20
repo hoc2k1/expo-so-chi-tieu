@@ -7,6 +7,7 @@ export function usePullToRefresh() {
   const { refreshAllData, syncCachedNotifications } = useApp();
   const { colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -17,6 +18,7 @@ export function usePullToRefresh() {
       }
     } finally {
       setRefreshing(false);
+      setRefreshKey((k) => k + 1);
     }
   }, [refreshAllData, syncCachedNotifications]);
 
@@ -28,5 +30,5 @@ export function usePullToRefresh() {
     progressBackgroundColor: colors.surface,
   });
 
-  return { refreshing, onRefresh, refreshControl };
+  return { refreshing, refreshKey, onRefresh, refreshControl };
 }
