@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,8 +15,14 @@ import {
   KeyboardAwareScrollView,
   KeyboardAwareScrollViewRef,
 } from '../../components/KeyboardAwareScrollView';
-import { useTheme, ThemeColors } from '../../constants/theme';
 import { GardenSprouts } from '../../components/GardenDecor';
+import { SpringPressable } from '../../components/Motion';
+import {
+  useTheme,
+  ThemeColors,
+  Spacing,
+  Radius,
+} from '../../constants/theme';
 
 export default function ClassifyModal() {
   const { colors } = useTheme();
@@ -56,7 +62,6 @@ export default function ClassifyModal() {
     return pendingTransactions.filter((p) => batchIdList.includes(p.id));
   }, [isBatch, pendingTransactions, batchIdList]);
 
-  // Type is automatically determined from the notification (+ is income, - is expense)
   const txType: TransactionType = useMemo(() => {
     if (targetItem) return targetItem.type;
     if (batchItems.length > 0 && batchItems.every((i) => i.type === 'income')) {
@@ -84,15 +89,15 @@ export default function ClassifyModal() {
   const [noteText, setNoteText] = useState<string>(() => targetItem?.suggestedNote || '');
   const [saveCustomNote, setSaveCustomNote] = useState<boolean>(false);
 
-  // Categories filtered by detected txType
-  const filteredCategories = useMemo(() => {
-    return categories.filter((c) => c.type === txType);
-  }, [categories, txType]);
+  const filteredCategories = useMemo(
+    () => categories.filter((c) => c.type === txType),
+    [categories, txType]
+  );
 
-  // Relevant notes for the selected category + shared notes
-  const relevantNotes = useMemo(() => {
-    return notes.filter((n) => !n.categoryId || n.categoryId === selectedCatId);
-  }, [notes, selectedCatId]);
+  const relevantNotes = useMemo(
+    () => notes.filter((n) => !n.categoryId || n.categoryId === selectedCatId),
+    [notes, selectedCatId]
+  );
 
   const handleSave = async () => {
     let finalCatId = selectedCatId;
@@ -150,7 +155,6 @@ export default function ClassifyModal() {
         style={styles.scrollView}
         contentContainerStyle={styles.content}
       >
-        {/* Header Info */}
         {isBatch ? (
           <View style={styles.batchInfoBanner}>
             <Ionicons name="layers" size={20} color={colors.primary} />
@@ -184,7 +188,6 @@ export default function ClassifyModal() {
           </View>
         ) : null}
 
-        {/* Amount (only for single classify, type is already fixed from +/- notification) */}
         {!isBatch && (
           <View style={styles.section}>
             <Text style={styles.label}>
@@ -215,7 +218,6 @@ export default function ClassifyModal() {
           </View>
         )}
 
-        {/* Categories Grid */}
         <View style={styles.section}>
           <Text style={styles.label}>
             Chọn Phân loại ({isIncome ? 'Thu nhập' : 'Chi tiêu'})
@@ -224,7 +226,7 @@ export default function ClassifyModal() {
             {filteredCategories.map((cat) => {
               const isSelected = selectedCatId === cat.id && !customCatName.trim();
               return (
-                <TouchableOpacity
+                <Pressable
                   key={cat.id}
                   style={[
                     styles.catItem,
@@ -248,12 +250,11 @@ export default function ClassifyModal() {
                   >
                     {cat.name}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
           </View>
 
-          {/* Custom Category Input */}
           <View style={styles.customCatBox}>
             <Text style={styles.subLabel}>Hoặc tự nhập Phân loại mới:</Text>
             <TextInput
@@ -269,7 +270,7 @@ export default function ClassifyModal() {
               }}
             />
             {customCatName.trim().length > 0 && (
-              <TouchableOpacity
+              <Pressable
                 style={styles.checkboxRow}
                 onPress={() => setSaveCustomCat(!saveCustomCat)}
               >
@@ -281,12 +282,11 @@ export default function ClassifyModal() {
                 <Text style={styles.checkboxLabel}>
                   Lưu vào danh sách mẫu để lần sau chọn nhanh
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             )}
           </View>
         </View>
 
-        {/* Saved Notes Quick Pick & Note Input */}
         <View style={styles.section}>
           <Text style={styles.label}>Ghi chú giao dịch</Text>
 
@@ -295,7 +295,7 @@ export default function ClassifyModal() {
               {relevantNotes.slice(0, 12).map((n) => {
                 const isSelected = noteText === n.text;
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={n.id}
                     style={[styles.notePill, isSelected && styles.notePillActive]}
                     onPress={() => setNoteText(n.text)}
@@ -308,7 +308,7 @@ export default function ClassifyModal() {
                     >
                       {n.text}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
             </View>
@@ -326,7 +326,7 @@ export default function ClassifyModal() {
           />
 
           {noteText.trim().length > 0 && (
-            <TouchableOpacity
+            <Pressable
               style={styles.checkboxRow}
               onPress={() => setSaveCustomNote(!saveCustomNote)}
             >
@@ -338,12 +338,11 @@ export default function ClassifyModal() {
               <Text style={styles.checkboxLabel}>
                 Lưu ghi chú này vào mẫu cho lần sau
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
         </View>
 
-        {/* Save Button */}
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+        <SpringPressable style={styles.saveBtn} onPress={handleSave}>
           <GardenSprouts variant="chip" align="both" />
           <Ionicons name="checkmark-circle" size={20} color={colors.onPrimary} />
           <Text style={styles.saveBtnText}>
@@ -351,7 +350,7 @@ export default function ClassifyModal() {
               ? `Xác nhận phân loại ${batchIdList.length} giao dịch`
               : 'Lưu giao dịch'}
           </Text>
-        </TouchableOpacity>
+        </SpringPressable>
       </KeyboardAwareScrollView>
     </SafeAreaView>
   );
@@ -367,8 +366,8 @@ const createStyles = (colors: ThemeColors) =>
       flex: 1,
     },
     content: {
-      padding: 16,
-      paddingBottom: 40,
+      padding: Spacing.base,
+      paddingBottom: Spacing.xxl,
     },
     batchInfoBanner: {
       flexDirection: 'row',
@@ -376,10 +375,10 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.primarySoft,
       borderWidth: 1,
       borderColor: colors.primaryBorder,
-      borderRadius: 12,
-      padding: 12,
-      marginBottom: 16,
-      gap: 8,
+      borderRadius: Radius.sm,
+      padding: Spacing.md,
+      marginBottom: Spacing.base,
+      gap: Spacing.sm,
     },
     batchInfoText: {
       color: colors.primary,
@@ -389,9 +388,9 @@ const createStyles = (colors: ThemeColors) =>
     },
     txSourceBox: {
       backgroundColor: colors.surface,
-      borderRadius: 12,
-      padding: 12,
-      marginBottom: 16,
+      borderRadius: Radius.sm,
+      padding: Spacing.md,
+      marginBottom: Spacing.base,
       borderWidth: 1,
       borderColor: colors.border,
     },
@@ -407,7 +406,7 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: '700',
     },
     detectedTypeBadge: {
-      paddingHorizontal: 8,
+      paddingHorizontal: Spacing.sm,
       paddingVertical: 3,
       borderRadius: 6,
     },
@@ -434,9 +433,9 @@ const createStyles = (colors: ThemeColors) =>
     },
     section: {
       backgroundColor: colors.surface,
-      borderRadius: 14,
-      padding: 14,
-      marginBottom: 16,
+      borderRadius: Radius.md,
+      padding: Spacing.md,
+      marginBottom: Spacing.base,
       borderWidth: 1,
       borderColor: colors.border,
     },
@@ -455,8 +454,8 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.surfaceSecondary,
-      borderRadius: 10,
-      paddingHorizontal: 12,
+      borderRadius: Radius.sm,
+      paddingHorizontal: Spacing.md,
       borderWidth: 1,
       borderColor: colors.border,
     },
@@ -479,16 +478,16 @@ const createStyles = (colors: ThemeColors) =>
     catGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 8,
-      marginBottom: 12,
+      gap: Spacing.sm,
+      marginBottom: Spacing.md,
     },
     catItem: {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 8,
+      paddingVertical: Spacing.sm,
       backgroundColor: colors.surfaceSecondary,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       borderWidth: 1,
       borderColor: colors.border,
       gap: 6,
@@ -505,8 +504,8 @@ const createStyles = (colors: ThemeColors) =>
     },
     textInput: {
       backgroundColor: colors.surfaceSecondary,
-      borderRadius: 10,
-      paddingHorizontal: 12,
+      borderRadius: Radius.sm,
+      paddingHorizontal: Spacing.md,
       paddingVertical: 10,
       color: colors.text,
       fontSize: 13,
@@ -516,7 +515,7 @@ const createStyles = (colors: ThemeColors) =>
     checkboxRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: 8,
+      marginTop: Spacing.sm,
       gap: 6,
     },
     checkboxLabel: {
@@ -532,7 +531,7 @@ const createStyles = (colors: ThemeColors) =>
     notePill: {
       paddingHorizontal: 10,
       paddingVertical: 6,
-      borderRadius: 14,
+      borderRadius: Radius.md,
       backgroundColor: colors.surfaceSecondary,
       borderWidth: 1,
       borderColor: colors.border,
@@ -554,10 +553,10 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: colors.primary,
-      borderRadius: 14,
+      borderRadius: Radius.md,
       paddingVertical: 14,
-      gap: 8,
-      marginTop: 8,
+      gap: Spacing.sm,
+      marginTop: Spacing.sm,
     },
     saveBtnText: {
       color: colors.onPrimary,

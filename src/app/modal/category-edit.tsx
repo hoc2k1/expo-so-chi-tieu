@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +12,16 @@ import { Category, TransactionType } from '../../models/types';
 import { CategoryNoteFormModal } from '../../components/CategoryNoteFormModal';
 import { DraggableReorderList } from '../../components/DraggableReorderList';
 import { ConfirmModal } from '../../components/ConfirmModal';
-import { useTheme, ThemeColors } from '../../constants/theme';
+import { ChibiCategoryBadge, SpringPressable } from '../../components/Motion';
+import { TypeSwitcher } from '../../components/ui/TypeSwitcher';
+import { RowActionButtons } from '../../components/ui/RowActionButtons';
+import {
+  useTheme,
+  ThemeColors,
+  Spacing,
+  Radius,
+  TouchTarget,
+} from '../../constants/theme';
 
 export default function CategoryEditModal() {
   const { colors } = useTheme();
@@ -81,10 +89,6 @@ export default function CategoryEditModal() {
     return true;
   };
 
-  const handleDelete = (cat: Category) => {
-    setCatToDelete(cat);
-  };
-
   const handleConfirmDelete = async () => {
     if (!catToDelete) return;
     await deleteCategory(catToDelete.id);
@@ -100,46 +104,17 @@ export default function CategoryEditModal() {
         scrollEnabled={!isDragging}
       >
         <View style={styles.topRow}>
-          <View style={styles.typeSwitcher}>
-            <TouchableOpacity
-              style={[
-                styles.typeBtn,
-                filterType === 'expense' && styles.typeBtnActiveExpense,
-              ]}
-              onPress={() => setFilterType('expense')}
-            >
-              <Text
-                style={[
-                  styles.typeText,
-                  filterType === 'expense' && styles.typeTextActive,
-                ]}
-              >
-                Chi tiêu
-              </Text>
-            </TouchableOpacity>
+          <TypeSwitcher
+            value={filterType}
+            onChange={setFilterType}
+            showSprouts={false}
+            style={{ flex: 1 }}
+          />
 
-            <TouchableOpacity
-              style={[
-                styles.typeBtn,
-                filterType === 'income' && styles.typeBtnActiveIncome,
-              ]}
-              onPress={() => setFilterType('income')}
-            >
-              <Text
-                style={[
-                  styles.typeText,
-                  filterType === 'income' && styles.typeTextActive,
-                ]}
-              >
-                Thu nhập
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.addBtn} onPress={handleOpenAdd}>
+          <SpringPressable style={styles.addBtn} onPress={handleOpenAdd}>
             <Ionicons name="add" size={18} color={colors.onPrimary} />
             <Text style={styles.addBtnText}>Thêm</Text>
-          </TouchableOpacity>
+          </SpringPressable>
         </View>
 
         <View style={styles.section}>
@@ -156,28 +131,16 @@ export default function CategoryEditModal() {
             onReorder={(ordered) => reorderCategories(filterType, ordered)}
             renderContent={(cat) => (
               <View style={styles.catInner}>
-                <View style={[styles.catIconBox, { backgroundColor: `${cat.color}25` }]}>
-                  <Ionicons name={cat.icon as any} size={18} color={cat.color} />
-                </View>
+                <ChibiCategoryBadge icon={cat.icon} color={cat.color} size={36} />
                 <Text style={styles.catName} numberOfLines={1}>
                   {cat.name}
                 </Text>
-                <View style={styles.rowActions}>
-                  <TouchableOpacity
-                    onPress={() => handleStartEdit(cat)}
-                    style={styles.actionIconBtn}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name="create-outline" size={18} color={colors.info} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleDelete(cat)}
-                    style={styles.actionIconBtn}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name="trash-outline" size={18} color={colors.expense} />
-                  </TouchableOpacity>
-                </View>
+                <RowActionButtons
+                  onEdit={() => handleStartEdit(cat)}
+                  onDelete={() => setCatToDelete(cat)}
+                  editLabel={`Sửa ${cat.name}`}
+                  deleteLabel={`Xóa ${cat.name}`}
+                />
               </View>
             )}
           />
@@ -220,54 +183,24 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.background,
     },
     content: {
-      padding: 16,
-      paddingBottom: 40,
+      padding: Spacing.base,
+      paddingBottom: Spacing.xxl,
     },
     topRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
-      marginBottom: 14,
-    },
-    typeSwitcher: {
-      flex: 1,
-      flexDirection: 'row',
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      padding: 4,
-      gap: 6,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    typeBtn: {
-      flex: 1,
-      paddingVertical: 8,
-      alignItems: 'center',
-      borderRadius: 8,
-    },
-    typeBtnActiveExpense: {
-      backgroundColor: colors.expense,
-    },
-    typeBtnActiveIncome: {
-      backgroundColor: colors.income,
-    },
-    typeText: {
-      color: colors.textSecondary,
-      fontSize: 13,
-      fontWeight: '600',
-    },
-    typeTextActive: {
-      color: colors.onPrimary,
-      fontWeight: '700',
+      gap: Spacing.sm,
+      marginBottom: Spacing.md,
     },
     addBtn: {
+      minHeight: TouchTarget.minSize,
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
       backgroundColor: colors.primary,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      borderRadius: 12,
-      gap: 4,
+      paddingHorizontal: Spacing.md,
+      borderRadius: Radius.md,
+      gap: Spacing.xs,
     },
     addBtnText: {
       color: colors.onPrimary,
@@ -276,8 +209,8 @@ const createStyles = (colors: ThemeColors) =>
     },
     section: {
       backgroundColor: colors.surface,
-      borderRadius: 14,
-      padding: 14,
+      borderRadius: Radius.md,
+      padding: Spacing.md,
       borderWidth: 1,
       borderColor: colors.border,
     },
@@ -285,7 +218,7 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 12,
+      marginBottom: Spacing.md,
     },
     sectionTitle: {
       color: colors.text,
@@ -300,27 +233,12 @@ const createStyles = (colors: ThemeColors) =>
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
-    },
-    catIconBox: {
-      width: 34,
-      height: 34,
-      borderRadius: 8,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 10,
+      gap: Spacing.sm,
     },
     catName: {
       flex: 1,
       color: colors.text,
       fontSize: 14,
       fontWeight: '600',
-    },
-    rowActions: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-    },
-    actionIconBtn: {
-      padding: 4,
     },
   });

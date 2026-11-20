@@ -13,9 +13,9 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useApp } from '../../contexts/AppContext';
 import { NotificationDebugLog } from '../../models/types';
 import { formatCurrency, formatRelativeTime } from '../../utils/formatters';
-import { ChibiStrawberry } from '../../components/ChibiStrawberry';
 import { GardenBox } from '../../components/GardenDecor';
 import { SpringPressable } from '../../components/Motion';
+import { EmptyState } from '../../components/ui/EmptyState';
 import {
   useTheme,
   ThemeColors,
@@ -50,23 +50,23 @@ export default function NotificationLogsModal() {
   }, [refreshDebugLogs]);
 
   const filteredLogs = useMemo(() => {
-    if (filter === 'all') return notificationDebugLogs;
-    if (filter === 'added') {
-      return notificationDebugLogs.filter(
-        (l) => l.status === 'added' || l.status === 'soft_duplicate_added' || l.status === 'captured'
-      );
-    }
-    if (filter === 'duplicate') {
-      return notificationDebugLogs.filter(
-        (l) => l.status === 'hard_duplicate' || l.status === 'soft_duplicate_added'
-      );
-    }
-    return notificationDebugLogs.filter(
-      (l) =>
-        l.status === 'ignored_invalid_or_otp' ||
-        l.status === 'ignored_not_enabled' ||
-        l.status === 'native_filtered'
-    );
+     if (filter === 'all') return notificationDebugLogs;
+     if (filter === 'added') {
+       return notificationDebugLogs.filter(
+         (l) => l.status === 'added' || l.status === 'soft_duplicate_added' || l.status === 'captured'
+       );
+     }
+     if (filter === 'duplicate') {
+       return notificationDebugLogs.filter(
+         (l) => l.status === 'hard_duplicate' || l.status === 'soft_duplicate_added'
+       );
+     }
+     return notificationDebugLogs.filter(
+       (l) =>
+         l.status === 'ignored_invalid_or_otp' ||
+         l.status === 'ignored_not_enabled' ||
+         l.status === 'native_filtered'
+     );
   }, [filter, notificationDebugLogs]);
 
   const getStatusMeta = (status: NotificationDebugLog['status']) => {
@@ -134,30 +134,13 @@ export default function NotificationLogsModal() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={styles.headerBlock}>
-            {/* Health Status Garden Card */}
             <GardenBox variant="card" style={styles.healthWrap} contentStyle={styles.healthCard}>
               <Text style={styles.healthTitle}>Trạng thái bộ lắng nghe</Text>
               <View style={styles.healthGrid}>
-                <StatusPill
-                  label="Quyền đọc TB"
-                  ok={isPermissionGranted}
-                  colors={colors}
-                />
-                <StatusPill
-                  label="Service đang nối"
-                  ok={isServiceConnected}
-                  colors={colors}
-                />
-                <StatusPill
-                  label="Bỏ tối ưu pin"
-                  ok={isBatteryOptimizationIgnored}
-                  colors={colors}
-                />
-                <StatusPill
-                  label="Quyền Bubble"
-                  ok={isPostNotificationGranted}
-                  colors={colors}
-                />
+                <StatusPill label="Quyền đọc TB" ok={isPermissionGranted} colors={colors} />
+                <StatusPill label="Service đang nối" ok={isServiceConnected} colors={colors} />
+                <StatusPill label="Bỏ tối ưu pin" ok={isBatteryOptimizationIgnored} colors={colors} />
+                <StatusPill label="Quyền Bubble" ok={isPostNotificationGranted} colors={colors} />
               </View>
 
               {Platform.OS === 'android' && (
@@ -178,7 +161,14 @@ export default function NotificationLogsModal() {
 
                   {!isPostNotificationGranted && (
                     <SpringPressable
-                      style={[styles.actionBtn, { backgroundColor: colors.warningSoft, borderWidth: 1, borderColor: colors.warningBorder }]}
+                      style={[
+                        styles.actionBtn,
+                        {
+                          backgroundColor: colors.warningSoft,
+                          borderWidth: 1,
+                          borderColor: colors.warningBorder,
+                        },
+                      ]}
                       onPress={() => requestPostNotificationPermission()}
                     >
                       <Ionicons name="notifications-outline" size={15} color={colors.warning} />
@@ -198,7 +188,6 @@ export default function NotificationLogsModal() {
               )}
             </GardenBox>
 
-            {/* Filter Chips */}
             <View style={styles.filterRow}>
               {(
                 [
@@ -236,13 +225,12 @@ export default function NotificationLogsModal() {
           </View>
         }
         ListEmptyComponent={
-          <View style={styles.emptyBox}>
-            <ChibiStrawberry size={86} mood="curious" />
-            <Text style={styles.emptyTitle}>Chưa có nhật ký thông báo nào</Text>
-            <Text style={styles.emptySubtitle}>
-              Khi có thông báo ngân hàng/ví đến, mọi lý do nhận hoặc bỏ qua sẽ hiển thị tại đây để bạn dễ kiểm tra.
-            </Text>
-          </View>
+          <EmptyState
+            title="Chưa có nhật ký thông báo nào"
+            subtitle="Khi có thông báo ngân hàng/ví đến, mọi lý do nhận hoặc bỏ qua sẽ hiển thị tại đây để bạn dễ kiểm tra."
+            mood="curious"
+            mascotSize={86}
+          />
         }
       />
     </SafeAreaView>
@@ -302,7 +290,7 @@ const createStyles = (colors: ThemeColors) =>
       marginBottom: Spacing.md,
     },
     healthWrap: {
-      marginTop: 8,
+      marginTop: Spacing.sm,
       marginBottom: Spacing.base,
     },
     healthCard: {
@@ -331,7 +319,7 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: 'center',
       gap: 6,
       paddingVertical: 10,
-      paddingHorizontal: 12,
+      paddingHorizontal: Spacing.md,
       borderRadius: Radius.pill,
     },
     actionBtnText: {
@@ -395,7 +383,7 @@ const createStyles = (colors: ThemeColors) =>
       ...Typography.caption,
       fontWeight: '700',
       color: colors.text,
-      marginBottom: 4,
+      marginBottom: Spacing.xs,
     },
     reasonText: {
       ...Typography.body,
@@ -418,22 +406,5 @@ const createStyles = (colors: ThemeColors) =>
       ...Typography.caption,
       color: colors.textSecondary,
       lineHeight: 17,
-    },
-    emptyBox: {
-      alignItems: 'center',
-      paddingVertical: Spacing.xxl,
-      paddingHorizontal: Spacing.lg,
-    },
-    emptyTitle: {
-      ...Typography.subtitle,
-      color: colors.text,
-      marginTop: Spacing.sm,
-      marginBottom: 6,
-    },
-    emptySubtitle: {
-      ...Typography.body,
-      fontSize: 13,
-      color: colors.textSecondary,
-      textAlign: 'center',
     },
   });

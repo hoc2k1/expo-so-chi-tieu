@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,7 +13,14 @@ import { useApp } from '../../contexts/AppContext';
 import { AutoRule } from '../../models/types';
 import { KeyboardAwareScrollView } from '../../components/KeyboardAwareScrollView';
 import { ConfirmModal } from '../../components/ConfirmModal';
-import { useTheme, ThemeColors } from '../../constants/theme';
+import { SpringPressable } from '../../components/Motion';
+import { RowActionButtons } from '../../components/ui/RowActionButtons';
+import {
+  useTheme,
+  ThemeColors,
+  Spacing,
+  Radius,
+} from '../../constants/theme';
 
 export default function RuleEditModal() {
   const { colors } = useTheme();
@@ -77,10 +84,6 @@ export default function RuleEditModal() {
     }
   };
 
-  const handleDelete = (r: AutoRule) => {
-    setRuleToDelete(r);
-  };
-
   const handleConfirmDelete = async () => {
     if (!ruleToDelete) return;
     if (editingRule?.id === ruleToDelete.id) {
@@ -94,7 +97,6 @@ export default function RuleEditModal() {
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
       <KeyboardAwareScrollView style={styles.container} contentContainerStyle={styles.content}>
-        {/* Intro */}
         <View style={styles.introBox}>
           <Ionicons name="sparkles" size={18} color={colors.warning} />
           <Text style={styles.introText}>
@@ -102,16 +104,15 @@ export default function RuleEditModal() {
           </Text>
         </View>
 
-        {/* Add / Edit rule */}
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>
-              {editingRule ? `✏️ Chỉnh sửa: ${editingRule.keyword}` : '+ Thêm Quy tắc từ khóa mới'}
+              {editingRule ? `Chỉnh sửa: ${editingRule.keyword}` : '+ Thêm Quy tắc từ khóa mới'}
             </Text>
             {editingRule && (
-              <TouchableOpacity onPress={handleCancelEdit} style={styles.cancelEditBtn}>
+              <Pressable onPress={handleCancelEdit} style={styles.cancelEditBtn}>
                 <Text style={styles.cancelEditText}>Hủy sửa</Text>
-              </TouchableOpacity>
+              </Pressable>
             )}
           </View>
 
@@ -128,7 +129,7 @@ export default function RuleEditModal() {
           <Text style={styles.label}>Ánh xạ vào Phân loại:</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
             {categories.map((c) => (
-              <TouchableOpacity
+              <Pressable
                 key={c.id}
                 style={[styles.catPill, selectedCatId === c.id && styles.catPillActive]}
                 onPress={() => setSelectedCatId(c.id)}
@@ -141,7 +142,7 @@ export default function RuleEditModal() {
                 >
                   {c.name}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </ScrollView>
 
@@ -154,7 +155,7 @@ export default function RuleEditModal() {
             onChangeText={setNote}
           />
 
-          <TouchableOpacity
+          <SpringPressable
             style={[styles.addBtn, editingRule && styles.editSaveBtn]}
             onPress={handleSave}
           >
@@ -162,10 +163,9 @@ export default function RuleEditModal() {
             <Text style={styles.addBtnText}>
               {editingRule ? 'Lưu thay đổi quy tắc' : 'Lưu quy tắc gợi ý'}
             </Text>
-          </TouchableOpacity>
+          </SpringPressable>
         </View>
 
-        {/* Rules list */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quy tắc đang hoạt động ({rules.length})</Text>
           {rules.map((r) => (
@@ -175,25 +175,15 @@ export default function RuleEditModal() {
                   <Text style={styles.keywordText}>{r.keyword}</Text>
                 </View>
                 <Text style={styles.ruleMapping}>
-                  👉 {r.categoryName} {r.note ? `• ${r.note}` : ''}
+                  → {r.categoryName} {r.note ? `• ${r.note}` : ''}
                 </Text>
               </View>
-              <View style={styles.rowActions}>
-                <TouchableOpacity
-                  onPress={() => handleStartEdit(r)}
-                  style={styles.actionIconBtn}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="create-outline" size={18} color={colors.info} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => handleDelete(r)}
-                  style={styles.actionIconBtn}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="trash-outline" size={18} color={colors.expense} />
-                </TouchableOpacity>
-              </View>
+              <RowActionButtons
+                onEdit={() => handleStartEdit(r)}
+                onDelete={() => setRuleToDelete(r)}
+                editLabel={`Sửa ${r.keyword}`}
+                deleteLabel={`Xóa ${r.keyword}`}
+              />
             </View>
           ))}
         </View>
@@ -224,18 +214,18 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.background,
     },
     content: {
-      padding: 16,
-      paddingBottom: 40,
+      padding: Spacing.base,
+      paddingBottom: Spacing.xxl,
     },
     introBox: {
       flexDirection: 'row',
       backgroundColor: colors.warningSoft,
       borderWidth: 1,
       borderColor: colors.warningBorder,
-      borderRadius: 12,
-      padding: 12,
-      marginBottom: 16,
-      gap: 8,
+      borderRadius: Radius.sm,
+      padding: Spacing.md,
+      marginBottom: Spacing.base,
+      gap: Spacing.sm,
     },
     introText: {
       color: colors.text,
@@ -245,9 +235,9 @@ const createStyles = (colors: ThemeColors) =>
     },
     section: {
       backgroundColor: colors.surface,
-      borderRadius: 14,
-      padding: 14,
-      marginBottom: 16,
+      borderRadius: Radius.md,
+      padding: Spacing.md,
+      marginBottom: Spacing.base,
       borderWidth: 1,
       borderColor: colors.border,
     },
@@ -255,7 +245,7 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 10,
+      marginBottom: Spacing.sm,
     },
     sectionTitle: {
       color: colors.text,
@@ -263,10 +253,10 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: '700',
     },
     cancelEditBtn: {
-      paddingVertical: 3,
-      paddingHorizontal: 8,
+      paddingVertical: Spacing.xs,
+      paddingHorizontal: Spacing.sm,
       backgroundColor: colors.surfaceSecondary,
-      borderRadius: 6,
+      borderRadius: Radius.sm,
       borderWidth: 1,
       borderColor: colors.border,
     },
@@ -282,24 +272,24 @@ const createStyles = (colors: ThemeColors) =>
     },
     textInput: {
       backgroundColor: colors.surfaceSecondary,
-      borderRadius: 10,
-      paddingHorizontal: 12,
+      borderRadius: Radius.sm,
+      paddingHorizontal: Spacing.md,
       paddingVertical: 10,
       color: colors.text,
       fontSize: 13,
       borderWidth: 1,
       borderColor: colors.border,
-      marginBottom: 12,
+      marginBottom: Spacing.md,
     },
     catScroll: {
       flexDirection: 'row',
-      marginBottom: 12,
+      marginBottom: Spacing.md,
     },
     catPill: {
-      paddingHorizontal: 12,
+      paddingHorizontal: Spacing.md,
       paddingVertical: 6,
       backgroundColor: colors.surfaceSecondary,
-      borderRadius: 16,
+      borderRadius: Radius.md,
       marginRight: 6,
       borderWidth: 1,
       borderColor: colors.border,
@@ -321,8 +311,8 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: colors.primary,
-      borderRadius: 10,
-      paddingVertical: 11,
+      borderRadius: Radius.sm,
+      paddingVertical: Spacing.md,
       gap: 6,
     },
     editSaveBtn: {
@@ -347,12 +337,12 @@ const createStyles = (colors: ThemeColors) =>
     keywordBadge: {
       alignSelf: 'flex-start',
       backgroundColor: colors.primarySoft,
-      paddingHorizontal: 8,
+      paddingHorizontal: Spacing.sm,
       paddingVertical: 2,
       borderRadius: 6,
       borderWidth: 1,
       borderColor: colors.primaryBorder,
-      marginBottom: 4,
+      marginBottom: Spacing.xs,
     },
     keywordText: {
       color: colors.primary,
@@ -362,13 +352,5 @@ const createStyles = (colors: ThemeColors) =>
     ruleMapping: {
       color: colors.textSecondary,
       fontSize: 12,
-    },
-    rowActions: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-    },
-    actionIconBtn: {
-      padding: 4,
     },
   });

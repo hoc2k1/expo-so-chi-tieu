@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   TextInput,
   Switch,
 } from 'react-native';
@@ -16,7 +16,13 @@ import {
   KeyboardAwareScrollView,
   KeyboardAwareScrollViewRef,
 } from '../../components/KeyboardAwareScrollView';
-import { useTheme, ThemeColors } from '../../constants/theme';
+import { SpringPressable } from '../../components/Motion';
+import {
+  useTheme,
+  ThemeColors,
+  Spacing,
+  Radius,
+} from '../../constants/theme';
 
 export default function AppsManagerModal() {
   const { colors } = useTheme();
@@ -26,23 +32,18 @@ export default function AppsManagerModal() {
 
   const [customPackage, setCustomPackage] = useState('');
 
-  const isEnabled = (pkg: string) => {
-    return settings.enabledPackages.some((p) => p.toLowerCase() === pkg.toLowerCase());
-  };
+  const isEnabled = (pkg: string) =>
+    settings.enabledPackages.some((p) => p.toLowerCase() === pkg.toLowerCase());
 
   const toggleApp = (app: SupportedApp) => {
     const targetPkgs = [app.packageName, ...(app.aliases || [])].map((x) => x.toLowerCase());
-    let updated: string[];
     const willEnable = !isEnabled(app.packageName);
-    if (!willEnable) {
-      updated = settings.enabledPackages.filter(
-        (p) => !targetPkgs.includes(p.toLowerCase())
-      );
-    } else {
-      updated = Array.from(
-        new Set([...settings.enabledPackages, app.packageName, ...(app.aliases || [])])
-      );
-    }
+    const updated = !willEnable
+      ? settings.enabledPackages.filter((p) => !targetPkgs.includes(p.toLowerCase()))
+      : Array.from(
+          new Set([...settings.enabledPackages, app.packageName, ...(app.aliases || [])])
+        );
+
     updateSettings({ enabledPackages: updated });
     showToast(
       willEnable ? `Đã bật theo dõi ${app.name}` : `Đã tắt theo dõi ${app.name}`,
@@ -79,9 +80,30 @@ export default function AppsManagerModal() {
     showToast(`Đã thêm package ${clean} vào danh sách theo dõi`, 'success');
   };
 
-  const banks = SUPPORTED_APPS.filter((a) => a.category === 'bank');
-  const wallets = SUPPORTED_APPS.filter((a) => a.category === 'wallet');
-  const others = SUPPORTED_APPS.filter((a) => a.category === 'email_sms');
+  const appGroups: {
+    title: string;
+    subtitle?: string;
+    defaultIcon: keyof typeof Ionicons.glyphMap;
+    apps: SupportedApp[];
+  }[] = [
+    {
+      title: 'Ngân hàng phổ biến',
+      defaultIcon: 'business',
+      apps: SUPPORTED_APPS.filter((a) => a.category === 'bank'),
+    },
+    {
+      title: 'Ví điện tử & Ngân hàng số',
+      defaultIcon: 'wallet',
+      apps: SUPPORTED_APPS.filter((a) => a.category === 'wallet'),
+    },
+    {
+      title: 'Email & Tin nhắn SMS',
+      subtitle:
+        'Dành cho trường hợp bạn nhận thông báo biến động số dư qua Gmail hoặc tin nhắn SMS',
+      defaultIcon: 'mail',
+      apps: SUPPORTED_APPS.filter((a) => a.category === 'email_sms'),
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
@@ -90,91 +112,50 @@ export default function AppsManagerModal() {
         style={styles.scrollView}
         contentContainerStyle={styles.content}
       >
-        {/* Header controls */}
         <View style={styles.topBar}>
           <Text style={styles.countText}>
             Đang bật: {settings.enabledPackages.length} package
           </Text>
           <View style={styles.topBtns}>
-            <TouchableOpacity style={styles.quickBtn} onPress={enableAll}>
+            <Pressable style={styles.quickBtn} onPress={enableAll}>
               <Text style={styles.quickBtnText}>Bật tất cả</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickBtn} onPress={disableAll}>
+            </Pressable>
+            <Pressable style={styles.quickBtn} onPress={disableAll}>
               <Text style={styles.quickBtnText}>Tắt tất cả</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
 
-        {/* Banks */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ngân hàng phổ biến ({banks.length})</Text>
-          {banks.map((app) => (
-            <View key={app.packageName} style={styles.appRow}>
-              <View style={[styles.appIconBox, { backgroundColor: `${app.color}25` }]}>
-                <Ionicons name="business" size={18} color={app.color} />
+        {appGroups.map((group) => (
+          <View key={group.title} style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {group.title} ({group.apps.length})
+            </Text>
+            {group.subtitle && <Text style={styles.sectionSubtitle}>{group.subtitle}</Text>}
+            {group.apps.map((app) => (
+              <View key={app.packageName} style={styles.appRow}>
+                <View style={[styles.appIconBox, { backgroundColor: `${app.color}25` }]}>
+                  <Ionicons
+                    name={(app.icon as any) || group.defaultIcon}
+                    size={18}
+                    color={app.color}
+                  />
+                </View>
+                <View style={styles.appTexts}>
+                  <Text style={styles.appName}>{app.name}</Text>
+                  <Text style={styles.appPackage}>{app.packageName}</Text>
+                </View>
+                <Switch
+                  value={isEnabled(app.packageName)}
+                  onValueChange={() => toggleApp(app)}
+                  trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
+                  thumbColor={colors.onPrimary}
+                />
               </View>
-              <View style={styles.appTexts}>
-                <Text style={styles.appName}>{app.name}</Text>
-                <Text style={styles.appPackage}>{app.packageName}</Text>
-              </View>
-              <Switch
-                value={isEnabled(app.packageName)}
-                onValueChange={() => toggleApp(app)}
-                trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        ))}
 
-        {/* Wallets */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ví điện tử & Ngân hàng số ({wallets.length})</Text>
-          {wallets.map((app) => (
-            <View key={app.packageName} style={styles.appRow}>
-              <View style={[styles.appIconBox, { backgroundColor: `${app.color}25` }]}>
-                <Ionicons name="wallet" size={18} color={app.color} />
-              </View>
-              <View style={styles.appTexts}>
-                <Text style={styles.appName}>{app.name}</Text>
-                <Text style={styles.appPackage}>{app.packageName}</Text>
-              </View>
-              <Switch
-                value={isEnabled(app.packageName)}
-                onValueChange={() => toggleApp(app)}
-                trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-          ))}
-        </View>
-
-        {/* Email & SMS */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Email & Tin nhắn SMS</Text>
-          <Text style={styles.sectionSubtitle}>
-            Dành cho trường hợp bạn nhận thông báo biến động số dư qua Gmail hoặc tin nhắn SMS
-          </Text>
-          {others.map((app) => (
-            <View key={app.packageName} style={styles.appRow}>
-              <View style={[styles.appIconBox, { backgroundColor: `${app.color}25` }]}>
-                <Ionicons name={app.icon as any} size={18} color={app.color} />
-              </View>
-              <View style={styles.appTexts}>
-                <Text style={styles.appName}>{app.name}</Text>
-                <Text style={styles.appPackage}>{app.packageName}</Text>
-              </View>
-              <Switch
-                value={isEnabled(app.packageName)}
-                onValueChange={() => toggleApp(app)}
-                trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-          ))}
-        </View>
-
-        {/* Add Custom Package */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Thêm App khác theo Package Name</Text>
           <TextInput
@@ -188,10 +169,10 @@ export default function AppsManagerModal() {
               setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 150)
             }
           />
-          <TouchableOpacity style={styles.addBtn} onPress={handleAddCustom}>
+          <SpringPressable style={styles.addBtn} onPress={handleAddCustom}>
             <Ionicons name="add" size={18} color={colors.onPrimary} />
             <Text style={styles.addBtnText}>Thêm vào danh sách theo dõi</Text>
-          </TouchableOpacity>
+          </SpringPressable>
         </View>
       </KeyboardAwareScrollView>
     </SafeAreaView>
@@ -208,14 +189,14 @@ const createStyles = (colors: ThemeColors) =>
       flex: 1,
     },
     content: {
-      padding: 16,
-      paddingBottom: 40,
+      padding: Spacing.base,
+      paddingBottom: Spacing.xxl,
     },
     topBar: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 16,
+      marginBottom: Spacing.base,
     },
     countText: {
       color: colors.textSecondary,
@@ -224,7 +205,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     topBtns: {
       flexDirection: 'row',
-      gap: 8,
+      gap: Spacing.sm,
     },
     quickBtn: {
       backgroundColor: colors.surface,
@@ -241,9 +222,9 @@ const createStyles = (colors: ThemeColors) =>
     },
     section: {
       backgroundColor: colors.surface,
-      borderRadius: 14,
-      padding: 14,
-      marginBottom: 16,
+      borderRadius: Radius.md,
+      padding: Spacing.md,
+      marginBottom: Spacing.base,
       borderWidth: 1,
       borderColor: colors.border,
     },
@@ -275,7 +256,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     appTexts: {
       flex: 1,
-      paddingRight: 8,
+      paddingRight: Spacing.sm,
     },
     appName: {
       color: colors.text,
@@ -289,8 +270,8 @@ const createStyles = (colors: ThemeColors) =>
     },
     textInput: {
       backgroundColor: colors.surfaceSecondary,
-      borderRadius: 10,
-      paddingHorizontal: 12,
+      borderRadius: Radius.sm,
+      paddingHorizontal: Spacing.md,
       paddingVertical: 10,
       color: colors.text,
       fontSize: 13,
@@ -303,8 +284,8 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: colors.primary,
-      borderRadius: 10,
-      paddingVertical: 11,
+      borderRadius: Radius.sm,
+      paddingVertical: Spacing.md,
       gap: 6,
     },
     addBtnText: {

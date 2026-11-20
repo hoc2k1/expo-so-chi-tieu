@@ -10,25 +10,32 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useApp } from '../../contexts/AppContext';
-import { TimeRangePreset } from '../../models/types';
+import { TimeRangePreset, TransactionType } from '../../models/types';
 import {
   formatCurrency,
   getDefaultMonthStartDisplay,
   getDefaultTodayEndDisplay,
   isTransactionInTimeRange,
 } from '../../utils/formatters';
+import { useFilterOptions } from '../../hooks/useFilterOptions';
 import { PieChartSvg } from '../../components/PieChartSvg';
 import { DateRangePickerModal } from '../../components/DateRangePickerModal';
-import { MultiSelectGridModal, MultiSelectOption } from '../../components/MultiSelectGridModal';
+import { MultiSelectGridModal } from '../../components/MultiSelectGridModal';
 import { GardenSprouts } from '../../components/GardenDecor';
-import { SUPPORTED_APPS } from '../../constants/defaultData';
+import { ChibiCategoryBadge } from '../../components/Motion';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { TypeSwitcher } from '../../components/ui/TypeSwitcher';
+import {
+  TimeRangeBar,
+  FilterDropdownRow,
+  AppliedFilterBanners,
+} from '../../components/ui/FilterBar';
 import {
   useTheme,
   ThemeColors,
   Spacing,
   Radius,
   Typography,
-  TouchTarget,
   Shadows,
 } from '../../constants/theme';
 
@@ -36,6 +43,7 @@ export default function StatisticsScreen() {
   const { transactions, categories, setTransactionFilter } = useApp();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { categoryOptions, bankOptions } = useFilterOptions(transactions, categories);
 
   const [timeRange, setTimeRange] = useState<TimeRangePreset>('month');
   const [customStart, setCustomStart] = useState<string>(() => getDefaultMonthStartDisplay());
@@ -46,35 +54,7 @@ export default function StatisticsScreen() {
 
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
-  const [activeType, setActiveType] = useState<'expense' | 'income'>('expense');
-
-  const bankOptions = useMemo<MultiSelectOption[]>(() => {
-    const set = new Set<string>();
-    transactions.forEach((t) => {
-      if (t.source) set.add(t.source);
-    });
-    SUPPORTED_APPS.forEach((app) => {
-      if (app.category !== 'email_sms') {
-        set.add(app.name);
-      }
-    });
-    set.add('Tiền mặt');
-    return Array.from(set).map((s) => ({
-      id: s,
-      name: s,
-      icon: s === 'Tiền mặt' ? 'cash-outline' : 'business-outline',
-    }));
-  }, [transactions]);
-
-  const categoryOptions = useMemo<MultiSelectOption[]>(() => {
-    return categories.map((c) => ({
-      id: c.id,
-      name: c.name,
-      icon: c.icon,
-      color: c.color,
-      subtitle: c.type === 'expense' ? 'Chi tiêu' : 'Thu nhập',
-    }));
-  }, [categories]);
+  const [activeType, setActiveType] = useState<TransactionType>('expense');
 
   const scopedTransactions = useMemo(() => {
     return transactions.filter((tx) => {
@@ -94,17 +74,21 @@ export default function StatisticsScreen() {
     });
   }, [transactions, selectedSources, selectedCategoryIds, timeRange, customStart, customEnd]);
 
-  const totalIncome = useMemo(() => {
-    return scopedTransactions
-      .filter((t) => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-  }, [scopedTransactions]);
+  const totalIncome = useMemo(
+    () =>
+      scopedTransactions
+        .filter((t) => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0),
+    [scopedTransactions]
+  );
 
-  const totalExpense = useMemo(() => {
-    return scopedTransactions
-      .filter((t) => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
-  }, [scopedTransactions]);
+  const totalExpense = useMemo(
+    () =>
+      scopedTransactions
+        .filter((t) => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0),
+    [scopedTransactions]
+  );
 
   const balanceDiff = totalIncome - totalExpense;
 
@@ -140,12 +124,12 @@ export default function StatisticsScreen() {
       map[t.categoryId].count += 1;
     });
 
-    const list = Object.values(map).map((item) => ({
-      ...item,
-      percentage: totalTarget > 0 ? (item.total / totalTarget) * 100 : 0,
-    }));
-
-    return list.sort((a, b) => b.total - a.total);
+    return Object.values(map)
+      .map((item) => ({
+        ...item,
+        percentage: totalTarget > 0 ? (item.total / totalTarget) * 100 : 0,
+      }))
+      .sort((a, b) => b.total - a.total);
   }, [scopedTransactions, activeType, totalExpense, totalIncome, categories, colors.primary]);
 
   const handleDrillDown = (categoryId: string) => {
@@ -179,172 +163,34 @@ export default function StatisticsScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Time Range Selector */}
-        <View style={styles.timeRangeBar}>
-          <GardenSprouts variant="chip" align="left" />
-          {(['today', 'week', 'month', 'year', 'custom'] as const).map((t) => {
-            const labels: Record<string, string> = {
-              today: 'Hôm nay',
-              week: 'Tuần',
-              month: 'Tháng',
-              year: 'Năm',
-              custom: 'Tùy chọn',
-            };
-            const isSelected = timeRange === t;
-            return (
-              <Pressable
-                key={t}
-                style={[styles.timeBtn, isSelected && styles.timeBtnActive]}
-                onPress={() => {
-                  setTimeRange(t);
-                  if (t === 'custom') {
-                    setShowDateModal(true);
-                  }
-                }}
-              >
-                <Text style={[styles.timeBtnText, isSelected && styles.timeBtnTextActive]}>
-                  {labels[t]}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <TimeRangeBar
+          value={timeRange}
+          onChange={setTimeRange}
+          onCustomPress={() => setShowDateModal(true)}
+          sproutAlign="left"
+        />
 
-        {/* Custom DateTime Range Banner */}
-        {timeRange === 'custom' && (
-          <Pressable
-            style={styles.customRangeBanner}
-            onPress={() => setShowDateModal(true)}
-          >
-            <Ionicons name="calendar-outline" size={16} color={colors.info} />
-            <Text style={styles.customRangeText}>
-              {customStart} → {customEnd}
-            </Text>
-            <Text style={styles.customRangeEdit}>Đổi</Text>
-          </Pressable>
-        )}
+        <FilterDropdownRow
+          selectedSourcesCount={selectedSources.length}
+          selectedCategoriesCount={selectedCategoryIds.length}
+          hasActiveFilter={hasActiveFilter}
+          resetLabel="Mặc định"
+          onOpenBankModal={() => setShowBankModal(true)}
+          onOpenCategoryModal={() => setShowCategoryModal(true)}
+          onReset={handleResetFilters}
+        />
 
-        {/* Filter Row: Bank & Category */}
-        <View style={styles.dropdownRow}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.dropdownBtn,
-              selectedSources.length > 0 && styles.dropdownBtnActiveBank,
-              pressed && { opacity: 0.8 },
-            ]}
-            onPress={() => setShowBankModal(true)}
-          >
-            <GardenSprouts variant="chip" align="left" />
-            <Ionicons
-              name="business-outline"
-              size={14}
-              color={selectedSources.length > 0 ? colors.info : colors.textSecondary}
-            />
-            <Text
-              style={[
-                styles.dropdownBtnText,
-                selectedSources.length > 0 && { color: colors.info, fontWeight: '700' },
-              ]}
-              numberOfLines={1}
-            >
-              {selectedSources.length === 0
-                ? 'Ngân hàng / Ví'
-                : `Ngân hàng (${selectedSources.length})`}
-            </Text>
-            <Ionicons
-              name="chevron-down"
-              size={13}
-              color={selectedSources.length > 0 ? colors.info : colors.textMuted}
-            />
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.dropdownBtn,
-              selectedCategoryIds.length > 0 && styles.dropdownBtnActiveCategory,
-              pressed && { opacity: 0.8 },
-            ]}
-            onPress={() => setShowCategoryModal(true)}
-          >
-            <GardenSprouts variant="chip" align="right" />
-            <Ionicons
-              name="pricetag-outline"
-              size={14}
-              color={selectedCategoryIds.length > 0 ? colors.income : colors.textSecondary}
-            />
-            <Text
-              style={[
-                styles.dropdownBtnText,
-                selectedCategoryIds.length > 0 && { color: colors.income, fontWeight: '700' },
-              ]}
-              numberOfLines={1}
-            >
-              {selectedCategoryIds.length === 0
-                ? 'Phân loại'
-                : `Phân loại (${selectedCategoryIds.length})`}
-            </Text>
-            <Ionicons
-              name="chevron-down"
-              size={13}
-              color={selectedCategoryIds.length > 0 ? colors.income : colors.textMuted}
-            />
-          </Pressable>
-
-          {hasActiveFilter && (
-            <Pressable
-              style={({ pressed }) => [
-                styles.resetFilterChip,
-                pressed && { opacity: 0.75 },
-              ]}
-              onPress={handleResetFilters}
-            >
-              <Ionicons name="refresh" size={14} color={colors.expense} />
-              <Text style={styles.resetFilterText}>Mặc định</Text>
-            </Pressable>
-          )}
-        </View>
-
-        {/* Active Categories Banner */}
-        {selectedCategoryIds.length > 0 && (
-          <View style={styles.appliedFilterBanner}>
-            <View style={styles.appliedBannerLeft}>
-              <Ionicons name="pricetag" size={14} color={colors.income} />
-              <Text style={styles.appliedFilterText} numberOfLines={1}>
-                Phân loại:{' '}
-                <Text style={styles.appliedFilterBold}>
-                  {selectedCategoryIds
-                    .map((id) => categories.find((c) => c.id === id)?.name || id)
-                    .join(', ')}
-                </Text>
-              </Text>
-            </View>
-            <Pressable
-              onPress={() => setSelectedCategoryIds([])}
-              hitSlop={TouchTarget.hitSlop}
-            >
-              <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-            </Pressable>
-          </View>
-        )}
-
-        {/* Active Banks Banner */}
-        {selectedSources.length > 0 && (
-          <View style={styles.appliedFilterBanner}>
-            <View style={styles.appliedBannerLeft}>
-              <Ionicons name="business" size={14} color={colors.info} />
-              <Text style={styles.appliedFilterText} numberOfLines={1}>
-                Nguồn:{' '}
-                <Text style={styles.appliedFilterBold}>{selectedSources.join(', ')}</Text>
-              </Text>
-            </View>
-            <Pressable
-              onPress={() => setSelectedSources([])}
-              hitSlop={TouchTarget.hitSlop}
-            >
-              <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-            </Pressable>
-          </View>
-        )}
+        <AppliedFilterBanners
+          timeRange={timeRange}
+          customStartDate={customStart}
+          customEndDate={customEnd}
+          activeCategoryIds={selectedCategoryIds}
+          activeSources={selectedSources}
+          categories={categories}
+          onEditCustomDate={() => setShowDateModal(true)}
+          onClearCategories={() => setSelectedCategoryIds([])}
+          onClearSources={() => setSelectedSources([])}
+        />
 
         {/* Summary Cards */}
         <View style={styles.summaryContainer}>
@@ -385,53 +231,13 @@ export default function StatisticsScreen() {
           </View>
         </View>
 
-        {/* Type Switcher */}
-        <View style={styles.typeSwitcher}>
-          <GardenSprouts variant="chip" align="both" />
-          <Pressable
-            style={[
-              styles.typeSwitchBtn,
-              activeType === 'expense' && styles.typeSwitchBtnActiveExpense,
-            ]}
-            onPress={() => setActiveType('expense')}
-          >
-            <Ionicons
-              name="arrow-up-circle"
-              size={18}
-              color={activeType === 'expense' ? '#FFFFFF' : colors.expense}
-            />
-            <Text
-              style={[
-                styles.typeSwitchText,
-                activeType === 'expense' && styles.typeSwitchTextActive,
-              ]}
-            >
-              Cơ cấu Chi tiêu
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[
-              styles.typeSwitchBtn,
-              activeType === 'income' && styles.typeSwitchBtnActiveIncome,
-            ]}
-            onPress={() => setActiveType('income')}
-          >
-            <Ionicons
-              name="arrow-down-circle"
-              size={18}
-              color={activeType === 'income' ? '#FFFFFF' : colors.income}
-            />
-            <Text
-              style={[
-                styles.typeSwitchText,
-                activeType === 'income' && styles.typeSwitchTextActive,
-              ]}
-            >
-              Cơ cấu Thu nhập
-            </Text>
-          </Pressable>
-        </View>
+        <TypeSwitcher
+          value={activeType}
+          onChange={setActiveType}
+          expenseLabel="Cơ cấu Chi tiêu"
+          incomeLabel="Cơ cấu Thu nhập"
+          showIcons
+        />
 
         {/* Donut Chart Card */}
         {categoryBreakdown.length > 0 && (
@@ -458,34 +264,19 @@ export default function StatisticsScreen() {
         </View>
 
         {categoryBreakdown.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <GardenSprouts variant="minimal" />
-            <View style={styles.emptyIconBox}>
-              <Ionicons name="pie-chart-outline" size={40} color={colors.primary} />
-            </View>
-            <Text style={styles.emptyTitle}>Chưa có dữ liệu thống kê</Text>
-            <Text style={styles.emptyText}>
-              Chưa có giao dịch {activeType === 'expense' ? 'chi tiêu' : 'thu nhập'} phù hợp
-              với bộ lọc hiện tại.
-            </Text>
-            <Pressable
-              style={({ pressed }) => [styles.emptyCtaBtn, pressed && { opacity: 0.85 }]}
-              onPress={() =>
-                hasActiveFilter
-                  ? handleResetFilters()
-                  : router.push('/modal/manual-transaction')
-              }
-            >
-              <Ionicons
-                name={hasActiveFilter ? 'refresh' : 'add'}
-                size={18}
-                color={colors.primary}
-              />
-              <Text style={styles.emptyCtaText}>
-                {hasActiveFilter ? 'Đặt lại bộ lọc' : 'Thêm giao dịch mới'}
-              </Text>
-            </Pressable>
-          </View>
+          <EmptyState
+            title="Chưa có dữ liệu thống kê"
+            subtitle={`Chưa có giao dịch ${activeType === 'expense' ? 'chi tiêu' : 'thu nhập'} phù hợp với bộ lọc hiện tại.`}
+            mood="curious"
+            mascotSize={88}
+            ctaLabel={hasActiveFilter ? 'Đặt lại bộ lọc' : 'Thêm giao dịch mới'}
+            ctaIcon={hasActiveFilter ? 'refresh' : 'add'}
+            onCtaPress={() =>
+              hasActiveFilter
+                ? handleResetFilters()
+                : router.push('/modal/manual-transaction')
+            }
+          />
         ) : (
           categoryBreakdown.map((item, idx) => (
             <Pressable
@@ -498,9 +289,7 @@ export default function StatisticsScreen() {
                   <Text style={styles.rankText}>#{idx + 1}</Text>
                 </View>
 
-                <View style={[styles.catIconBox, { backgroundColor: `${item.color}1F` }]}>
-                  <Ionicons name={item.icon as any} size={20} color={item.color} />
-                </View>
+                <ChibiCategoryBadge icon={item.icon} color={item.color} size={40} />
 
                 <View style={styles.catInfo}>
                   <View style={styles.catNameRow}>
@@ -592,160 +381,39 @@ const createStyles = (colors: ThemeColors) =>
       paddingBottom: Spacing.xxxl,
       gap: Spacing.md,
     },
-    timeRangeBar: {
-      flexDirection: 'row',
-      gap: Spacing.xs + 2,
-    },
-    timeBtn: {
-      flex: 1,
-      minHeight: 38,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: Radius.sm,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    timeBtnActive: {
-      backgroundColor: colors.primarySoft,
-      borderColor: colors.primary,
-    },
-    timeBtnText: {
-      color: colors.textSecondary,
-      fontSize: 12,
-      fontWeight: '600',
-    },
-    timeBtnTextActive: {
-      color: colors.primary,
-      fontWeight: '700',
-    },
-    customRangeBanner: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.infoSoft,
-      borderColor: colors.infoBorder,
-      borderWidth: 1,
-      borderRadius: Radius.md,
-      paddingHorizontal: Spacing.md,
-      paddingVertical: Spacing.sm,
-      gap: Spacing.sm,
-    },
-    customRangeText: {
-      flex: 1,
-      color: colors.text,
-      fontSize: 13,
-      fontWeight: '600',
-    },
-    customRangeEdit: {
-      color: colors.info,
-      fontSize: 12,
-      fontWeight: '700',
-    },
-    dropdownRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: Spacing.sm,
-    },
-    dropdownBtn: {
-      flex: 1,
-      minHeight: 40,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.surface,
-      borderRadius: Radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      paddingHorizontal: Spacing.sm,
-      gap: 4,
-    },
-    dropdownBtnActiveBank: {
-      backgroundColor: colors.infoSoft,
-      borderColor: colors.infoBorder,
-    },
-    dropdownBtnActiveCategory: {
-      backgroundColor: colors.incomeSoft,
-      borderColor: colors.incomeBorder,
-    },
-    dropdownBtnText: {
-      color: colors.textSecondary,
-      fontSize: 12,
-      fontWeight: '600',
-      flexShrink: 1,
-    },
-    resetFilterChip: {
-      minHeight: 40,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.expenseSoft,
-      borderRadius: Radius.md,
-      borderWidth: 1,
-      borderColor: colors.expenseBorder,
-      paddingHorizontal: Spacing.md,
-      gap: 4,
-    },
-    resetFilterText: {
-      color: colors.expense,
-      fontSize: 12,
-      fontWeight: '700',
-    },
-    appliedFilterBanner: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      backgroundColor: colors.surface,
-      paddingHorizontal: Spacing.md,
-      paddingVertical: Spacing.sm,
-      borderRadius: Radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    appliedBannerLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: Spacing.sm,
-      flex: 1,
-    },
-    appliedFilterText: {
-      color: colors.textSecondary,
-      fontSize: 12,
-      flex: 1,
-    },
-    appliedFilterBold: {
-      color: colors.text,
-      fontWeight: '700',
-    },
     summaryContainer: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: Spacing.md,
+      gap: Spacing.sm,
     },
     summaryCard: {
       flex: 1,
-      minWidth: '45%',
+      minWidth: '47%',
       backgroundColor: colors.surface,
+      padding: Spacing.md,
       borderRadius: Radius.lg,
-      padding: Spacing.base,
       borderWidth: 1,
       borderColor: colors.border,
+      gap: Spacing.xs,
       ...Shadows.card,
-    },
-    balanceCard: {
-      minWidth: '100%',
-      alignItems: 'center',
-      paddingVertical: Spacing.base,
     },
     summaryLabelRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      marginBottom: 4,
     },
     summaryDot: {
       width: 8,
       height: 8,
       borderRadius: 4,
+    },
+    balanceCard: {
+      width: '100%',
+      minWidth: '100%',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: Spacing.md,
     },
     summaryLabel: {
       color: colors.textSecondary,
@@ -754,43 +422,10 @@ const createStyles = (colors: ThemeColors) =>
     },
     summaryValue: {
       ...Typography.amountMd,
-      fontSize: 17,
     },
     balanceValue: {
       ...Typography.amountLg,
-      marginTop: 4,
-    },
-    typeSwitcher: {
-      flexDirection: 'row',
-      backgroundColor: colors.surface,
-      borderRadius: Radius.lg,
-      padding: 4,
-      borderWidth: 1,
-      borderColor: colors.border,
-      gap: 4,
-    },
-    typeSwitchBtn: {
-      flex: 1,
-      minHeight: TouchTarget.minSize,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: Radius.md,
-      gap: 6,
-    },
-    typeSwitchBtnActiveExpense: {
-      backgroundColor: colors.expense,
-    },
-    typeSwitchBtnActiveIncome: {
-      backgroundColor: colors.income,
-    },
-    typeSwitchText: {
-      color: colors.textSecondary,
-      fontSize: 13,
-      fontWeight: '700',
-    },
-    typeSwitchTextActive: {
-      color: '#FFFFFF',
+      fontSize: 18,
     },
     pieContainer: {
       backgroundColor: colors.surface,
@@ -798,12 +433,14 @@ const createStyles = (colors: ThemeColors) =>
       padding: Spacing.base,
       borderWidth: 1,
       borderColor: colors.border,
+      alignItems: 'center',
       ...Shadows.card,
     },
     pieTitle: {
-      ...Typography.subtitle,
       color: colors.text,
-      marginBottom: Spacing.md,
+      fontSize: 14,
+      fontWeight: '700',
+      marginBottom: Spacing.xs,
     },
     breakdownHeader: {
       flexDirection: 'row',
@@ -812,8 +449,7 @@ const createStyles = (colors: ThemeColors) =>
       marginTop: Spacing.xs,
     },
     breakdownTitle: {
-      ...Typography.title,
-      fontSize: 16,
+      ...Typography.subtitle,
       color: colors.text,
     },
     drillDownHint: {
@@ -823,7 +459,7 @@ const createStyles = (colors: ThemeColors) =>
     catCard: {
       backgroundColor: colors.surface,
       borderRadius: Radius.lg,
-      padding: Spacing.base,
+      padding: Spacing.md,
       borderWidth: 1,
       borderColor: colors.border,
       gap: Spacing.sm,
@@ -835,9 +471,9 @@ const createStyles = (colors: ThemeColors) =>
       gap: Spacing.sm,
     },
     rankBadge: {
-      width: 26,
-      height: 26,
-      borderRadius: 13,
+      width: 28,
+      height: 28,
+      borderRadius: Radius.sm,
       backgroundColor: colors.surfaceSecondary,
       alignItems: 'center',
       justifyContent: 'center',
@@ -845,14 +481,8 @@ const createStyles = (colors: ThemeColors) =>
     rankText: {
       color: colors.textSecondary,
       fontSize: 11,
-      fontWeight: '700',
-    },
-    catIconBox: {
-      width: 40,
-      height: 40,
-      borderRadius: Radius.md,
-      alignItems: 'center',
-      justifyContent: 'center',
+      fontWeight: '800',
+      fontVariant: ['tabular-nums'],
     },
     catInfo: {
       flex: 1,
@@ -870,24 +500,25 @@ const createStyles = (colors: ThemeColors) =>
       flexShrink: 1,
     },
     catCount: {
-      color: colors.textMuted,
+      color: colors.textSecondary,
       fontSize: 12,
     },
     catPercent: {
-      color: colors.textSecondary,
+      color: colors.textMuted,
       fontSize: 12,
       fontWeight: '600',
     },
     catAmountBox: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: Spacing.xs,
     },
     catAmount: {
       ...Typography.amountMd,
+      fontSize: 15,
     },
     progressTrack: {
-      height: 6,
+      height: 7,
       backgroundColor: colors.surfaceSecondary,
       borderRadius: Radius.pill,
       overflow: 'hidden',
@@ -895,50 +526,5 @@ const createStyles = (colors: ThemeColors) =>
     progressFill: {
       height: '100%',
       borderRadius: Radius.pill,
-    },
-    emptyContainer: {
-      backgroundColor: colors.surface,
-      borderRadius: Radius.xl,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: Spacing.xl,
-      alignItems: 'center',
-    },
-    emptyIconBox: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      backgroundColor: colors.primarySoft,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: Spacing.md,
-    },
-    emptyTitle: {
-      ...Typography.title,
-      color: colors.text,
-      marginBottom: Spacing.xs,
-    },
-    emptyText: {
-      ...Typography.body,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      marginBottom: Spacing.base,
-    },
-    emptyCtaBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.primarySoft,
-      borderWidth: 1,
-      borderColor: colors.primaryBorder,
-      paddingHorizontal: Spacing.base,
-      minHeight: TouchTarget.minSize,
-      borderRadius: Radius.pill,
-      gap: 6,
-    },
-    emptyCtaText: {
-      color: colors.primary,
-      fontSize: 13,
-      fontWeight: '700',
     },
   });

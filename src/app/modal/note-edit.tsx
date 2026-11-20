@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +12,15 @@ import { SavedNote } from '../../models/types';
 import { CategoryNoteFormModal } from '../../components/CategoryNoteFormModal';
 import { DraggableReorderList } from '../../components/DraggableReorderList';
 import { ConfirmModal } from '../../components/ConfirmModal';
-import { useTheme, ThemeColors } from '../../constants/theme';
+import { SpringPressable } from '../../components/Motion';
+import { RowActionButtons } from '../../components/ui/RowActionButtons';
+import {
+  useTheme,
+  ThemeColors,
+  Spacing,
+  Radius,
+  TouchTarget,
+} from '../../constants/theme';
 
 export default function NoteEditModal() {
   const { colors } = useTheme();
@@ -71,10 +78,6 @@ export default function NoteEditModal() {
     return true;
   };
 
-  const handleDelete = (n: SavedNote) => {
-    setNoteToDelete(n);
-  };
-
   const handleConfirmDelete = async () => {
     if (!noteToDelete) return;
     await deleteNote(noteToDelete.id);
@@ -97,10 +100,10 @@ export default function NoteEditModal() {
               </Text>
               <Text style={styles.dragHint}>Kéo ☰ để đổi vị trí</Text>
             </View>
-            <TouchableOpacity style={styles.addBtn} onPress={handleOpenAdd}>
+            <SpringPressable style={styles.addBtn} onPress={handleOpenAdd}>
               <Ionicons name="add" size={18} color={colors.onPrimary} />
               <Text style={styles.addBtnText}>Thêm</Text>
-            </TouchableOpacity>
+            </SpringPressable>
           </View>
 
           <DraggableReorderList
@@ -121,22 +124,12 @@ export default function NoteEditModal() {
                       {linkedCat ? `Phân loại: ${linkedCat.name}` : 'Dùng chung'}
                     </Text>
                   </View>
-                  <View style={styles.rowActions}>
-                    <TouchableOpacity
-                      onPress={() => handleStartEdit(n)}
-                      style={styles.actionIconBtn}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons name="create-outline" size={18} color={colors.info} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleDelete(n)}
-                      style={styles.actionIconBtn}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons name="trash-outline" size={18} color={colors.expense} />
-                    </TouchableOpacity>
-                  </View>
+                  <RowActionButtons
+                    onEdit={() => handleStartEdit(n)}
+                    onDelete={() => setNoteToDelete(n)}
+                    editLabel={`Sửa ${n.text}`}
+                    deleteLabel={`Xóa ${n.text}`}
+                  />
                 </View>
               );
             }}
@@ -179,13 +172,13 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.background,
     },
     content: {
-      padding: 16,
-      paddingBottom: 40,
+      padding: Spacing.base,
+      paddingBottom: Spacing.xxl,
     },
     section: {
       backgroundColor: colors.surface,
-      borderRadius: 14,
-      padding: 14,
+      borderRadius: Radius.md,
+      padding: Spacing.md,
       borderWidth: 1,
       borderColor: colors.border,
     },
@@ -193,7 +186,7 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 12,
+      marginBottom: Spacing.md,
     },
     sectionTitle: {
       color: colors.text,
@@ -206,13 +199,13 @@ const createStyles = (colors: ThemeColors) =>
       marginTop: 2,
     },
     addBtn: {
+      minHeight: TouchTarget.minSize - 6,
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.primary,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 10,
-      gap: 4,
+      paddingHorizontal: Spacing.md,
+      borderRadius: Radius.sm,
+      gap: Spacing.xs,
     },
     addBtnText: {
       color: colors.onPrimary,
@@ -237,13 +230,5 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.textSecondary,
       fontSize: 11,
       marginTop: 2,
-    },
-    rowActions: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-    },
-    actionIconBtn: {
-      padding: 4,
     },
   });

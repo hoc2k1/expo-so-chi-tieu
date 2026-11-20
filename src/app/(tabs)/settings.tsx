@@ -7,7 +7,6 @@ import {
   Pressable,
   Switch,
   Platform,
-  Modal,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +22,8 @@ import { exportTransactionsToCsv } from '../../services/csvExporter';
 import { formatDateTime } from '../../utils/formatters';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { GardenSprouts } from '../../components/GardenDecor';
+import { OtaHistoryModal } from '../../components/OtaHistoryModal';
+import { SettingRow } from '../../components/ui/SettingRow';
 import {
   useTheme,
   ThemeColors,
@@ -198,6 +199,15 @@ export default function SettingsScreen() {
 
   const updateHistory = settings.updateHistory || [];
 
+  const renderGrantButton = (label: string, onPress: () => void) => (
+    <Pressable
+      style={({ pressed }) => [styles.grantBtn, pressed && { opacity: 0.85 }]}
+      onPress={onPress}
+    >
+      <Text style={styles.grantBtnText}>{label}</Text>
+    </Pressable>
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <ScrollView
@@ -212,138 +222,78 @@ export default function SettingsScreen() {
             <View style={{ position: 'relative', overflow: 'visible' }}>
               <GardenSprouts variant="minimal" />
               <View style={styles.groupedCard}>
-              <View style={styles.row}>
-                <View
-                  style={[
-                    styles.rowIconBox,
-                    {
-                      backgroundColor: isPermissionGranted
-                        ? colors.incomeSoft
-                        : colors.warningSoft,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={isPermissionGranted ? 'checkmark-circle' : 'alert-circle'}
-                    size={20}
-                    color={isPermissionGranted ? colors.income : colors.warning}
-                  />
-                </View>
-                <View style={styles.rowTexts}>
-                  <Text style={styles.rowTitle}>Trạng thái lắng nghe ngầm</Text>
-                  <Text style={styles.rowSubtitle}>
-                    {isPermissionGranted
+                <SettingRow
+                  icon={isPermissionGranted ? 'checkmark-circle' : 'alert-circle'}
+                  iconColor={isPermissionGranted ? colors.income : colors.warning}
+                  iconBg={isPermissionGranted ? colors.incomeSoft : colors.warningSoft}
+                  title="Trạng thái lắng nghe ngầm"
+                  subtitle={
+                    isPermissionGranted
                       ? 'Đã cấp quyền đọc thông báo (hoạt động cả khi tắt app)'
-                      : 'Chưa cấp quyền đọc thông báo'}
-                  </Text>
-                </View>
-                {!isPermissionGranted && (
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.grantBtn,
-                      pressed && { opacity: 0.85 },
-                    ]}
-                    onPress={() => requestPermission()}
-                  >
-                    <Text style={styles.grantBtnText}>Cấp quyền</Text>
-                  </Pressable>
-                )}
-              </View>
+                      : 'Chưa cấp quyền đọc thông báo'
+                  }
+                  rightElement={
+                    !isPermissionGranted
+                      ? renderGrantButton('Cấp quyền', requestPermission)
+                      : undefined
+                  }
+                />
 
-              <View style={styles.row}>
-                <View
-                  style={[
-                    styles.rowIconBox,
-                    {
-                      backgroundColor: isBatteryOptimizationIgnored
-                        ? colors.incomeSoft
-                        : colors.warningSoft,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={isBatteryOptimizationIgnored ? 'battery-charging' : 'battery-half'}
-                    size={20}
-                    color={isBatteryOptimizationIgnored ? colors.income : colors.warning}
-                  />
-                </View>
-                <View style={styles.rowTexts}>
-                  <Text style={styles.rowTitle}>Chạy ngầm không giới hạn pin</Text>
-                  <Text style={styles.rowSubtitle}>
-                    {isBatteryOptimizationIgnored
+                <SettingRow
+                  icon={isBatteryOptimizationIgnored ? 'battery-charging' : 'battery-half'}
+                  iconColor={isBatteryOptimizationIgnored ? colors.income : colors.warning}
+                  iconBg={
+                    isBatteryOptimizationIgnored ? colors.incomeSoft : colors.warningSoft
+                  }
+                  title="Chạy ngầm không giới hạn pin"
+                  subtitle={
+                    isBatteryOptimizationIgnored
                       ? 'Đã tắt tiết kiệm pin (không bị đóng băng khi tắt app)'
-                      : 'Nên bật để tránh máy tự tắt dịch vụ khi khóa màn hình'}
-                  </Text>
-                </View>
-                {!isBatteryOptimizationIgnored && (
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.grantBtn,
-                      pressed && { opacity: 0.85 },
-                    ]}
-                    onPress={() => requestIgnoreBatteryOptimization()}
-                  >
-                    <Text style={styles.grantBtnText}>Cho phép</Text>
-                  </Pressable>
-                )}
-              </View>
+                      : 'Nên bật để tránh máy tự tắt dịch vụ khi khóa màn hình'
+                  }
+                  rightElement={
+                    !isBatteryOptimizationIgnored
+                      ? renderGrantButton('Cho phép', requestIgnoreBatteryOptimization)
+                      : undefined
+                  }
+                />
 
-              <View style={styles.row}>
-                <View
-                  style={[
-                    styles.rowIconBox,
-                    {
-                      backgroundColor: isPostNotificationGranted
-                        ? colors.incomeSoft
-                        : colors.warningSoft,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={isPostNotificationGranted ? 'notifications' : 'notifications-off-outline'}
-                    size={20}
-                    color={isPostNotificationGranted ? colors.income : colors.warning}
-                  />
-                </View>
-                <View style={styles.rowTexts}>
-                  <Text style={styles.rowTitle}>Bubble số chờ ngoài icon app</Text>
-                  <Text style={styles.rowSubtitle}>
-                    {isPostNotificationGranted
+                <SettingRow
+                  icon={
+                    isPostNotificationGranted
+                      ? 'notifications'
+                      : 'notifications-off-outline'
+                  }
+                  iconColor={isPostNotificationGranted ? colors.income : colors.warning}
+                  iconBg={isPostNotificationGranted ? colors.incomeSoft : colors.warningSoft}
+                  title="Bubble số chờ ngoài icon app"
+                  subtitle={
+                    isPostNotificationGranted
                       ? 'Đã cấp quyền thông báo (hiện số giao dịch chờ, tối đa 99+)'
-                      : 'Cần cấp quyền để hiện số lượng thông báo chờ ngoài biểu tượng'}
-                  </Text>
-                </View>
-                {!isPostNotificationGranted && (
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.grantBtn,
-                      pressed && { opacity: 0.85 },
-                    ]}
-                    onPress={() => requestPostNotificationPermission()}
-                  >
-                    <Text style={styles.grantBtnText}>Bật ngay</Text>
-                  </Pressable>
-                )}
-              </View>
+                      : 'Cần cấp quyền để hiện số lượng thông báo chờ ngoài biểu tượng'
+                  }
+                  rightElement={
+                    !isPostNotificationGranted
+                      ? renderGrantButton('Bật ngay', requestPostNotificationPermission)
+                      : undefined
+                  }
+                />
 
-              <Pressable
-                style={({ pressed }) => [styles.row, styles.rowLast, pressed && { opacity: 0.78 }]}
-                onPress={() => router.push('/modal/notification-logs')}
-              >
-                <View style={[styles.rowIconBox, { backgroundColor: colors.infoSoft }]}>
-                  <Ionicons name="bug-outline" size={20} color={colors.info} />
-                </View>
-                <View style={styles.rowTexts}>
-                  <Text style={styles.rowTitle}>Nhật ký kiểm tra thông báo</Text>
-                  <Text style={styles.rowSubtitle}>
-                    {isServiceConnected
+                <SettingRow
+                  icon="bug-outline"
+                  iconColor={colors.info}
+                  iconBg={colors.infoSoft}
+                  title="Nhật ký kiểm tra thông báo"
+                  subtitle={
+                    isServiceConnected
                       ? 'Dịch vụ đang kết nối • Xem chi tiết thông báo nhận / bị bỏ qua'
-                      : 'Chạm để kiểm tra lý do rớt thông báo & kết nối lại dịch vụ'}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-              </Pressable>
-            </View>
+                      : 'Chạm để kiểm tra lý do rớt thông báo & kết nối lại dịch vụ'
+                  }
+                  onPress={() => router.push('/modal/notification-logs')}
+                  showChevron
+                  isLast
+                />
+              </View>
             </View>
           </View>
         )}
@@ -354,73 +304,71 @@ export default function SettingsScreen() {
           <View style={{ position: 'relative', overflow: 'visible' }}>
             <GardenSprouts variant="minimal" />
             <View style={styles.groupedCard}>
-            <View style={styles.row}>
-              <View style={[styles.rowIconBox, { backgroundColor: colors.primarySoft }]}>
-                <Ionicons name="sparkles" size={18} color={colors.primary} />
-              </View>
-              <View style={styles.rowTexts}>
-                <Text style={styles.rowTitle}>Tự động gợi ý theo từ khóa</Text>
-                <Text style={styles.rowSubtitle}>
-                  Khớp từ khóa trong tin nhắn để tự điền Loại & Ghi chú
-                </Text>
-              </View>
-              <Switch
-                value={settings.autoCategorizeEnabled}
-                onValueChange={(val) => {
-                  updateSettings({ autoCategorizeEnabled: val });
-                  showToast(
-                    val
-                      ? 'Đã bật tự động gợi ý theo từ khóa'
-                      : 'Đã tắt tự động gợi ý',
-                    'info'
-                  );
-                }}
-                trackColor={{ false: colors.switchTrackOff, true: colors.income }}
-                thumbColor="#FFFFFF"
+              <SettingRow
+                icon="sparkles"
+                iconColor={colors.primary}
+                iconBg={colors.primarySoft}
+                title="Tự động gợi ý theo từ khóa"
+                subtitle="Khớp từ khóa trong tin nhắn để tự điền Loại & Ghi chú"
+                rightElement={
+                  <Switch
+                    value={settings.autoCategorizeEnabled}
+                    onValueChange={(val) => {
+                      updateSettings({ autoCategorizeEnabled: val });
+                      showToast(
+                        val
+                          ? 'Đã bật tự động gợi ý theo từ khóa'
+                          : 'Đã tắt tự động gợi ý',
+                        'info'
+                      );
+                    }}
+                    trackColor={{ false: colors.switchTrackOff, true: colors.income }}
+                    thumbColor={colors.onPrimary}
+                  />
+                }
               />
-            </View>
 
-            <View style={styles.windowSection}>
-              <View style={styles.windowHeader}>
-                <View style={[styles.rowIconBox, { backgroundColor: colors.warningSoft }]}>
-                  <Ionicons name="timer-outline" size={18} color={colors.warning} />
+              <View style={styles.windowSection}>
+                <View style={styles.windowHeader}>
+                  <View style={[styles.rowIconBox, { backgroundColor: colors.warningSoft }]}>
+                    <Ionicons name="timer-outline" size={18} color={colors.warning} />
+                  </View>
+                  <View style={styles.rowTexts}>
+                    <Text style={styles.rowTitle}>Khoảng thời gian cảnh báo trùng</Text>
+                    <Text style={styles.rowSubtitle}>
+                      Cảnh báo nếu có giao dịch trùng Ngân hàng + Số tiền
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.rowTexts}>
-                  <Text style={styles.rowTitle}>Khoảng thời gian cảnh báo trùng</Text>
-                  <Text style={styles.rowSubtitle}>
-                    Cảnh báo nếu có giao dịch trùng Ngân hàng + Số tiền
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.windowPills}>
-                {[1, 3, 5, 10].map((mins) => {
-                  const active = settings.duplicateWindowMinutes === mins;
-                  return (
-                    <Pressable
-                      key={mins}
-                      style={[styles.windowPill, active && styles.windowPillActive]}
-                      onPress={() => {
-                        updateSettings({ duplicateWindowMinutes: mins });
-                        showToast(
-                          `Đã đổi thời gian cảnh báo trùng thành ${mins} phút`,
-                          'info'
-                        );
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.windowPillText,
-                          active && styles.windowPillTextActive,
-                        ]}
+                <View style={styles.windowPills}>
+                  {[1, 3, 5, 10].map((mins) => {
+                    const active = settings.duplicateWindowMinutes === mins;
+                    return (
+                      <Pressable
+                        key={mins}
+                        style={[styles.windowPill, active && styles.windowPillActive]}
+                        onPress={() => {
+                          updateSettings({ duplicateWindowMinutes: mins });
+                          showToast(
+                            `Đã đổi thời gian cảnh báo trùng thành ${mins} phút`,
+                            'info'
+                          );
+                        }}
                       >
-                        {mins} phút
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                        <Text
+                          style={[
+                            styles.windowPillText,
+                            active && styles.windowPillTextActive,
+                          ]}
+                        >
+                          {mins} phút
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
             </View>
-          </View>
           </View>
         </View>
 
@@ -430,59 +378,38 @@ export default function SettingsScreen() {
           <View style={{ position: 'relative', overflow: 'visible' }}>
             <GardenSprouts variant="minimal" />
             <View style={styles.groupedCard}>
-            <Pressable
-              style={({ pressed }) => [styles.actionRow, pressed && { opacity: 0.75 }]}
-              onPress={handleExportJson}
-              disabled={isExporting}
-            >
-              <View style={[styles.rowIconBox, { backgroundColor: colors.infoSoft }]}>
-                <Ionicons name="cloud-upload" size={18} color={colors.info} />
-              </View>
-              <View style={styles.rowTexts}>
-                <Text style={styles.rowTitle}>Sao lưu toàn bộ (JSON)</Text>
-                <Text style={styles.rowSubtitle}>
-                  Lưu trữ mọi giao dịch, danh mục, quy tắc vào file JSON
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </Pressable>
+              <SettingRow
+                icon="cloud-upload"
+                iconColor={colors.info}
+                iconBg={colors.infoSoft}
+                title="Sao lưu toàn bộ (JSON)"
+                subtitle="Lưu trữ mọi giao dịch, danh mục, quy tắc vào file JSON"
+                onPress={handleExportJson}
+                disabled={isExporting}
+                showChevron
+              />
 
-            <Pressable
-              style={({ pressed }) => [styles.actionRow, pressed && { opacity: 0.75 }]}
-              onPress={handleImportJson}
-            >
-              <View style={[styles.rowIconBox, { backgroundColor: colors.incomeSoft }]}>
-                <Ionicons name="cloud-download" size={18} color={colors.income} />
-              </View>
-              <View style={styles.rowTexts}>
-                <Text style={styles.rowTitle}>Khôi phục từ file JSON</Text>
-                <Text style={styles.rowSubtitle}>
-                  Nạp lại dữ liệu từ file sao lưu trên máy
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </Pressable>
+              <SettingRow
+                icon="cloud-download"
+                iconColor={colors.income}
+                iconBg={colors.incomeSoft}
+                title="Khôi phục từ file JSON"
+                subtitle="Nạp lại dữ liệu từ file sao lưu trên máy"
+                onPress={handleImportJson}
+                showChevron
+              />
 
-            <Pressable
-              style={({ pressed }) => [
-                styles.actionRow,
-                styles.rowLast,
-                pressed && { opacity: 0.75 },
-              ]}
-              onPress={handleExportCsv}
-            >
-              <View style={[styles.rowIconBox, { backgroundColor: colors.warningSoft }]}>
-                <Ionicons name="document-attach" size={18} color={colors.warning} />
-              </View>
-              <View style={styles.rowTexts}>
-                <Text style={styles.rowTitle}>Xuất bảng tính Excel (CSV)</Text>
-                <Text style={styles.rowSubtitle}>
-                  Mã hóa UTF-8 BOM hiển thị chuẩn tiếng Việt trên Excel
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </Pressable>
-          </View>
+              <SettingRow
+                icon="document-attach"
+                iconColor={colors.warning}
+                iconBg={colors.warningSoft}
+                title="Xuất bảng tính Excel (CSV)"
+                subtitle="Mã hóa UTF-8 BOM hiển thị chuẩn tiếng Việt trên Excel"
+                onPress={handleExportCsv}
+                showChevron
+                isLast
+              />
+            </View>
           </View>
         </View>
 
@@ -568,86 +495,12 @@ export default function SettingsScreen() {
         </View>
       </ScrollView>
 
-      {/* OTA History Modal */}
-      <Modal
+      <OtaHistoryModal
         visible={showUpdateModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowUpdateModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <GardenSprouts variant="modal" />
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Lịch sử cập nhật OTA</Text>
-              <Pressable
-                style={styles.modalCloseBtn}
-                onPress={() => setShowUpdateModal(false)}
-                hitSlop={TouchTarget.hitSlop}
-              >
-                <Ionicons name="close" size={22} color={colors.textSecondary} />
-              </Pressable>
-            </View>
-
-            <View style={styles.currentBuildBox}>
-              <Text style={styles.currentBuildTitle}>Phiên bản đang chạy</Text>
-              <Text style={styles.currentBuildDetail}>
-                • Kênh: {Updates.channel || 'preview'}
-              </Text>
-              <Text style={styles.currentBuildDetail}>
-                • Runtime Version: {Updates.runtimeVersion || '1.0.0'}
-              </Text>
-              <Text style={styles.currentBuildDetail}>
-                • Update ID: {Updates.updateId || 'Embedded (Bản gốc)'}
-              </Text>
-              <Text style={styles.currentBuildDetail}>
-                • Khởi chạy từ APK gốc: {Updates.isEmbeddedLaunch ? 'Có' : 'Không (OTA)'}
-              </Text>
-            </View>
-
-            <Text style={styles.historySectionTitle}>
-              Các bản cập nhật đã tải ({updateHistory.length})
-            </Text>
-
-            <ScrollView style={styles.historyList}>
-              {updateHistory.length === 0 ? (
-                <Text style={styles.emptyHistoryText}>
-                  Chưa có lịch sử bản cập nhật OTA nào trên thiết bị này.
-                </Text>
-              ) : (
-                updateHistory.map((item, idx) => (
-                  <View key={item.id} style={styles.historyItem}>
-                    <View style={styles.historyItemHeader}>
-                      <Text style={styles.historyItemBadge}>
-                        #{updateHistory.length - idx} • {item.channel}
-                      </Text>
-                      <Text style={styles.historyItemTime}>
-                        {formatDateTime(item.appliedAt)}
-                      </Text>
-                    </View>
-                    <Text style={styles.historyItemId}>ID: {item.updateId}</Text>
-                    {item.note && <Text style={styles.historyItemNote}>{item.note}</Text>}
-                  </View>
-                ))
-              )}
-            </ScrollView>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.modalCheckBtn,
-                pressed && { opacity: 0.85 },
-              ]}
-              onPress={() => {
-                setShowUpdateModal(false);
-                handleCheckAndApplyUpdate();
-              }}
-            >
-              <Ionicons name="refresh" size={16} color={colors.onPrimary} />
-              <Text style={styles.modalCheckBtnText}>Kiểm tra bản cập nhật mới</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+        updateHistory={updateHistory}
+        onClose={() => setShowUpdateModal(false)}
+        onCheckUpdate={handleCheckAndApplyUpdate}
+      />
 
       <ConfirmModal
         visible={confirmOtaReload}
@@ -716,29 +569,6 @@ const createStyles = (colors: ThemeColors) =>
       gap: Spacing.md,
       ...Shadows.card,
     },
-    row: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: Spacing.base,
-      paddingVertical: Spacing.md,
-      minHeight: 62,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.divider,
-      gap: Spacing.md,
-    },
-    actionRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: Spacing.base,
-      paddingVertical: Spacing.md,
-      minHeight: 64,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.divider,
-      gap: Spacing.md,
-    },
-    rowLast: {
-      borderBottomWidth: 0,
-    },
     rowIconBox: {
       width: 38,
       height: 38,
@@ -769,7 +599,7 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: 'center',
     },
     grantBtnText: {
-      color: '#FFFFFF',
+      color: colors.onPrimary,
       fontSize: 12,
       fontWeight: '700',
     },
@@ -878,7 +708,7 @@ const createStyles = (colors: ThemeColors) =>
     appInfoSection: {
       alignItems: 'center',
       paddingVertical: Spacing.sm,
-      gap: 4,
+      gap: Spacing.xs,
     },
     appName: {
       color: colors.textSecondary,
@@ -888,112 +718,5 @@ const createStyles = (colors: ThemeColors) =>
     appDetails: {
       color: colors.textMuted,
       fontSize: 12,
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: colors.scrim,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: Spacing.lg,
-    },
-    modalCard: {
-      width: '100%',
-      maxWidth: 420,
-      maxHeight: '82%',
-      backgroundColor: colors.surfaceElevated,
-      borderRadius: Radius.xl,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: Spacing.lg,
-      gap: Spacing.md,
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    modalTitle: {
-      ...Typography.title,
-      color: colors.text,
-    },
-    modalCloseBtn: {
-      width: TouchTarget.minSize,
-      height: TouchTarget.minSize,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: -8,
-    },
-    currentBuildBox: {
-      backgroundColor: colors.surfaceSecondary,
-      borderRadius: Radius.md,
-      padding: Spacing.md,
-      gap: 4,
-    },
-    currentBuildTitle: {
-      color: colors.text,
-      fontSize: 13,
-      fontWeight: '700',
-      marginBottom: 2,
-    },
-    currentBuildDetail: {
-      color: colors.textSecondary,
-      fontSize: 12,
-    },
-    historySectionTitle: {
-      color: colors.text,
-      fontSize: 14,
-      fontWeight: '700',
-    },
-    historyList: {
-      maxHeight: 220,
-    },
-    emptyHistoryText: {
-      color: colors.textSecondary,
-      fontSize: 13,
-      textAlign: 'center',
-      paddingVertical: Spacing.lg,
-    },
-    historyItem: {
-      backgroundColor: colors.surfaceSecondary,
-      borderRadius: Radius.md,
-      padding: Spacing.md,
-      marginBottom: Spacing.sm,
-      gap: 4,
-    },
-    historyItemHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    historyItemBadge: {
-      color: colors.primary,
-      fontSize: 12,
-      fontWeight: '700',
-    },
-    historyItemTime: {
-      color: colors.textMuted,
-      fontSize: 11,
-    },
-    historyItemId: {
-      color: colors.textSecondary,
-      fontSize: 11,
-    },
-    historyItemNote: {
-      color: colors.text,
-      fontSize: 12,
-    },
-    modalCheckBtn: {
-      minHeight: TouchTarget.minSize,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.primary,
-      borderRadius: Radius.md,
-      gap: 6,
-    },
-    modalCheckBtnText: {
-      color: colors.onPrimary,
-      fontSize: 14,
-      fontWeight: '700',
     },
   });

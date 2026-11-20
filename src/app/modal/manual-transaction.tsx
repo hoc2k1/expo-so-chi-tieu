@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,10 +18,44 @@ import {
   KeyboardAwareScrollView,
   KeyboardAwareScrollViewRef,
 } from '../../components/KeyboardAwareScrollView';
-import { useTheme, ThemeColors } from '../../constants/theme';
 import { GardenSprouts } from '../../components/GardenDecor';
+import { SpringPressable } from '../../components/Motion';
+import { TypeSwitcher } from '../../components/ui/TypeSwitcher';
+import {
+  useTheme,
+  ThemeColors,
+  Spacing,
+  Radius,
+} from '../../constants/theme';
 
 type SourceTypeGroup = 'cash' | 'bank' | 'wallet';
+
+const QUICK_AMOUNTS = [
+  { label: '+10k', value: 10000 },
+  { label: '+20k', value: 20000 },
+  { label: '+50k', value: 50000 },
+  { label: '+100k', value: 100000 },
+  { label: '+500k', value: 500000 },
+];
+
+const SOURCE_TABS: { id: SourceTypeGroup; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { id: 'cash', label: 'Tiền mặt', icon: 'cash-outline' },
+  { id: 'bank', label: 'Ngân hàng', icon: 'business-outline' },
+  { id: 'wallet', label: 'Ví điện tử', icon: 'wallet-outline' },
+];
+
+const QUICK_DATES = [
+  { label: 'Hôm nay', daysAgo: 0 },
+  { label: 'Hôm qua', daysAgo: 1 },
+  { label: 'Hôm kia', daysAgo: 2 },
+];
+
+const QUICK_TIME_DELTAS = [
+  { label: '-1 giờ', delta: -60 },
+  { label: '-15p', delta: -15 },
+  { label: '+15p', delta: 15 },
+  { label: '+1 giờ', delta: 60 },
+];
 
 function padZero(n: number): string {
   return n < 10 ? `0${n}` : `${n}`;
@@ -39,28 +73,23 @@ export default function ManualTransactionModal() {
   const [selectedCatName, setSelectedCatName] = useState('');
   const [noteText, setNoteText] = useState('');
 
-  // Source selection states
   const [sourceGroup, setSourceGroup] = useState<SourceTypeGroup>('cash');
   const [selectedSource, setSelectedSource] = useState('Tiền mặt');
   const [customSource, setCustomSource] = useState('');
   const [isCustomSource, setIsCustomSource] = useState(false);
 
-  // Date & Time states (Default is current moment)
   const [txDateTime, setTxDateTime] = useState<Date>(() => new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const filteredCategories = categories.filter((c) => c.type === txType);
-
-  // Relevant notes for the selected category + shared notes
   const relevantNotes = notes.filter(
     (n: SavedNote) => !n.categoryId || n.categoryId === selectedCatId
   );
 
-  // Banks and Wallets from SUPPORTED_APPS
   const bankApps = SUPPORTED_APPS.filter((a) => a.category === 'bank');
   const walletApps = SUPPORTED_APPS.filter((a) => a.category === 'wallet');
+  const activeGroupApps = sourceGroup === 'bank' ? bankApps : walletApps;
 
-  // Quick Amount Additions
   const addQuickAmount = (val: number) => {
     const curr = parseInt(amountStr.replace(/[^0-9]/g, ''), 10) || 0;
     setAmountStr((curr + val).toString());
@@ -73,12 +102,11 @@ export default function ManualTransactionModal() {
       setSelectedSource('Tiền mặt');
     } else if (group === 'bank') {
       setSelectedSource(bankApps[0]?.name || 'Vietcombank (VCB Digibank)');
-    } else if (group === 'wallet') {
+    } else {
       setSelectedSource(walletApps[0]?.name || 'Ví MoMo');
     }
   };
 
-  // Date and Time helpers
   const setQuickDate = (daysAgo: number) => {
     const d = new Date();
     d.setDate(d.getDate() - daysAgo);
@@ -86,13 +114,8 @@ export default function ManualTransactionModal() {
     setTxDateTime(d);
   };
 
-  const setNowTime = () => {
-    setTxDateTime(new Date());
-  };
-
   const adjustMinutes = (deltaMin: number) => {
-    const d = new Date(txDateTime.getTime() + deltaMin * 60000);
-    setTxDateTime(d);
+    setTxDateTime(new Date(txDateTime.getTime() + deltaMin * 60000));
   };
 
   const handleSave = async () => {
@@ -127,8 +150,6 @@ export default function ManualTransactionModal() {
   };
 
   const numericAmount = parseInt(amountStr.replace(/[^0-9]/g, ''), 10) || 0;
-
-  // Formatted date string for display
   const dayStr = `${padZero(txDateTime.getDate())}/${padZero(txDateTime.getMonth() + 1)}/${txDateTime.getFullYear()}`;
   const timeStr = `${padZero(txDateTime.getHours())}:${padZero(txDateTime.getMinutes())}`;
 
@@ -153,162 +174,69 @@ export default function ManualTransactionModal() {
               autoFocus
             />
             {numericAmount > 0 && (
-              <Text style={styles.amountPreview}>
-                {formatCurrency(numericAmount)}
-              </Text>
+              <Text style={styles.amountPreview}>{formatCurrency(numericAmount)}</Text>
             )}
           </View>
 
-          {/* Quick Amount Buttons */}
           <View style={styles.quickAmountRow}>
-            <TouchableOpacity style={styles.quickAmountBtn} onPress={() => addQuickAmount(10000)}>
-              <Text style={styles.quickAmountText}>+10k</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAmountBtn} onPress={() => addQuickAmount(20000)}>
-              <Text style={styles.quickAmountText}>+20k</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAmountBtn} onPress={() => addQuickAmount(50000)}>
-              <Text style={styles.quickAmountText}>+50k</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAmountBtn} onPress={() => addQuickAmount(100000)}>
-              <Text style={styles.quickAmountText}>+100k</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAmountBtn} onPress={() => addQuickAmount(500000)}>
-              <Text style={styles.quickAmountText}>+500k</Text>
-            </TouchableOpacity>
+            {QUICK_AMOUNTS.map((item) => (
+              <Pressable
+                key={item.value}
+                style={styles.quickAmountBtn}
+                onPress={() => addQuickAmount(item.value)}
+              >
+                <Text style={styles.quickAmountText}>{item.label}</Text>
+              </Pressable>
+            ))}
           </View>
 
-          {/* Type Toggle: Chi tiêu / Thu nhập */}
-          <View style={styles.typeRow}>
-            <TouchableOpacity
-              style={[
-                styles.typeBtn,
-                txType === 'expense' && styles.typeBtnActiveExpense,
-              ]}
-              onPress={() => {
-                setTxType('expense');
-                setSelectedCatId('');
-                setSelectedCatName('');
-              }}
-            >
-              <Ionicons
-                name="arrow-down-circle"
-                size={16}
-                color={txType === 'expense' ? colors.onPrimary : colors.expense}
-              />
-              <Text
-                style={[
-                  styles.typeBtnText,
-                  txType === 'expense' && styles.typeBtnTextActive,
-                ]}
-              >
-                Chi tiêu (-)
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.typeBtn,
-                txType === 'income' && styles.typeBtnActiveIncome,
-              ]}
-              onPress={() => {
-                setTxType('income');
-                setSelectedCatId('');
-                setSelectedCatName('');
-              }}
-            >
-              <Ionicons
-                name="arrow-up-circle"
-                size={16}
-                color={txType === 'income' ? colors.onPrimary : colors.income}
-              />
-              <Text
-                style={[
-                  styles.typeBtnText,
-                  txType === 'income' && styles.typeBtnTextActive,
-                ]}
-              >
-                Thu nhập (+)
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <TypeSwitcher
+            value={txType}
+            onChange={(type) => {
+              setTxType(type);
+              setSelectedCatId('');
+              setSelectedCatName('');
+            }}
+            expenseLabel="Chi tiêu (-)"
+            incomeLabel="Thu nhập (+)"
+            showIcons
+            showSprouts={false}
+            style={{ marginTop: Spacing.md, backgroundColor: colors.surfaceSecondary }}
+          />
         </View>
 
-        {/* 2. Nguồn tiền / Hình thức thanh toán (Nằm ngay dưới số tiền) */}
+        {/* 2. Nguồn tiền / Hình thức thanh toán */}
         <View style={styles.section}>
           <Text style={styles.label}>Nguồn tiền / Hình thức thanh toán</Text>
 
-          {/* Source Group Selector (3 Tabs) */}
           <View style={styles.sourceGroupTabs}>
-            <TouchableOpacity
-              style={[
-                styles.sourceGroupTab,
-                sourceGroup === 'cash' && styles.sourceGroupTabActive,
-              ]}
-              onPress={() => handleSelectGroup('cash')}
-            >
-              <Ionicons
-                name="cash-outline"
-                size={16}
-                color={sourceGroup === 'cash' ? colors.primary : colors.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.sourceGroupTabText,
-                  sourceGroup === 'cash' && styles.sourceGroupTabTextActive,
-                ]}
-              >
-                Tiền mặt
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.sourceGroupTab,
-                sourceGroup === 'bank' && styles.sourceGroupTabActive,
-              ]}
-              onPress={() => handleSelectGroup('bank')}
-            >
-              <Ionicons
-                name="business-outline"
-                size={16}
-                color={sourceGroup === 'bank' ? colors.primary : colors.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.sourceGroupTabText,
-                  sourceGroup === 'bank' && styles.sourceGroupTabTextActive,
-                ]}
-              >
-                Ngân hàng
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.sourceGroupTab,
-                sourceGroup === 'wallet' && styles.sourceGroupTabActive,
-              ]}
-              onPress={() => handleSelectGroup('wallet')}
-            >
-              <Ionicons
-                name="wallet-outline"
-                size={16}
-                color={sourceGroup === 'wallet' ? colors.primary : colors.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.sourceGroupTabText,
-                  sourceGroup === 'wallet' && styles.sourceGroupTabTextActive,
-                ]}
-              >
-                Ví điện tử
-              </Text>
-            </TouchableOpacity>
+            {SOURCE_TABS.map((tab) => {
+              const active = sourceGroup === tab.id;
+              return (
+                <Pressable
+                  key={tab.id}
+                  style={[styles.sourceGroupTab, active && styles.sourceGroupTabActive]}
+                  onPress={() => handleSelectGroup(tab.id)}
+                >
+                  <Ionicons
+                    name={tab.icon}
+                    size={16}
+                    color={active ? colors.primary : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.sourceGroupTabText,
+                      active && styles.sourceGroupTabTextActive,
+                    ]}
+                  >
+                    {tab.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
 
-          {/* Group 1: Cash View */}
-          {sourceGroup === 'cash' && (
+          {sourceGroup === 'cash' ? (
             <View style={styles.cashSelectedCard}>
               <View style={styles.cashBadge}>
                 <Ionicons name="cash" size={24} color={colors.income} />
@@ -319,22 +247,18 @@ export default function ManualTransactionModal() {
               </View>
               <Ionicons name="checkmark-circle" size={20} color={colors.income} />
             </View>
-          )}
-
-          {/* Group 2: Bank View */}
-          {sourceGroup === 'bank' && (
+          ) : (
             <View style={styles.subSourceContainer}>
-              <Text style={styles.subLabel}>Chọn ngân hàng:</Text>
+              <Text style={styles.subLabel}>
+                {sourceGroup === 'bank' ? 'Chọn ngân hàng:' : 'Chọn ví điện tử:'}
+              </Text>
               <View style={styles.appGrid}>
-                {bankApps.map((app) => {
+                {activeGroupApps.map((app) => {
                   const isSelected = !isCustomSource && selectedSource === app.name;
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       key={app.packageName}
-                      style={[
-                        styles.appCard,
-                        isSelected && styles.appCardActive,
-                      ]}
+                      style={[styles.appCard, isSelected && styles.appCardActive]}
                       onPress={() => {
                         setSelectedSource(app.name);
                         setIsCustomSource(false);
@@ -343,10 +267,17 @@ export default function ManualTransactionModal() {
                       <View
                         style={[
                           styles.appIconBadge,
-                          { backgroundColor: app.color || '#3B82F6' },
+                          {
+                            backgroundColor:
+                              app.color || (sourceGroup === 'bank' ? colors.info : colors.warning),
+                          },
                         ]}
                       >
-                        <Ionicons name="business" size={12} color="#FFFFFF" />
+                        <Ionicons
+                          name={sourceGroup === 'bank' ? 'business' : 'wallet'}
+                          size={12}
+                          color={colors.onPrimary}
+                        />
                       </View>
                       <Text
                         style={[
@@ -357,16 +288,12 @@ export default function ManualTransactionModal() {
                       >
                         {app.shortName || app.name}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 })}
 
-                {/* Other Bank option */}
-                <TouchableOpacity
-                  style={[
-                    styles.appCard,
-                    isCustomSource && styles.appCardActive,
-                  ]}
+                <Pressable
+                  style={[styles.appCard, isCustomSource && styles.appCardActive]}
                   onPress={() => setIsCustomSource(true)}
                 >
                   <Ionicons name="create-outline" size={14} color={colors.textSecondary} />
@@ -376,15 +303,19 @@ export default function ManualTransactionModal() {
                       isCustomSource && styles.appCardTextActive,
                     ]}
                   >
-                    Ngân hàng khác
+                    {sourceGroup === 'bank' ? 'Ngân hàng khác' : 'Ví khác'}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
 
               {isCustomSource && (
                 <TextInput
                   style={styles.customInput}
-                  placeholder="Nhập tên ngân hàng (VD: OCB, VIB, SeABank...)"
+                  placeholder={
+                    sourceGroup === 'bank'
+                      ? 'Nhập tên ngân hàng (VD: OCB, VIB, SeABank...)'
+                      : 'Nhập tên ví điện tử...'
+                  }
                   placeholderTextColor={colors.textMuted}
                   value={customSource}
                   onChangeText={setCustomSource}
@@ -394,80 +325,6 @@ export default function ManualTransactionModal() {
             </View>
           )}
 
-          {/* Group 3: Wallet View */}
-          {sourceGroup === 'wallet' && (
-            <View style={styles.subSourceContainer}>
-              <Text style={styles.subLabel}>Chọn ví điện tử:</Text>
-              <View style={styles.appGrid}>
-                {walletApps.map((app) => {
-                  const isSelected = !isCustomSource && selectedSource === app.name;
-                  return (
-                    <TouchableOpacity
-                      key={app.packageName}
-                      style={[
-                        styles.appCard,
-                        isSelected && styles.appCardActive,
-                      ]}
-                      onPress={() => {
-                        setSelectedSource(app.name);
-                        setIsCustomSource(false);
-                      }}
-                    >
-                      <View
-                        style={[
-                          styles.appIconBadge,
-                          { backgroundColor: app.color || '#F59E0B' },
-                        ]}
-                      >
-                        <Ionicons name="wallet" size={12} color="#FFFFFF" />
-                      </View>
-                      <Text
-                        style={[
-                          styles.appCardText,
-                          isSelected && styles.appCardTextActive,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {app.shortName || app.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-
-                {/* Other Wallet option */}
-                <TouchableOpacity
-                  style={[
-                    styles.appCard,
-                    isCustomSource && styles.appCardActive,
-                  ]}
-                  onPress={() => setIsCustomSource(true)}
-                >
-                  <Ionicons name="create-outline" size={14} color={colors.textSecondary} />
-                  <Text
-                    style={[
-                      styles.appCardText,
-                      isCustomSource && styles.appCardTextActive,
-                    ]}
-                  >
-                    Ví khác
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {isCustomSource && (
-                <TextInput
-                  style={styles.customInput}
-                  placeholder="Nhập tên ví điện tử..."
-                  placeholderTextColor={colors.textMuted}
-                  value={customSource}
-                  onChangeText={setCustomSource}
-                  autoFocus
-                />
-              )}
-            </View>
-          )}
-
-          {/* Selected Source Indicator */}
           <View style={styles.sourceResultBox}>
             <Text style={styles.sourceResultLabel}>Nguồn đã chọn: </Text>
             <Text style={styles.sourceResultValue} numberOfLines={1}>
@@ -478,11 +335,10 @@ export default function ManualTransactionModal() {
           </View>
         </View>
 
-        {/* 3. Thời gian giao dịch (Mặc định là hiện tại) */}
+        {/* 3. Thời gian giao dịch */}
         <View style={styles.section}>
           <Text style={styles.label}>Thời gian giao dịch</Text>
 
-          {/* Date & Time display banner */}
           <View style={styles.dateTimeBanner}>
             <View style={styles.dateTimeBannerLeft}>
               <Ionicons name="time-outline" size={18} color={colors.primary} />
@@ -490,71 +346,45 @@ export default function ManualTransactionModal() {
                 {dayStr} lúc <Text style={styles.dateTimeBold}>{timeStr}</Text>
               </Text>
             </View>
-            <TouchableOpacity
+            <Pressable
               style={styles.dateTimeEditBtn}
               onPress={() => setShowDatePicker(true)}
             >
               <Ionicons name="calendar-outline" size={14} color={colors.primary} />
               <Text style={styles.dateTimeEditText}>Đổi ngày</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
-          {/* Quick Date Shortcuts */}
           <View style={styles.quickDateRow}>
-            <TouchableOpacity
+            {QUICK_DATES.map((d) => (
+              <Pressable
+                key={d.label}
+                style={styles.quickDatePill}
+                onPress={() => setQuickDate(d.daysAgo)}
+              >
+                <Text style={styles.quickDateText}>{d.label}</Text>
+              </Pressable>
+            ))}
+            <Pressable
               style={styles.quickDatePill}
-              onPress={() => setQuickDate(0)}
-            >
-              <Text style={styles.quickDateText}>Hôm nay</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.quickDatePill}
-              onPress={() => setQuickDate(1)}
-            >
-              <Text style={styles.quickDateText}>Hôm qua</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.quickDatePill}
-              onPress={() => setQuickDate(2)}
-            >
-              <Text style={styles.quickDateText}>Hôm kia</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.quickDatePill}
-              onPress={setNowTime}
+              onPress={() => setTxDateTime(new Date())}
             >
               <Text style={styles.quickDateText}>Vừa xong</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
-          {/* Quick Time Adjusters */}
           <View style={styles.timeAdjustRow}>
             <Text style={styles.subLabel}>Chỉnh giờ phút nhanh:</Text>
             <View style={styles.timeButtonsGroup}>
-              <TouchableOpacity
-                style={styles.timeAdjustBtn}
-                onPress={() => adjustMinutes(-60)}
-              >
-                <Text style={styles.timeAdjustText}>-1 giờ</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.timeAdjustBtn}
-                onPress={() => adjustMinutes(-15)}
-              >
-                <Text style={styles.timeAdjustText}>-15p</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.timeAdjustBtn}
-                onPress={() => adjustMinutes(15)}
-              >
-                <Text style={styles.timeAdjustText}>+15p</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.timeAdjustBtn}
-                onPress={() => adjustMinutes(60)}
-              >
-                <Text style={styles.timeAdjustText}>+1 giờ</Text>
-              </TouchableOpacity>
+              {QUICK_TIME_DELTAS.map((item) => (
+                <Pressable
+                  key={item.label}
+                  style={styles.timeAdjustBtn}
+                  onPress={() => adjustMinutes(item.delta)}
+                >
+                  <Text style={styles.timeAdjustText}>{item.label}</Text>
+                </Pressable>
+              ))}
             </View>
           </View>
         </View>
@@ -566,7 +396,7 @@ export default function ManualTransactionModal() {
             {filteredCategories.map((cat) => {
               const isSelected = selectedCatId === cat.id;
               return (
-                <TouchableOpacity
+                <Pressable
                   key={cat.id}
                   style={[
                     styles.catItem,
@@ -589,23 +419,22 @@ export default function ManualTransactionModal() {
                   >
                     {cat.name}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
           </View>
         </View>
 
-        {/* 5. Ghi chú giao dịch (Tách riêng ra, có danh sách dạng thẻ như phân loại) */}
+        {/* 5. Ghi chú giao dịch */}
         <View style={styles.section}>
           <Text style={styles.label}>Ghi chú giao dịch</Text>
           <Text style={styles.subLabel}>Chọn nhanh từ danh sách ghi chú:</Text>
 
-          {/* Notes Grid like Categories */}
           <View style={styles.notesGrid}>
             {relevantNotes.map((n) => {
               const isSelected = noteText === n.text;
               return (
-                <TouchableOpacity
+                <Pressable
                   key={n.id}
                   style={[
                     styles.noteCardItem,
@@ -627,13 +456,12 @@ export default function ManualTransactionModal() {
                   >
                     {n.text}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
           </View>
 
-          {/* Custom Note input field */}
-          <Text style={[styles.subLabel, { marginTop: 12 }]}>
+          <Text style={[styles.subLabel, { marginTop: Spacing.md }]}>
             Hoặc nhập ghi chú tùy chỉnh:
           </Text>
           <TextInput
@@ -648,22 +476,19 @@ export default function ManualTransactionModal() {
           />
         </View>
 
-        {/* Submit Button */}
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+        <SpringPressable style={styles.saveBtn} onPress={handleSave}>
           <GardenSprouts variant="chip" align="both" />
           <Ionicons name="checkmark-circle" size={20} color={colors.onPrimary} />
           <Text style={styles.saveBtnText}>Lưu giao dịch</Text>
-        </TouchableOpacity>
+        </SpringPressable>
       </KeyboardAwareScrollView>
 
-      {/* Date Picker Modal */}
       <DateRangePickerModal
         visible={showDatePicker}
         initialStart={dayStr}
         initialEnd={dayStr}
         onClose={() => setShowDatePicker(false)}
         onApply={(startStr) => {
-          // Parse DD/MM/YYYY into date
           const parts = startStr.split(' ')[0].split('/');
           if (parts.length === 3) {
             const d = new Date(txDateTime);
@@ -689,14 +514,14 @@ const createStyles = (colors: ThemeColors) =>
       flex: 1,
     },
     content: {
-      padding: 16,
-      paddingBottom: 40,
+      padding: Spacing.base,
+      paddingBottom: Spacing.xxl,
     },
     section: {
       backgroundColor: colors.surface,
-      borderRadius: 14,
-      padding: 14,
-      marginBottom: 16,
+      borderRadius: Radius.md,
+      padding: Spacing.md,
+      marginBottom: Spacing.base,
       borderWidth: 1,
       borderColor: colors.border,
     },
@@ -704,18 +529,18 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.text,
       fontSize: 14,
       fontWeight: '700',
-      marginBottom: 8,
+      marginBottom: Spacing.sm,
     },
     subLabel: {
       color: colors.textSecondary,
       fontSize: 11,
-      marginBottom: 8,
+      marginBottom: Spacing.sm,
       fontWeight: '500',
     },
     amountInputRow: {
       backgroundColor: colors.surfaceSecondary,
-      borderRadius: 10,
-      paddingHorizontal: 12,
+      borderRadius: Radius.sm,
+      paddingHorizontal: Spacing.md,
       paddingVertical: 10,
       borderWidth: 1,
       borderColor: colors.border,
@@ -729,12 +554,12 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.primary,
       fontSize: 13,
       fontWeight: '700',
-      marginTop: 4,
+      marginTop: Spacing.xs,
     },
     quickAmountRow: {
       flexDirection: 'row',
       gap: 6,
-      marginTop: 8,
+      marginTop: Spacing.sm,
     },
     quickAmountBtn: {
       flex: 1,
@@ -750,45 +575,12 @@ const createStyles = (colors: ThemeColors) =>
       fontSize: 11,
       fontWeight: '600',
     },
-    typeRow: {
-      flexDirection: 'row',
-      gap: 8,
-      marginTop: 12,
-    },
-    typeBtn: {
-      flex: 1,
-      flexDirection: 'row',
-      paddingVertical: 10,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: 10,
-      backgroundColor: colors.surfaceSecondary,
-      borderWidth: 1,
-      borderColor: colors.border,
-      gap: 6,
-    },
-    typeBtnActiveExpense: {
-      backgroundColor: colors.expense,
-      borderColor: colors.expense,
-    },
-    typeBtnActiveIncome: {
-      backgroundColor: colors.income,
-      borderColor: colors.income,
-    },
-    typeBtnText: {
-      color: colors.textSecondary,
-      fontSize: 13,
-      fontWeight: '700',
-    },
-    typeBtnTextActive: {
-      color: colors.onPrimary,
-    },
     sourceGroupTabs: {
       flexDirection: 'row',
       backgroundColor: colors.surfaceSecondary,
-      borderRadius: 10,
-      padding: 3,
-      marginBottom: 12,
+      borderRadius: Radius.sm,
+      padding: Spacing.xs,
+      marginBottom: Spacing.md,
       borderWidth: 1,
       borderColor: colors.border,
     },
@@ -797,7 +589,7 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 8,
+      paddingVertical: Spacing.sm,
       borderRadius: 8,
       gap: 5,
     },
@@ -819,8 +611,8 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.surfaceSecondary,
-      padding: 12,
-      borderRadius: 10,
+      padding: Spacing.md,
+      borderRadius: Radius.sm,
       borderWidth: 1,
       borderColor: colors.incomeBorder,
     },
@@ -847,12 +639,12 @@ const createStyles = (colors: ThemeColors) =>
       marginTop: 2,
     },
     subSourceContainer: {
-      marginTop: 4,
+      marginTop: Spacing.xs,
     },
     appGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 8,
+      gap: Spacing.sm,
     },
     appCard: {
       width: '48%',
@@ -860,7 +652,7 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       backgroundColor: colors.surfaceSecondary,
       paddingVertical: 9,
-      paddingHorizontal: 8,
+      paddingHorizontal: Spacing.sm,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: colors.border,
@@ -890,11 +682,11 @@ const createStyles = (colors: ThemeColors) =>
     customInput: {
       backgroundColor: colors.surfaceSecondary,
       borderRadius: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
       color: colors.text,
       fontSize: 13,
-      marginTop: 8,
+      marginTop: Spacing.sm,
       borderWidth: 1,
       borderColor: colors.primary,
     },
@@ -924,16 +716,16 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: 'space-between',
       alignItems: 'center',
       backgroundColor: colors.surfaceSecondary,
-      paddingHorizontal: 12,
+      paddingHorizontal: Spacing.md,
       paddingVertical: 10,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       borderWidth: 1,
       borderColor: colors.border,
     },
     dateTimeBannerLeft: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: Spacing.sm,
     },
     dateTimeDisplay: {
       color: colors.text,
@@ -946,7 +738,7 @@ const createStyles = (colors: ThemeColors) =>
     dateTimeEditBtn: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: Spacing.xs,
       backgroundColor: colors.primarySoft,
       paddingHorizontal: 10,
       paddingVertical: 5,
@@ -960,7 +752,7 @@ const createStyles = (colors: ThemeColors) =>
     quickDateRow: {
       flexDirection: 'row',
       gap: 6,
-      marginTop: 8,
+      marginTop: Spacing.sm,
     },
     quickDatePill: {
       flex: 1,
@@ -980,12 +772,12 @@ const createStyles = (colors: ThemeColors) =>
       marginTop: 10,
       borderTopWidth: 1,
       borderTopColor: colors.divider,
-      paddingTop: 8,
+      paddingTop: Spacing.sm,
     },
     timeButtonsGroup: {
       flexDirection: 'row',
       gap: 6,
-      marginTop: 4,
+      marginTop: Spacing.xs,
     },
     timeAdjustBtn: {
       flex: 1,
@@ -1004,18 +796,18 @@ const createStyles = (colors: ThemeColors) =>
     catGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 8,
+      gap: Spacing.sm,
     },
     catItem: {
       width: '31%',
       backgroundColor: colors.surfaceSecondary,
       paddingVertical: 10,
       paddingHorizontal: 6,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       alignItems: 'center',
       borderWidth: 1,
       borderColor: colors.border,
-      gap: 4,
+      gap: Spacing.xs,
     },
     catName: {
       color: colors.textSecondary,
@@ -1026,7 +818,7 @@ const createStyles = (colors: ThemeColors) =>
     notesGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 8,
+      gap: Spacing.sm,
     },
     noteCardItem: {
       width: '48%',
@@ -1038,7 +830,7 @@ const createStyles = (colors: ThemeColors) =>
       borderRadius: 8,
       borderWidth: 1,
       borderColor: colors.border,
-      gap: 8,
+      gap: Spacing.sm,
     },
     noteCardItemActive: {
       borderColor: colors.primary,
@@ -1056,8 +848,8 @@ const createStyles = (colors: ThemeColors) =>
     },
     textInput: {
       backgroundColor: colors.surfaceSecondary,
-      borderRadius: 10,
-      paddingHorizontal: 12,
+      borderRadius: Radius.sm,
+      paddingHorizontal: Spacing.md,
       paddingVertical: 10,
       color: colors.text,
       fontSize: 13,
@@ -1070,9 +862,9 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: 14,
-      borderRadius: 14,
-      gap: 8,
-      marginTop: 8,
+      borderRadius: Radius.md,
+      gap: Spacing.sm,
+      marginTop: Spacing.sm,
     },
     saveBtnText: {
       color: colors.onPrimary,

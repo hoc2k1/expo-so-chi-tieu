@@ -16,6 +16,9 @@ import { DraggableReorderList } from '../../components/DraggableReorderList';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { ChibiCategoryBadge, SpringPressable } from '../../components/Motion';
 import { GardenSprouts } from '../../components/GardenDecor';
+import { TypeSwitcher } from '../../components/ui/TypeSwitcher';
+import { RowActionButtons } from '../../components/ui/RowActionButtons';
+import { SettingRow } from '../../components/ui/SettingRow';
 import {
   useTheme,
   ThemeColors,
@@ -63,6 +66,15 @@ export default function CategoriesManageScreen() {
   const filteredCategories = useMemo(
     () => categories.filter((c) => c.type === filterType),
     [categories, filterType]
+  );
+
+  const expenseCount = useMemo(
+    () => categories.filter((c) => c.type === 'expense').length,
+    [categories]
+  );
+  const incomeCount = useMemo(
+    () => categories.filter((c) => c.type === 'income').length,
+    [categories]
   );
 
   const openAddModal = () => {
@@ -144,22 +156,6 @@ export default function CategoriesManageScreen() {
     return true;
   };
 
-  const handleDeleteCategory = (cat: Category) => {
-    setDeleteConfirmTarget({
-      type: 'category',
-      id: cat.id,
-      name: cat.name,
-    });
-  };
-
-  const handleDeleteNote = (note: SavedNote) => {
-    setDeleteConfirmTarget({
-      type: 'note',
-      id: note.id,
-      name: note.text,
-    });
-  };
-
   const handleConfirmDelete = async () => {
     if (!deleteConfirmTarget) return;
     if (deleteConfirmTarget.type === 'category') {
@@ -217,10 +213,7 @@ export default function CategoriesManageScreen() {
           </Pressable>
         </View>
 
-        <SpringPressable
-          style={styles.addBtn}
-          onPress={openAddModal}
-        >
+        <SpringPressable style={styles.addBtn} onPress={openAddModal}>
           <GardenSprouts variant="chip" align="right" />
           <Ionicons name="add" size={18} color={colors.onPrimary} />
           <Text style={styles.addBtnText}>Thêm</Text>
@@ -235,43 +228,12 @@ export default function CategoriesManageScreen() {
       >
         {activeTab === 'category' ? (
           <>
-            {/* Expense / Income Sub-switcher */}
-            <View style={styles.typeSwitcher}>
-              <GardenSprouts variant="chip" align="both" />
-              <Pressable
-                style={[
-                  styles.typeBtn,
-                  filterType === 'expense' && styles.typeBtnActiveExpense,
-                ]}
-                onPress={() => setFilterType('expense')}
-              >
-                <Text
-                  style={[
-                    styles.typeText,
-                    filterType === 'expense' && styles.typeTextActive,
-                  ]}
-                >
-                  Chi tiêu ({categories.filter((c) => c.type === 'expense').length})
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={[
-                  styles.typeBtn,
-                  filterType === 'income' && styles.typeBtnActiveIncome,
-                ]}
-                onPress={() => setFilterType('income')}
-              >
-                <Text
-                  style={[
-                    styles.typeText,
-                    filterType === 'income' && styles.typeTextActive,
-                  ]}
-                >
-                  Thu nhập ({categories.filter((c) => c.type === 'income').length})
-                </Text>
-              </Pressable>
-            </View>
+            <TypeSwitcher
+              value={filterType}
+              onChange={setFilterType}
+              expenseLabel={`Chi tiêu (${expenseCount})`}
+              incomeLabel={`Thu nhập (${incomeCount})`}
+            />
 
             <View style={styles.groupedCard}>
               <GardenSprouts variant="minimal" />
@@ -292,39 +254,25 @@ export default function CategoriesManageScreen() {
                   itemHeight={60}
                   itemGap={8}
                   onScrollLockChange={setIsDragging}
-                  onReorder={(ordered) => {
-                    reorderCategories(filterType, ordered);
-                  }}
+                  onReorder={(ordered) => reorderCategories(filterType, ordered)}
                   renderContent={(cat) => (
                     <View style={styles.itemInner}>
                       <ChibiCategoryBadge icon={cat.icon} color={cat.color} size={38} />
                       <Text style={styles.catName} numberOfLines={1}>
                         {cat.name}
                       </Text>
-                      <View style={styles.rowActions}>
-                        <Pressable
-                          onPress={() => openEditCategory(cat)}
-                          style={({ pressed }) => [
-                            styles.actionIconBtn,
-                            pressed && { opacity: 0.65 },
-                          ]}
-                          hitSlop={TouchTarget.hitSlop}
-                          accessibilityLabel={`Sửa ${cat.name}`}
-                        >
-                          <Ionicons name="create-outline" size={18} color={colors.info} />
-                        </Pressable>
-                        <Pressable
-                          onPress={() => handleDeleteCategory(cat)}
-                          style={({ pressed }) => [
-                            styles.actionIconBtn,
-                            pressed && { opacity: 0.65 },
-                          ]}
-                          hitSlop={TouchTarget.hitSlop}
-                          accessibilityLabel={`Xóa ${cat.name}`}
-                        >
-                          <Ionicons name="trash-outline" size={18} color={colors.expense} />
-                        </Pressable>
-                      </View>
+                      <RowActionButtons
+                        onEdit={() => openEditCategory(cat)}
+                        onDelete={() =>
+                          setDeleteConfirmTarget({
+                            type: 'category',
+                            id: cat.id,
+                            name: cat.name,
+                          })
+                        }
+                        editLabel={`Sửa ${cat.name}`}
+                        deleteLabel={`Xóa ${cat.name}`}
+                      />
                     </View>
                   )}
                 />
@@ -351,9 +299,7 @@ export default function CategoriesManageScreen() {
                 itemHeight={62}
                 itemGap={8}
                 onScrollLockChange={setIsDragging}
-                onReorder={(ordered) => {
-                  reorderNotes(ordered);
-                }}
+                onReorder={(ordered) => reorderNotes(ordered)}
                 renderContent={(n) => {
                   const linkedCat = categories.find((c) => c.id === n.categoryId);
                   return (
@@ -368,30 +314,18 @@ export default function CategoriesManageScreen() {
                             : 'Dùng chung mọi loại'}
                         </Text>
                       </View>
-                      <View style={styles.rowActions}>
-                        <Pressable
-                          onPress={() => openEditNote(n)}
-                          style={({ pressed }) => [
-                            styles.actionIconBtn,
-                            pressed && { opacity: 0.65 },
-                          ]}
-                          hitSlop={TouchTarget.hitSlop}
-                          accessibilityLabel={`Sửa ghi chú ${n.text}`}
-                        >
-                          <Ionicons name="create-outline" size={18} color={colors.info} />
-                        </Pressable>
-                        <Pressable
-                          onPress={() => handleDeleteNote(n)}
-                          style={({ pressed }) => [
-                            styles.actionIconBtn,
-                            pressed && { opacity: 0.65 },
-                          ]}
-                          hitSlop={TouchTarget.hitSlop}
-                          accessibilityLabel={`Xóa ghi chú ${n.text}`}
-                        >
-                          <Ionicons name="trash-outline" size={18} color={colors.expense} />
-                        </Pressable>
-                      </View>
+                      <RowActionButtons
+                        onEdit={() => openEditNote(n)}
+                        onDelete={() =>
+                          setDeleteConfirmTarget({
+                            type: 'note',
+                            id: n.id,
+                            name: n.text,
+                          })
+                        }
+                        editLabel={`Sửa ghi chú ${n.text}`}
+                        deleteLabel={`Xóa ghi chú ${n.text}`}
+                      />
                     </View>
                   );
                 }}
@@ -406,31 +340,23 @@ export default function CategoriesManageScreen() {
           <View style={{ position: 'relative', overflow: 'visible' }}>
             <GardenSprouts variant="minimal" />
             <View style={styles.groupedCardCompact}>
-            <Pressable
-              style={({ pressed }) => [styles.navRow, pressed && { opacity: 0.75 }]}
-              onPress={() => router.push('/modal/rule-edit')}
-            >
-              <View style={[styles.navIconBox, { backgroundColor: colors.warningSoft }]}>
-                <Ionicons name="flash" size={18} color={colors.warning} />
-              </View>
-              <Text style={styles.navTitle}>Quy tắc từ khóa gợi ý tự động</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.navRow,
-                styles.navRowLast,
-                pressed && { opacity: 0.75 },
-              ]}
-              onPress={() => router.push('/modal/apps-manager')}
-            >
-              <View style={[styles.navIconBox, { backgroundColor: colors.primarySoft }]}>
-                <Ionicons name="apps" size={18} color={colors.primary} />
-              </View>
-              <Text style={styles.navTitle}>Danh sách App Ngân hàng & Ví</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </Pressable>
+              <SettingRow
+                icon="flash"
+                iconColor={colors.warning}
+                iconBg={colors.warningSoft}
+                title="Quy tắc từ khóa gợi ý tự động"
+                onPress={() => router.push('/modal/rule-edit')}
+                showChevron
+              />
+              <SettingRow
+                icon="apps"
+                iconColor={colors.primary}
+                iconBg={colors.primarySoft}
+                title="Danh sách App Ngân hàng & Ví"
+                onPress={() => router.push('/modal/apps-manager')}
+                showChevron
+                isLast
+              />
             </View>
           </View>
         </View>
@@ -489,10 +415,10 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       backgroundColor: colors.surface,
       borderRadius: Radius.md,
-      padding: 4,
+      padding: Spacing.xs,
       borderWidth: 1,
       borderColor: colors.border,
-      gap: 4,
+      gap: Spacing.xs,
     },
     segmentBtn: {
       flex: 1,
@@ -523,7 +449,7 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.primary,
       paddingHorizontal: Spacing.base,
       borderRadius: Radius.md,
-      gap: 4,
+      gap: Spacing.xs,
     },
     addBtnText: {
       color: colors.onPrimary,
@@ -537,36 +463,6 @@ const createStyles = (colors: ThemeColors) =>
       padding: Spacing.base,
       paddingBottom: Spacing.xxxl,
       gap: Spacing.base,
-    },
-    typeSwitcher: {
-      flexDirection: 'row',
-      backgroundColor: colors.surface,
-      borderRadius: Radius.lg,
-      padding: 4,
-      borderWidth: 1,
-      borderColor: colors.border,
-      gap: 4,
-    },
-    typeBtn: {
-      flex: 1,
-      minHeight: TouchTarget.minSize - 4,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: Radius.md,
-    },
-    typeBtnActiveExpense: {
-      backgroundColor: colors.expense,
-    },
-    typeBtnActiveIncome: {
-      backgroundColor: colors.income,
-    },
-    typeText: {
-      color: colors.textSecondary,
-      fontSize: 13,
-      fontWeight: '700',
-    },
-    typeTextActive: {
-      color: '#FFFFFF',
     },
     groupedCard: {
       backgroundColor: colors.surface,
@@ -602,14 +498,7 @@ const createStyles = (colors: ThemeColors) =>
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: Spacing.md,
-    },
-    catIconBox: {
-      width: 36,
-      height: 36,
-      borderRadius: Radius.sm + 2,
-      alignItems: 'center',
-      justifyContent: 'center',
+      gap: Spacing.sm,
     },
     catName: {
       flex: 1,
@@ -619,6 +508,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     noteTexts: {
       flex: 1,
+      justifyContent: 'center',
       gap: 2,
     },
     noteTitle: {
@@ -628,21 +518,10 @@ const createStyles = (colors: ThemeColors) =>
     },
     noteCategory: {
       color: colors.textSecondary,
-      fontSize: 12,
-    },
-    rowActions: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-    },
-    actionIconBtn: {
-      width: TouchTarget.minSize - 4,
-      height: TouchTarget.minSize - 4,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: Radius.sm,
+      fontSize: 11,
     },
     groupedSection: {
+      marginTop: Spacing.xs,
       gap: Spacing.sm,
     },
     groupOverline: {
@@ -657,31 +536,5 @@ const createStyles = (colors: ThemeColors) =>
       borderColor: colors.border,
       overflow: 'hidden',
       ...Shadows.card,
-    },
-    navRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: Spacing.base,
-      paddingVertical: Spacing.md,
-      minHeight: TouchTarget.minSize + 10,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.divider,
-      gap: Spacing.md,
-    },
-    navRowLast: {
-      borderBottomWidth: 0,
-    },
-    navIconBox: {
-      width: 34,
-      height: 34,
-      borderRadius: Radius.sm + 2,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    navTitle: {
-      flex: 1,
-      color: colors.text,
-      fontSize: 14,
-      fontWeight: '600',
     },
   });

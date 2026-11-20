@@ -10,14 +10,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import Animated, { Easing, FadeInDown, FadeOutRight, LinearTransition } from 'react-native-reanimated';
 import { useApp } from '../../contexts/AppContext';
 import { PendingTransaction, Transaction } from '../../models/types';
 import { formatCurrency, formatRelativeTime } from '../../utils/formatters';
+import { useCategoryMap } from '../../hooks/useFilterOptions';
 import { ConfirmModal } from '../../components/ConfirmModal';
-import { ChibiStrawberry } from '../../components/ChibiStrawberry';
-import { GardenBox, GardenSprouts } from '../../components/GardenDecor';
-import { AnimatedCurrency, ChibiCategoryBadge, SpringPressable } from '../../components/Motion';
+import { GardenSprouts } from '../../components/GardenDecor';
+import { ChibiCategoryBadge, SpringPressable } from '../../components/Motion';
+import { HeroBalanceCard } from '../../components/HeroBalanceCard';
+import { PendingTransactionCard } from '../../components/PendingTransactionCard';
+import { EmptyState } from '../../components/ui/EmptyState';
 import {
   useTheme,
   ThemeColors,
@@ -45,6 +47,7 @@ export default function OverviewScreen() {
 
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const categoryMap = useCategoryMap(categories);
 
   const [isBatchMode, setIsBatchMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -55,7 +58,6 @@ export default function OverviewScreen() {
     onConfirm: () => Promise<void>;
   } | null>(null);
 
-  // Monthly financial summary for Hero Card
   const { monthlyIncome, monthlyExpense, monthlyBalance, currentMonthLabel } = useMemo(() => {
     const now = new Date();
     const curMonth = now.getMonth();
@@ -79,20 +81,20 @@ export default function OverviewScreen() {
     };
   }, [transactions]);
 
-  // Top 5 most recent classified transactions for Overview preview
-  const recentTransactions = useMemo(() => {
-    return [...transactions]
-      .sort((a, b) => b.timestamp - a.timestamp)
-      .slice(0, 5);
-  }, [transactions]);
+  const recentTransactions = useMemo(
+    () => [...transactions].sort((a, b) => b.timestamp - a.timestamp).slice(0, 5),
+    [transactions]
+  );
 
-  const categoryMap = useMemo(() => {
-    const map: Record<string, { icon: string; color: string }> = {};
-    for (const c of categories) {
-      map[c.id] = { icon: c.icon, color: c.color };
+  const toggleSelect = (id: string) => {
+    if (selectedIds.includes(id)) {
+      const next = selectedIds.filter((item) => item !== id);
+      setSelectedIds(next);
+      if (next.length === 0) setIsBatchMode(false);
+    } else {
+      setSelectedIds([...selectedIds, id]);
     }
-    return map;
-  }, [categories]);
+  };
 
   const handleLongPressItem = (id: string) => {
     if (!isBatchMode) {
@@ -100,18 +102,6 @@ export default function OverviewScreen() {
       setSelectedIds([id]);
     } else {
       toggleSelect(id);
-    }
-  };
-
-  const toggleSelect = (id: string) => {
-    if (selectedIds.includes(id)) {
-      const next = selectedIds.filter((item) => item !== id);
-      setSelectedIds(next);
-      if (next.length === 0) {
-        setIsBatchMode(false);
-      }
-    } else {
-      setSelectedIds([...selectedIds, id]);
     }
   };
 
@@ -165,174 +155,6 @@ export default function OverviewScreen() {
     setSelectedIds([]);
   };
 
-  const renderPendingItem = ({ item, index }: { item: PendingTransaction; index: number }) => {
-    const isSelected = selectedIds.includes(item.id);
-    const isIncome = item.type === 'income';
-    const isExpanded = expandedContentId === item.id;
-
-    return (
-      <Animated.View
-        entering={FadeInDown.delay(Math.min(index, 6) * 45)
-          .duration(260)
-          .easing(Easing.inOut(Easing.ease))}
-        exiting={FadeOutRight.duration(220).easing(Easing.inOut(Easing.ease))}
-        layout={LinearTransition.duration(240).easing(Easing.inOut(Easing.ease))}
-      >
-        <Pressable
-          delayLongPress={280}
-          onLongPress={() => handleLongPressItem(item.id)}
-          onPress={() => {
-            if (isBatchMode) {
-              toggleSelect(item.id);
-            }
-          }}
-          style={({ pressed }) => [
-            styles.card,
-            item.isSuspectedDuplicate && styles.cardDuplicate,
-            isSelected && styles.cardSelected,
-            pressed && { opacity: 0.92 },
-          ]}
-        >
-        <GardenSprouts variant="minimal" />
-        {item.isSuspectedDuplicate && (
-          <View style={styles.duplicateBanner}>
-            <View style={styles.duplicateBannerHeader}>
-              <Ionicons name="warning" size={16} color={colors.warning} />
-              <Text style={styles.duplicateBannerText}>
-                {item.duplicateReason ||
-                  'Cảnh báo: Có thể trùng với giao dịch cùng ngân hàng trước đó'}
-              </Text>
-            </View>
-            <Pressable
-              style={({ pressed }) => [
-                styles.duplicateDiscardBtn,
-                pressed && { opacity: 0.75 },
-              ]}
-              onPress={() => handleDeleteSingle(item)}
-            >
-              <Ionicons name="trash-bin-outline" size={14} color={colors.expense} />
-              <Text style={styles.duplicateDiscardBtnText}>Bỏ qua / Xóa trùng</Text>
-            </Pressable>
-          </View>
-        )}
-
-        <View style={styles.cardHeader}>
-          {isBatchMode && (
-            <Pressable
-              style={styles.checkbox}
-              onPress={() => toggleSelect(item.id)}
-              hitSlop={TouchTarget.hitSlop}
-            >
-              <Ionicons
-                name={isSelected ? 'checkbox' : 'square-outline'}
-                size={22}
-                color={isSelected ? colors.income : colors.textMuted}
-              />
-            </Pressable>
-          )}
-
-          <View style={styles.sourceTag}>
-            <Ionicons name="business-outline" size={14} color={colors.info} />
-            <Text style={styles.sourceText}>{item.source}</Text>
-          </View>
-
-          <Text style={styles.timeText}>{formatRelativeTime(item.timestamp)}</Text>
-        </View>
-
-        <View style={styles.amountRow}>
-          <Text
-            style={[
-              styles.amountText,
-              { color: isIncome ? colors.income : colors.expense },
-            ]}
-          >
-            {isIncome ? '+' : '-'} {formatCurrency(item.amount)}
-          </Text>
-          <View
-            style={[
-              styles.typeBadge,
-              {
-                backgroundColor: isIncome ? colors.incomeSoft : colors.expenseSoft,
-                borderColor: isIncome ? colors.incomeBorder : colors.expenseBorder,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.typeBadgeText,
-                { color: isIncome ? colors.income : colors.expense },
-              ]}
-            >
-              {isIncome ? 'Thu nhập' : 'Chi tiêu'}
-            </Text>
-          </View>
-        </View>
-
-        {item.suggestedCategoryName && (
-          <View style={styles.suggestionBox}>
-            <Ionicons name="sparkles-outline" size={15} color={colors.income} />
-            <Text style={styles.suggestionText}>
-              Gợi ý:{' '}
-              <Text style={styles.suggestionHighlight}>{item.suggestedCategoryName}</Text>
-              {item.suggestedNote ? ` • ${item.suggestedNote}` : ''}
-            </Text>
-          </View>
-        )}
-
-        {item.rawContent ? (
-          <Pressable
-            style={({ pressed }) => [styles.rawContentBox, pressed && { opacity: 0.8 }]}
-            onPress={() => {
-              if (isBatchMode) {
-                toggleSelect(item.id);
-              } else {
-                setExpandedContentId(isExpanded ? null : item.id);
-              }
-            }}
-          >
-            <Text
-              style={styles.rawContentText}
-              numberOfLines={isExpanded ? undefined : 2}
-            >
-              {item.rawContent}
-            </Text>
-            <Text style={styles.expandHint}>
-              {isExpanded ? 'Thu gọn ▲' : 'Xem nội dung gốc ▼'}
-            </Text>
-          </Pressable>
-        ) : null}
-
-        {!isBatchMode && (
-          <View style={styles.cardActions}>
-            <Pressable
-              style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.75 }]}
-              onPress={() => handleDeleteSingle(item)}
-              accessibilityRole="button"
-            >
-              <Ionicons name="close" size={16} color={colors.textSecondary} />
-              <Text style={styles.deleteBtnText}>Bỏ qua</Text>
-            </Pressable>
-
-            <SpringPressable
-              style={styles.classifyBtn}
-              onPress={() =>
-                router.push({
-                  pathname: '/modal/classify',
-                  params: { pendingId: item.id },
-                })
-              }
-              accessibilityRole="button"
-            >
-              <Ionicons name="checkmark-circle" size={18} color={colors.onPrimary} />
-              <Text style={styles.classifyBtnText}>Phân loại ngay</Text>
-            </SpringPressable>
-          </View>
-        )}
-        </Pressable>
-      </Animated.View>
-    );
-  };
-
   const renderRecentTxRow = (tx: Transaction) => {
     const isIncome = tx.type === 'income';
     const cat = categoryMap[tx.categoryId];
@@ -370,7 +192,6 @@ export default function OverviewScreen() {
 
   const ListHeader = (
     <View style={styles.headerSection}>
-      {/* Permission Warning Banner for Android */}
       {Platform.OS === 'android' && !isPermissionGranted && (
         <View style={styles.permBanner}>
           <View style={styles.permIconBox}>
@@ -392,7 +213,6 @@ export default function OverviewScreen() {
         </View>
       )}
 
-      {/* Android Bubble Permission Banner (Android 13+) */}
       {Platform.OS === 'android' && isPermissionGranted && !isPostNotificationGranted && (
         <View style={styles.permBanner}>
           <View style={styles.permIconBox}>
@@ -414,63 +234,14 @@ export default function OverviewScreen() {
         </View>
       )}
 
-      {/* Hero Balance Garden Card */}
-      <GardenBox variant="card" style={{ marginTop: 8, marginBottom: Spacing.md }} contentStyle={styles.heroCard}>
-        <View style={styles.heroTopRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.heroLabel}>Số dư ròng tháng này</Text>
-            <Text style={styles.heroMonthBadge}>{currentMonthLabel}</Text>
-          </View>
-          <ChibiStrawberry size={62} mood="happy" style={{ marginRight: 6 }} />
-          <SpringPressable
-            style={styles.heroChartBtn}
-            onPress={() => router.push('/(tabs)/statistics')}
-            hitSlop={TouchTarget.hitSlop}
-            accessibilityLabel="Xem thống kê"
-          >
-            <Ionicons name="bar-chart-outline" size={18} color={colors.heroText} />
-          </SpringPressable>
-        </View>
+      <HeroBalanceCard
+        currentMonthLabel={currentMonthLabel}
+        monthlyBalance={monthlyBalance}
+        monthlyIncome={monthlyIncome}
+        monthlyExpense={monthlyExpense}
+        onOpenStatistics={() => router.push('/(tabs)/statistics')}
+      />
 
-        <AnimatedCurrency
-          value={monthlyBalance}
-          format={formatCurrency}
-          prefix={monthlyBalance < 0 ? '-' : ''}
-          style={styles.heroAmount}
-        />
-
-        <View style={styles.heroSplitRow}>
-          <View style={styles.heroStatBox}>
-            <View style={styles.heroStatHeader}>
-              <View style={[styles.heroDot, { backgroundColor: colors.income }]} />
-              <Text style={styles.heroStatLabel}>Tổng thu</Text>
-            </View>
-            <AnimatedCurrency
-              value={monthlyIncome}
-              format={formatCurrency}
-              prefix="+"
-              style={[styles.heroStatValue, { color: colors.income }]}
-            />
-          </View>
-
-          <View style={styles.heroDivider} />
-
-          <View style={styles.heroStatBox}>
-            <View style={styles.heroStatHeader}>
-              <View style={[styles.heroDot, { backgroundColor: colors.expense }]} />
-              <Text style={styles.heroStatLabel}>Tổng chi</Text>
-            </View>
-            <AnimatedCurrency
-              value={monthlyExpense}
-              format={formatCurrency}
-              prefix="-"
-              style={[styles.heroStatValue, { color: colors.expense }]}
-            />
-          </View>
-        </View>
-      </GardenBox>
-
-      {/* Quick Actions */}
       <View style={styles.quickActionsRow}>
         <SpringPressable
           style={styles.primaryActionBtn}
@@ -507,7 +278,6 @@ export default function OverviewScreen() {
         )}
       </View>
 
-      {/* Pending Section Header */}
       <View style={styles.sectionHeader}>
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>Hàng chờ phân loại</Text>
@@ -587,27 +357,38 @@ export default function OverviewScreen() {
       <FlatList
         data={pendingTransactions}
         keyExtractor={(item) => item.id}
-        renderItem={renderPendingItem}
+        renderItem={({ item, index }) => (
+          <PendingTransactionCard
+            item={item}
+            index={index}
+            isBatchMode={isBatchMode}
+            isSelected={selectedIds.includes(item.id)}
+            isExpanded={expandedContentId === item.id}
+            onToggleSelect={toggleSelect}
+            onLongPress={handleLongPressItem}
+            onToggleExpand={(id) =>
+              setExpandedContentId((prev) => (prev === id ? null : id))
+            }
+            onDelete={handleDeleteSingle}
+            onClassify={(id) =>
+              router.push({ pathname: '/modal/classify', params: { pendingId: id } })
+            }
+          />
+        )}
         ListHeaderComponent={ListHeader}
         ListFooterComponent={ListFooter ?? undefined}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          <GardenBox variant="minimal" style={{ marginTop: 10 }} contentStyle={styles.emptyContainer}>
-            <ChibiStrawberry size={94} mood="chill" />
-            <Text style={styles.emptyTitle}>Hàng chờ đang trống</Text>
-            <Text style={styles.emptySubtitle}>
-              Thông báo biến động số dư từ ngân hàng hoặc ví điện tử sẽ tự động xuất hiện
-              tại đây để bạn phân loại nhanh chóng.
-            </Text>
-            <SpringPressable
-              style={styles.emptyCtaBtn}
-              onPress={() => router.push('/modal/manual-transaction')}
-            >
-              <Ionicons name="add" size={18} color={colors.primary} />
-              <Text style={styles.emptyCtaText}>Ghi chép giao dịch mới</Text>
-            </SpringPressable>
-          </GardenBox>
+          <EmptyState
+            title="Hàng chờ đang trống"
+            subtitle="Thông báo biến động số dư từ ngân hàng hoặc ví điện tử sẽ tự động xuất hiện tại đây để bạn phân loại nhanh chóng."
+            mood="chill"
+            mascotSize={94}
+            ctaLabel="Ghi chép giao dịch mới"
+            ctaIcon="add"
+            onCtaPress={() => router.push('/modal/manual-transaction')}
+          />
         }
       />
 
@@ -707,87 +488,9 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: 'center',
     },
     permBtnText: {
-      color: '#FFFFFF',
+      color: colors.onPrimary,
       fontWeight: '700',
       fontSize: 12,
-    },
-    heroCard: {
-      backgroundColor: colors.heroBackground,
-      borderRadius: Radius.xl,
-      padding: Spacing.lg,
-      borderWidth: 1,
-      borderColor: colors.heroBorder,
-      ...Shadows.hero,
-    },
-    heroTopRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-    },
-    heroLabel: {
-      color: colors.heroTextMuted,
-      fontSize: 13,
-      fontWeight: '600',
-    },
-    heroMonthBadge: {
-      color: colors.heroText,
-      fontSize: 12,
-      fontWeight: '700',
-      marginTop: 2,
-      opacity: 0.85,
-    },
-    heroChartBtn: {
-      width: TouchTarget.minSize,
-      height: TouchTarget.minSize,
-      borderRadius: Radius.md,
-      backgroundColor: colors.heroSurface,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: colors.heroBorder,
-    },
-    heroAmount: {
-      ...Typography.heroAmount,
-      color: colors.heroText,
-      marginTop: Spacing.sm,
-      marginBottom: Spacing.base,
-    },
-    heroSplitRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.heroSurface,
-      borderRadius: Radius.lg,
-      padding: Spacing.md,
-      borderWidth: 1,
-      borderColor: colors.heroBorder,
-    },
-    heroStatBox: {
-      flex: 1,
-      gap: 4,
-    },
-    heroStatHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    heroDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-    },
-    heroStatLabel: {
-      color: colors.heroTextMuted,
-      fontSize: 12,
-      fontWeight: '600',
-    },
-    heroStatValue: {
-      ...Typography.amountMd,
-    },
-    heroDivider: {
-      width: 1,
-      height: 32,
-      backgroundColor: colors.heroBorder,
-      marginHorizontal: Spacing.md,
     },
     quickActionsRow: {
       flexDirection: 'row',
@@ -847,7 +550,7 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.expenseSoft,
       borderColor: colors.expenseBorder,
       borderWidth: 1,
-      paddingHorizontal: 8,
+      paddingHorizontal: Spacing.sm,
       paddingVertical: 2,
       borderRadius: Radius.pill,
     },
@@ -859,225 +562,6 @@ const createStyles = (colors: ThemeColors) =>
     longPressHint: {
       ...Typography.caption,
       color: colors.textMuted,
-    },
-    card: {
-      backgroundColor: colors.surface,
-      borderRadius: Radius.lg,
-      padding: Spacing.base,
-      marginBottom: Spacing.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      ...Shadows.card,
-    },
-    cardDuplicate: {
-      borderColor: colors.warningBorder,
-      borderWidth: 1.5,
-    },
-    cardSelected: {
-      borderColor: colors.income,
-      borderWidth: 2,
-      backgroundColor: colors.incomeSoft,
-    },
-    duplicateBanner: {
-      backgroundColor: colors.warningSoft,
-      borderRadius: Radius.md,
-      padding: Spacing.sm,
-      marginBottom: Spacing.md,
-      borderWidth: 1,
-      borderColor: colors.warningBorder,
-    },
-    duplicateBannerHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: Spacing.sm,
-    },
-    duplicateBannerText: {
-      color: colors.warning,
-      fontSize: 12,
-      fontWeight: '600',
-      flex: 1,
-    },
-    duplicateDiscardBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      alignSelf: 'flex-end',
-      backgroundColor: colors.expenseSoft,
-      paddingHorizontal: Spacing.sm,
-      paddingVertical: Spacing.xs + 2,
-      borderRadius: Radius.sm,
-      marginTop: Spacing.sm,
-      gap: 4,
-    },
-    duplicateDiscardBtnText: {
-      color: colors.expense,
-      fontSize: 11,
-      fontWeight: '700',
-    },
-    cardHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: Spacing.sm,
-      gap: Spacing.sm,
-    },
-    checkbox: {
-      paddingRight: 2,
-    },
-    sourceTag: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.infoSoft,
-      paddingHorizontal: Spacing.sm,
-      paddingVertical: 4,
-      borderRadius: Radius.sm,
-      gap: 4,
-    },
-    sourceText: {
-      color: colors.info,
-      fontSize: 12,
-      fontWeight: '700',
-    },
-    timeText: {
-      color: colors.textMuted,
-      fontSize: 12,
-      marginLeft: 'auto',
-    },
-    amountRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: Spacing.sm,
-    },
-    amountText: {
-      ...Typography.amountLg,
-    },
-    typeBadge: {
-      paddingHorizontal: Spacing.sm,
-      paddingVertical: 4,
-      borderRadius: Radius.pill,
-      borderWidth: 1,
-    },
-    typeBadgeText: {
-      fontSize: 11,
-      fontWeight: '700',
-    },
-    suggestionBox: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.incomeSoft,
-      padding: Spacing.sm,
-      borderRadius: Radius.md,
-      marginBottom: Spacing.sm,
-      gap: Spacing.xs + 2,
-    },
-    suggestionText: {
-      color: colors.textSecondary,
-      fontSize: 12,
-      flex: 1,
-    },
-    suggestionHighlight: {
-      color: colors.income,
-      fontWeight: '700',
-    },
-    rawContentBox: {
-      backgroundColor: colors.surfaceSecondary,
-      padding: Spacing.sm + 2,
-      borderRadius: Radius.md,
-      marginBottom: Spacing.md,
-    },
-    rawContentText: {
-      color: colors.textSecondary,
-      fontSize: 12,
-      lineHeight: 17,
-    },
-    expandHint: {
-      color: colors.primary,
-      fontSize: 11,
-      fontWeight: '600',
-      marginTop: 4,
-      textAlign: 'right',
-    },
-    cardActions: {
-      flexDirection: 'row',
-      gap: Spacing.sm,
-      marginTop: 2,
-    },
-    deleteBtn: {
-      flex: 1,
-      minHeight: TouchTarget.minSize,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.surfaceSecondary,
-      borderRadius: Radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      gap: 4,
-    },
-    deleteBtnText: {
-      color: colors.textSecondary,
-      fontWeight: '600',
-      fontSize: 13,
-    },
-    classifyBtn: {
-      flex: 2,
-      minHeight: TouchTarget.minSize,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.income,
-      borderRadius: Radius.md,
-      gap: 6,
-    },
-    classifyBtnText: {
-      color: '#FFFFFF',
-      fontWeight: '700',
-      fontSize: 14,
-    },
-    emptyContainer: {
-      backgroundColor: colors.surface,
-      borderRadius: Radius.xl,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: Spacing.xl,
-      alignItems: 'center',
-      marginBottom: Spacing.lg,
-    },
-    emptyIconBox: {
-      width: 68,
-      height: 68,
-      borderRadius: 34,
-      backgroundColor: colors.incomeSoft,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: Spacing.md,
-    },
-    emptyTitle: {
-      ...Typography.title,
-      color: colors.text,
-      marginBottom: Spacing.xs,
-    },
-    emptySubtitle: {
-      ...Typography.body,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      marginBottom: Spacing.base,
-    },
-    emptyCtaBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.primarySoft,
-      borderWidth: 1,
-      borderColor: colors.primaryBorder,
-      paddingHorizontal: Spacing.base,
-      minHeight: TouchTarget.minSize,
-      borderRadius: Radius.pill,
-      gap: 6,
-    },
-    emptyCtaText: {
-      color: colors.primary,
-      fontSize: 13,
-      fontWeight: '700',
     },
     recentSection: {
       marginTop: Spacing.sm,
@@ -1110,13 +594,6 @@ const createStyles = (colors: ThemeColors) =>
       borderBottomWidth: 1,
       borderBottomColor: colors.divider,
       gap: Spacing.md,
-    },
-    recentIconBox: {
-      width: 40,
-      height: 40,
-      borderRadius: Radius.md,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
     recentInfo: {
       flex: 1,
