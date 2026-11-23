@@ -188,10 +188,8 @@ export const PieChartSvg: React.FC<PieChartSvgProps> = ({
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     container: {
-      flexDirection: 'row',
+      width: '100%',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      flexWrap: 'wrap',
       gap: Spacing.md,
     },
     chartWrapper: {
@@ -200,8 +198,6 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       justifyContent: 'center',
       alignSelf: 'center',
-      marginLeft: 'auto',
-      marginRight: 'auto',
     },
     centerBox: {
       position: 'absolute',
@@ -222,8 +218,7 @@ const createStyles = (colors: ThemeColors) =>
       fontVariant: ['tabular-nums'],
     },
     legendContainer: {
-      flex: 1,
-      minWidth: 140,
+      width: '100%',
       gap: Spacing.xs,
     },
     legendItem: {

@@ -48,7 +48,6 @@ export default function TransactionsScreen() {
     transactions,
     categories,
     deleteTransaction,
-    updateTransaction,
     transactionFilter,
     setTransactionFilter,
     resetTransactionFilter,
@@ -487,15 +486,12 @@ export default function TransactionsScreen() {
 
       <TransactionDetailModal
         transaction={detailModalTx}
-        categories={categories}
         onClose={() => setDetailModalTx(null)}
-        onSaveEdit={async (updatedTx) => {
-          await updateTransaction(updatedTx);
-          setDetailModalTx(updatedTx);
-          showToast('Đã cập nhật giao dịch thành công!', 'success');
+        onEdit={(tx) => {
+          setDetailModalTx(null);
+          router.push({ pathname: '/modal/manual-transaction', params: { txId: tx.id } });
         }}
         onDelete={(tx) => setTxToDelete(tx)}
-        onValidationError={(msg) => showToast(msg, 'error')}
       />
 
       <ConfirmModal

@@ -8,12 +8,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useApp } from '../../contexts/AppContext';
 import { TransactionType, SavedNote } from '../../models/types';
 import { SUPPORTED_APPS } from '../../constants/defaultData';
 import { formatCurrency } from '../../utils/formatters';
-import { DateRangePickerModal } from '../../components/DateRangePickerModal';
+import { DateTimePickerModal } from '../../components/DateTimePickerModal';
 import {
   KeyboardAwareScrollView,
   KeyboardAwareScrollViewRef,
@@ -52,42 +52,92 @@ const QUICK_DATES = [
   { label: 'Hôm kia', daysAgo: 2 },
 ];
 
-const QUICK_TIME_DELTAS = [
-  { label: '-1 giờ', delta: -60 },
-  { label: '-15p', delta: -15 },
-  { label: '+15p', delta: 15 },
-  { label: '+1 giờ', delta: 60 },
-];
-
 function padZero(n: number): string {
   return n < 10 ? `0${n}` : `${n}`;
+}
+
+function resolveInitialSource(source?: string): {
+  group: SourceTypeGroup;
+  selected: string;
+  isCustom: boolean;
+  custom: string;
+} {
+  if (!source || source === 'Tiền mặt') {
+    return { group: 'cash', selected: 'Tiền mặt', isCustom: false, custom: '' };
+  }
+  const bankMatch = SUPPORTED_APPS.find((a) => a.category === 'bank' && a.name === source);
+  if (bankMatch) {
+    return { group: 'bank', selected: bankMatch.name, isCustom: false, custom: '' };
+  }
+  const walletMatch = SUPPORTED_APPS.find((a) => a.category === 'wallet' && a.name === source);
+  if (walletMatch) {
+    return { group: 'wallet', selected: walletMatch.name, isCustom: false, custom: '' };
+  }
+  const looksLikeWallet = /ví|momo|zalopay|vnpay|shopeepay|viettel/i.test(source);
+  return {
+    group: looksLikeWallet ? 'wallet' : 'bank',
+    selected: source,
+    isCustom: true,
+    custom: source,
+  };
 }
 
 export default function ManualTransactionModal() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { categories, notes, addManualTransaction, showToast } = useApp();
+  const { txId } = useLocalSearchParams<{ txId?: string }>();
+  const {
+    transactions,
+    categories,
+    notes,
+    addManualTransaction,
+    updateTransaction,
+    showToast,
+  } = useApp();
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
 
-  const [amountStr, setAmountStr] = useState('');
-  const [txType, setTxType] = useState<TransactionType>('expense');
-  const [selectedCatId, setSelectedCatId] = useState(
-    () => categories.find((c) => c.type === 'expense')?.id ?? ''
+  const editingTx = useMemo(
+    () => (txId ? transactions.find((t) => t.id === txId) : undefined),
+    [txId, transactions]
   );
-  const [selectedCatName, setSelectedCatName] = useState(
-    () => categories.find((c) => c.type === 'expense')?.name ?? ''
+
+  const initialSource = useMemo(
+    () => resolveInitialSource(editingTx?.source),
+    [editingTx?.source]
   );
-  const [customCatName, setCustomCatName] = useState('');
+
+  const [amountStr, setAmountStr] = useState(() =>
+    editingTx ? editingTx.amount.toString() : ''
+  );
+  const [txType, setTxType] = useState<TransactionType>(
+    () => editingTx?.type ?? 'expense'
+  );
+  const [selectedCatId, setSelectedCatId] = useState(() => {
+    if (editingTx) return editingTx.categoryId;
+    return categories.find((c) => c.type === 'expense')?.id ?? '';
+  });
+  const [selectedCatName, setSelectedCatName] = useState(() => {
+    if (editingTx) return editingTx.categoryName;
+    return categories.find((c) => c.type === 'expense')?.name ?? '';
+  });
+  const [customCatName, setCustomCatName] = useState(() => {
+    if (editingTx && !categories.some((c) => c.id === editingTx.categoryId)) {
+      return editingTx.categoryName;
+    }
+    return '';
+  });
   const [saveCustomCat, setSaveCustomCat] = useState(true);
-  const [noteText, setNoteText] = useState('');
+  const [noteText, setNoteText] = useState(() => editingTx?.note ?? '');
   const [saveCustomNote, setSaveCustomNote] = useState(false);
 
-  const [sourceGroup, setSourceGroup] = useState<SourceTypeGroup>('cash');
-  const [selectedSource, setSelectedSource] = useState('Tiền mặt');
-  const [customSource, setCustomSource] = useState('');
-  const [isCustomSource, setIsCustomSource] = useState(false);
+  const [sourceGroup, setSourceGroup] = useState<SourceTypeGroup>(initialSource.group);
+  const [selectedSource, setSelectedSource] = useState(initialSource.selected);
+  const [customSource, setCustomSource] = useState(initialSource.custom);
+  const [isCustomSource, setIsCustomSource] = useState(initialSource.isCustom);
 
-  const [txDateTime, setTxDateTime] = useState<Date>(() => new Date());
+  const [txDateTime, setTxDateTime] = useState<Date>(() =>
+    editingTx ? new Date(editingTx.timestamp || editingTx.date) : new Date()
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const filteredCategories = categories.filter((c) => c.type === txType);
@@ -127,10 +177,6 @@ export default function ManualTransactionModal() {
     setTxDateTime(d);
   };
 
-  const adjustMinutes = (deltaMin: number) => {
-    setTxDateTime(new Date(txDateTime.getTime() + deltaMin * 60000));
-  };
-
   const handleSave = async () => {
     const cleanAmount = parseInt(amountStr.replace(/[^0-9]/g, ''), 10);
     if (!cleanAmount || cleanAmount <= 0) {
@@ -155,6 +201,31 @@ export default function ManualTransactionModal() {
       ? customSource.trim() || (sourceGroup === 'bank' ? 'Ngân hàng khác' : 'Ví khác')
       : selectedSource;
 
+    const templateOptions = {
+      saveNewCategory: customCatName.trim().length > 0 && saveCustomCat,
+      saveNewNote: canSaveNote && saveCustomNote,
+    };
+
+    if (editingTx) {
+      await updateTransaction(
+        {
+          ...editingTx,
+          amount: cleanAmount,
+          type: txType,
+          categoryId: finalCatId,
+          categoryName: finalCatName,
+          note: trimmedNote || finalCatName,
+          source: finalSource,
+          date: txDateTime.toISOString().split('T')[0],
+          timestamp: txDateTime.getTime(),
+        },
+        templateOptions
+      );
+      showToast('Đã cập nhật giao dịch thành công!', 'success');
+      router.back();
+      return;
+    }
+
     await addManualTransaction({
       amount: cleanAmount,
       type: txType,
@@ -164,8 +235,7 @@ export default function ManualTransactionModal() {
       source: finalSource,
       date: txDateTime.toISOString(),
       timestamp: txDateTime.getTime(),
-      saveNewCategory: customCatName.trim().length > 0 && saveCustomCat,
-      saveNewNote: canSaveNote && saveCustomNote,
+      ...templateOptions,
     });
 
     showToast('Đã thêm giao dịch thành công!', 'success');
@@ -178,6 +248,9 @@ export default function ManualTransactionModal() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+      <Stack.Screen
+        options={{ title: editingTx ? 'Chỉnh sửa giao dịch' : 'Thêm giao dịch' }}
+      />
       <KeyboardAwareScrollView
         ref={scrollViewRef}
         style={styles.scrollView}
@@ -194,7 +267,7 @@ export default function ManualTransactionModal() {
               placeholderTextColor={colors.textMuted}
               value={amountStr}
               onChangeText={setAmountStr}
-              autoFocus
+              autoFocus={!editingTx}
             />
             {numericAmount > 0 && (
               <Text style={styles.amountPreview}>{formatCurrency(numericAmount)}</Text>
@@ -364,21 +437,21 @@ export default function ManualTransactionModal() {
         <View style={styles.section}>
           <Text style={styles.label}>Thời gian giao dịch</Text>
 
-          <View style={styles.dateTimeBanner}>
+          <Pressable
+            style={styles.dateTimeBanner}
+            onPress={() => setShowDatePicker(true)}
+          >
             <View style={styles.dateTimeBannerLeft}>
               <Ionicons name="time-outline" size={18} color={colors.primary} />
               <Text style={styles.dateTimeDisplay}>
                 {dayStr} lúc <Text style={styles.dateTimeBold}>{timeStr}</Text>
               </Text>
             </View>
-            <Pressable
-              style={styles.dateTimeEditBtn}
-              onPress={() => setShowDatePicker(true)}
-            >
+            <View style={styles.dateTimeEditBtn}>
               <Ionicons name="calendar-outline" size={14} color={colors.primary} />
-              <Text style={styles.dateTimeEditText}>Đổi ngày</Text>
-            </Pressable>
-          </View>
+              <Text style={styles.dateTimeEditText}>Chọn ngày & giờ</Text>
+            </View>
+          </Pressable>
 
           <View style={styles.quickDateRow}>
             {QUICK_DATES.map((d) => (
@@ -396,21 +469,6 @@ export default function ManualTransactionModal() {
             >
               <Text style={styles.quickDateText}>Vừa xong</Text>
             </Pressable>
-          </View>
-
-          <View style={styles.timeAdjustRow}>
-            <Text style={styles.subLabel}>Chỉnh giờ phút nhanh:</Text>
-            <View style={styles.timeButtonsGroup}>
-              {QUICK_TIME_DELTAS.map((item) => (
-                <Pressable
-                  key={item.label}
-                  style={styles.timeAdjustBtn}
-                  onPress={() => adjustMinutes(item.delta)}
-                >
-                  <Text style={styles.timeAdjustText}>{item.label}</Text>
-                </Pressable>
-              ))}
-            </View>
           </View>
         </View>
 
@@ -496,26 +554,17 @@ export default function ManualTransactionModal() {
         <SpringPressable style={styles.saveBtn} onPress={handleSave}>
           <GardenSprouts variant="chip" align="both" />
           <Ionicons name="checkmark-circle" size={20} color={colors.onPrimary} />
-          <Text style={styles.saveBtnText}>Lưu giao dịch</Text>
+          <Text style={styles.saveBtnText}>
+            {editingTx ? 'Cập nhật giao dịch' : 'Lưu giao dịch'}
+          </Text>
         </SpringPressable>
       </KeyboardAwareScrollView>
 
-      <DateRangePickerModal
+      <DateTimePickerModal
         visible={showDatePicker}
-        initialStart={dayStr}
-        initialEnd={dayStr}
+        value={txDateTime}
         onClose={() => setShowDatePicker(false)}
-        onApply={(startStr) => {
-          const parts = startStr.split(' ')[0].split('/');
-          if (parts.length === 3) {
-            const d = new Date(txDateTime);
-            d.setDate(parseInt(parts[0], 10));
-            d.setMonth(parseInt(parts[1], 10) - 1);
-            d.setFullYear(parseInt(parts[2], 10));
-            setTxDateTime(d);
-          }
-          setShowDatePicker(false);
-        }}
+        onApply={(nextDate) => setTxDateTime(nextDate)}
       />
     </SafeAreaView>
   );
@@ -781,31 +830,6 @@ const createStyles = (colors: ThemeColors) =>
       borderColor: colors.border,
     },
     quickDateText: {
-      color: colors.textSecondary,
-      fontSize: 11,
-      fontWeight: '600',
-    },
-    timeAdjustRow: {
-      marginTop: 10,
-      borderTopWidth: 1,
-      borderTopColor: colors.divider,
-      paddingTop: Spacing.sm,
-    },
-    timeButtonsGroup: {
-      flexDirection: 'row',
-      gap: 6,
-      marginTop: Spacing.xs,
-    },
-    timeAdjustBtn: {
-      flex: 1,
-      backgroundColor: colors.surfaceSecondary,
-      paddingVertical: 6,
-      borderRadius: 8,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    timeAdjustText: {
       color: colors.textSecondary,
       fontSize: 11,
       fontWeight: '600',

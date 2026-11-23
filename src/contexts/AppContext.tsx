@@ -91,7 +91,10 @@ interface AppContextValue {
     saveNewCategory?: boolean;
     saveNewNote?: boolean;
   }) => Promise<void>;
-  updateTransaction: (tx: Transaction) => Promise<void>;
+  updateTransaction: (
+    tx: Transaction,
+    options?: { saveNewCategory?: boolean; saveNewNote?: boolean }
+  ) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
 
   // Toast
@@ -931,8 +934,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Update existing transaction
-  const updateTransaction = async (tx: Transaction) => {
-    const updated = txsRef.current.map((t) => (t.id === tx.id ? tx : t));
+  const updateTransaction = async (
+    tx: Transaction,
+    options?: { saveNewCategory?: boolean; saveNewNote?: boolean }
+  ) => {
+    let finalTx = tx;
+    if (options?.saveNewCategory || options?.saveNewNote) {
+      const { categoryId: finalCatId, categoryName: finalCatName } =
+        await persistCustomCategoryAndNote({
+          categoryId: tx.categoryId,
+          categoryName: tx.categoryName,
+          type: tx.type,
+          note: tx.note,
+          saveNewCategory: options.saveNewCategory,
+          saveNewNote: options.saveNewNote,
+        });
+      finalTx = { ...tx, categoryId: finalCatId, categoryName: finalCatName };
+    }
+    const updated = txsRef.current.map((t) => (t.id === finalTx.id ? finalTx : t));
     txsRef.current = updated;
     setTransactions(updated);
     await StorageService.saveTransactions(updated);
